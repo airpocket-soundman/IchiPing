@@ -73,18 +73,92 @@
 <h2>構成</h2>
 <pre><code>firmware/
 ├── include/
-│   ├── ichiping_frame.h   フレームフォーマット定義（PC 側と共有する単一の真実）
-│   └── dummy_audio.h
+│   ├── ichiping_frame.h   フレーム形式定義（PC 側と共有する単一の真実）
+│   ├── dummy_audio.h
+│   ├── servo_driver.h     共通サーボ API（PCA9685 / LU9685 をビルド時切替）
+│   ├── pca9685.h          PCA9685 ネイティブ API（16ch, NXP）
+│   └── lu9685.h           LU9685 ネイティブ API（20ch, 中国製互換品）
 ├── source/
-│   ├── main.c             SysTick + LPUART + フレーム送信ループ
-│   ├── ichiping_frame.c   ヘッダ・ペイロード・CRC-16/CCITT パッカー
-│   └── dummy_audio.c      合成 chirp 200→8 kHz + xorshift32 ホワイトノイズ残響
+│   ├── main.c             [Dummy emitter] SysTick + LPUART + フレーム送信ループ
+│   ├── main_servo_test.c  [Servo test] servo_driver.h 経由でどちらでも動く
+│   ├── ichiping_frame.c   ヘッダ + CRC-16/CCITT パッカー
+│   ├── dummy_audio.c      合成 chirp 200→8 kHz + xorshift32 残響
+│   ├── pca9685.c          PCA9685 ドライバ実装（PWM tick burst write）
+│   └── lu9685.c           LU9685 ドライバ実装（角度バイト + bulk update）
+├── host_build/            gcc/MinGW でホストビルドする足場
+│   ├── Makefile           .so/.dll を作って ctypes 突合テストに使う
+│   └── README.md
 └── README.md / README.html</code></pre>
 
-<h2>ビルド手順（MCUXpresso IDE）</h2>
+<p>本リポは <b>2 つの独立ファーム</b>を提供する:</p>
+<table>
+  <thead>
+    <tr><th>ファーム</th><th>main</th><th>用途</th><th>SDK ベース</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>Dummy emitter</b></td>
+      <td><a href="source/main.c"><code>main.c</code></a></td>
+      <td>シリアル疎通とフレーム形式の確立（v0.1）</td>
+      <td><code>lpuart/polling_transfer</code></td>
+    </tr>
+    <tr>
+      <td><b>Servo test</b></td>
+      <td><a href="source/main_servo_test.c"><code>main_servo_test.c</code></a></td>
+      <td>PCA9685 <b>または</b> LU9685 + SG90 ×5 の動作確認（v0.4 準備）</td>
+      <td><code>lpi2c/polling_master</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>サーボドライバの選択</h3>
+<p>
+  Servo test は <b>PCA9685（NXP, 16 ch）</b>と <b>LU9685-20CU（中国製, 20 ch）</b>のどちらでも
+  <b>同じコードでビルドできる</b>。<a href="include/servo_driver.h"><code>firmware/include/servo_driver.h</code></a>
+  がビルド時シンボルでバックエンドを切り替える:
+</p>
+<table>
+  <thead>
+    <tr>
+      <th>バックエンドシンボル</th>
+      <th>チップ</th>
+      <th>チャネル数</th>
+      <th>I²C アドレス</th>
+      <th>キャリブ</th>
+      <th>必要なソース</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>SERVO_BACKEND_PCA9685</code>（既定）</td>
+      <td>PCA9685</td>
+      <td>16</td>
+      <td>0x40（A0..A5 で 0x40..0x7F）</td>
+      <td>パルス幅を MIN/MAX_TICK で校正</td>
+      <td><a href="source/pca9685.c"><code>pca9685.c</code></a></td>
+    </tr>
+    <tr>
+      <td><code>SERVO_BACKEND_LU9685_I2C</code></td>
+      <td>LU9685-20CU</td>
+      <td>20</td>
+      <td>0x00（ジャンパで 0x00..0x1F）</td>
+      <td>チップが角度→パルス変換するので不要</td>
+      <td><a href="source/lu9685.c"><code>lu9685.c</code></a></td>
+    </tr>
+  </tbody>
+</table>
+<p>
+  <code>main_servo_test.c</code> は <code>servo_init</code> / <code>servo_set_deg</code> /
+  <code>servo_set_first_n_deg</code> / <code>servo_all_off</code> の <b>共通 API</b> のみ呼ぶので、
+  ハード差し替え時のコード変更はゼロ（Preprocessor シンボルを変えるだけ）。
+</p>
+
+<h2>ビルド手順（MCUXpresso IDE / MCUXpresso for VS Code）</h2>
+
+<h3>A. Dummy emitter プロジェクト</h3>
 <ol>
   <li><b>MCUXpresso SDK for FRDM-MCXN947</b> をインストール（11.9 以降）</li>
-  <li><code>File > New > Create a new C/C++ Project</code> → <code>frdmmcxn947</code> → 例として <code>driver_examples > lpuart > polling_transfer</code> をベースに作成</li>
+  <li><code>File &gt; New &gt; Create a new C/C++ Project</code> → <code>frdmmcxn947</code> → 例として <code>driver_examples &gt; lpuart &gt; polling_transfer</code> をベースに作成</li>
   <li>プロジェクト名を <code>ichiping_dummy</code> などに変更</li>
   <li>デフォルトの <code>main.c</code> を <a href="source/main.c">source/main.c</a> で置き換え</li>
   <li>プロジェクトに以下のソースを追加:
@@ -93,22 +167,80 @@
       <li><a href="source/dummy_audio.c">source/dummy_audio.c</a></li>
     </ul>
   </li>
-  <li><code>Properties &gt; C/C++ Build &gt; Settings &gt; Includes</code> に <code>${ProjDirPath}/../firmware/include</code> を追加（あるいはヘッダを <code>source/</code> 直下にコピー）</li>
-  <li>ビルドして OpenSDA で書き込み → 緑の <code>PWR</code> LED 想定箇所 (Arduino A0) は未配線でも問題なし</li>
+  <li><code>Properties &gt; C/C++ Build &gt; Settings &gt; Includes</code> に <code>${ProjDirPath}/../firmware/include</code> を追加</li>
+  <li>ビルドして OpenSDA で書き込み</li>
 </ol>
+
+<h3>B. Servo test プロジェクト</h3>
+<ol>
+  <li>同 SDK から、こんどは <code>driver_examples &gt; lpi2c &gt; polling_master</code> をベースに新規プロジェクトを作成</li>
+  <li>プロジェクト名を <code>ichiping_servo_test</code> などに変更</li>
+  <li>デフォルトの <code>main.c</code> を <a href="source/main_servo_test.c">source/main_servo_test.c</a> で置き換え</li>
+  <li><b>使うドライバに応じて 1 つだけ</b>ソースを追加:
+    <ul>
+      <li>PCA9685 の場合: <a href="source/pca9685.c">source/pca9685.c</a></li>
+      <li>LU9685 の場合: <a href="source/lu9685.c">source/lu9685.c</a></li>
+    </ul>
+  </li>
+  <li>Include パスに <code>${ProjDirPath}/../firmware/include</code> を追加</li>
+  <li><b>LU9685 を使う場合のみ</b>、<code>Project &gt; Properties &gt; C/C++ Build &gt; Settings &gt; Preprocessor &gt; Defined symbols</code> に <code>SERVO_BACKEND_LU9685_I2C</code> を追加（PCA9685 は既定なのでシンボル追加不要）</li>
+  <li><b>Config Tools の Pins ツール</b>で D14/D15 (Arduino) を <code>LPI2C4_SDA</code> / <code>LPI2C4_SCL</code> に割り当て、<code>pin_mux.c</code> に反映</li>
+  <li>ビルドして書き込み</li>
+</ol>
+
+<div class="callout warn">
+  <strong>配線必須:</strong> 試験前に <a href="../hardware/wiring.html">hardware/wiring.html §2.5</a> を確認。
+  特に <b>V+ は外部 5V レール</b>（FRDM 3.3V では駆動電流が足りない）、
+  V+ ↔ GND 間に 1000 µF 電解、サーボ GND は MCU GND と共通バーに集約。
+</div>
+
+<div class="callout">
+  <strong>LU9685 で動かない場合の確認順:</strong>
+  <ol style="margin: 6px 0;">
+    <li>基板上のジャンパで設定された I²C アドレス（0x00..0x1F のどれか）を、現物の説明書 or テスターで確認 → <code>SERVO_DEFAULT_ADDR</code> を override する場合は <code>main_servo_test.c</code> の <code>servo_init</code> 呼び出し引数を編集</li>
+    <li>0x00 はリザーブドアドレスなので、ジャンパで 0x01 以上にずらしておくのが安全</li>
+    <li>それでも応答が無ければボーレートを 100 kHz から 50 kHz に下げる（LU9685 はクロックストレッチが緩い個体がある）</li>
+  </ol>
+</div>
 
 <h2>シリアル設定</h2>
 <table>
+  <thead>
+    <tr><th>ファーム</th><th>ボーレート</th><th>フォーマット</th><th>受け側</th></tr>
+  </thead>
   <tbody>
-    <tr><th>ボード</th><td>FRDM-MCXN947、OpenSDA デバッグ COM ポート</td></tr>
-    <tr><th>ボーレート</th><td><b>921600 bps</b>（PC 側もこの値）</td></tr>
-    <tr><th>フレーミング</th><td>8N1、フロー制御なし</td></tr>
-    <tr><th>注意</th><td>バイナリ転送のため <b>端末ソフトでは開かないこと</b>（<a href="../pc/README.html">pc/receiver.py</a> で受ける）</td></tr>
+    <tr>
+      <td>Dummy emitter</td>
+      <td><b>921600 bps</b></td>
+      <td>バイナリ ICHP フレーム、8N1</td>
+      <td><a href="../pc/README.html">pc/receiver.py</a> で受ける（端末ソフトでは開かない）</td>
+    </tr>
+    <tr>
+      <td>Servo test</td>
+      <td><b>115200 bps</b></td>
+      <td>テキスト（PRINTF ステータス）、8N1</td>
+      <td>TeraTerm / PuTTY / VS Code <i>Serial Monitor</i> で OK</td>
+    </tr>
   </tbody>
 </table>
 
-<h2>動作シーケンス</h2>
+<h2>動作シーケンス（Dummy emitter）</h2>
 <img src="../docs/img/mcu_sequence_v01.svg" alt="MCU v0.1 メインループ: boot 後、3 秒周期で LED ON → サーボ角生成 → dummy audio 生成 → フレーム化 → UART 送信 → LED OFF → 待機" style="width: 100%; max-width: 720px; display: block; margin: 14px 0;">
+
+<h2>動作シーケンス（Servo test）</h2>
+<pre><code>[boot] → BOARD init → SysTick 1ms → LPI2C4 init → pca9685_init(50Hz)
+   │
+   ▼
+[main loop]                            ← 1 サイクル ≈ 11 秒
+   Phase 1 — 同期ウェイポイント:
+     all → 0°       hold 1.0 s
+     all → 90°      hold 1.0 s
+     all → 180°     hold 1.0 s
+     all → 0°       hold 0.5 s
+   Phase 2 — ソロスイープ (5 ch 順番):
+     ch_n → 180°    hold 1.0 s
+     ch_n → 0°      hold 0.5 s</code></pre>
+<p>各動作は OpenSDA UART (115200 bps) に PRINTF で進捗を出す。観測は VS Code 拡張 <i>Serial Monitor</i> か TeraTerm。</p>
 
 <h2>フレーム形式</h2>
 <p>

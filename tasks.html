@@ -62,8 +62,8 @@
   </div>
   <div class="meta">
     <span class="meta-stat done"><span class="num">16</span> 完了</span>
-    <span class="meta-stat active"><span class="num">1</span> 足場あり</span>
-    <span class="meta-stat pending"><span class="num">21</span> 未着手</span>
+    <span class="meta-stat active"><span class="num">2</span> 足場あり</span>
+    <span class="meta-stat pending"><span class="num">20</span> 未着手</span>
     <span class="meta-stat"><span class="num">1</span> ブロック</span>
     <span class="meta-stat"><span class="num">39</span> 全体</span>
   </div>
@@ -312,14 +312,23 @@
   </p>
   <div class="tasks">
 
-    <div class="task" data-status="pending">
+    <div class="task" data-status="in_progress">
       <div class="task-id">IP-0.4.1</div>
       <div class="task-body">
-        <h3 class="task-title">PCA9685 I²C ドライバ（C）</h3>
-        <p class="task-desc">FC4 I²C 0x40。サーボ角度 0〜180° のキャリブレーション + ch0〜4 同時駆動</p>
-        <div class="task-meta"><span>担当: <b>MCU</b></span></div>
+        <h3 class="task-title">サーボドライバ + 5 ch スイープテストファーム（PCA9685 / LU9685 両対応、足場完成）</h3>
+        <p class="task-desc">
+          <code>firmware/include/servo_driver.h</code> がビルド時シンボルでバックエンドを切り替える共通 API:
+          <code>SERVO_BACKEND_PCA9685</code>（16 ch, NXP, 既定）/ <code>SERVO_BACKEND_LU9685_I2C</code>（20 ch, 中国製互換）。
+          <code>pca9685.c</code> は PWM tick + SG90 校正、<code>lu9685.c</code> は ESPEasy 由来プロトコル（reg 0xFC=freq, 0xFD=20ch bulk, reg=pin で個別）。
+          <code>main_servo_test.c</code> は共通 API のみ呼び、ハード差し替え時のコード変更ゼロ（Preprocessor シンボルを変えるだけ）。同期ウェイポイント (0/90/180°) → 5 ch ソロスイープのループ
+        </p>
+        <div class="task-meta">
+          <span>担当: <b>MCU + ハード</b></span>
+          <span>ファーム: 足場完成</span>
+          <span>未着手: 実機キャリブ + LU9685 I²C アドレス確認</span>
+        </div>
       </div>
-      <div class="task-status"><span class="status-badge pending">未着手</span></div>
+      <div class="task-status"><span class="status-badge in_progress">足場完成</span></div>
     </div>
 
     <div class="task" data-status="pending">
