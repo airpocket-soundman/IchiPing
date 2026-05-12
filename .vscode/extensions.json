@@ -1,0 +1,13 @@
+{
+  "recommendations": [
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "ms-python.debugpy",
+    "nxp-mcuxpresso.mcuxpresso",
+    "marus25.cortex-debug",
+    "ms-vscode.cpptools",
+    "ms-toolsai.jupyter",
+    "redhat.vscode-yaml",
+    "ms-vscode.hexeditor"
+  ]
+}

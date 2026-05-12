@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IchiPing タスクボード</title>
+<link rel="stylesheet" href="docs/style.css">
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="index.html">トップ</a>
+      <a href="tasks.html" class="current">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="docs/spec.html">仕様書 (spec)</a>
+      <a href="docs/nn_design.html">NN 設計</a>
+      <a href="docs/mcu_deployment.html">MCU デプロイ</a>
+      <a href="docs/bringup.html">実機ブリングアップ</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="hardware/wiring.html">配線テーブル</a>
+      <a href="hardware/bom.html">BOM (部品表)</a>
+      <a href="hardware/display_options.html">ディスプレイ候補</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="firmware/README.html">firmware ガイド</a>
+      <a href="pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="docs/vscode_setup.html">VS Code セットアップ</a>
+      <a href="CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a><br>
+    <a href="https://github.com/airpocket-soundman/digikey_project">正本 digikey_project</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="index.html">← IchiPing トップ</a>
+    ／ <a href="docs/spec.html">仕様書</a>
+    ／ <a href="https://github.com/airpocket-soundman/digikey_project/blob/main/tasks.html">正本タスク (digikey_project)</a>
+  </div>
+  <h1>IchiPing タスクボード</h1>
+  <div class="sub">
+    v0.1（シリアル疎通）から v2.0（Solist-AI 移植）までの実装タスク。
+    全体プロジェクトの T0〜T38 タスクは正本 <code>digikey_project/tasks.html</code> 側、
+    本ボードは <b>IchiPing リポ内に閉じた実装単位</b>のサブタスクを管理する。
+  </div>
+  <div class="meta">
+    <span class="meta-stat done"><span class="num">16</span> 完了</span>
+    <span class="meta-stat active"><span class="num">1</span> 足場あり</span>
+    <span class="meta-stat pending"><span class="num">21</span> 未着手</span>
+    <span class="meta-stat"><span class="num">1</span> ブロック</span>
+    <span class="meta-stat"><span class="num">39</span> 全体</span>
+  </div>
+</header>
+
+<main>
+
+<div class="callout">
+  <strong>現フェーズ：v0.1 仕上げ</strong>。実ハード未到着の間は、ソフト側の品質向上・テスト整備・loopback エミュレータ整備で <b>v0.2 着手時の摩擦を減らす</b> ことに集中する。
+</div>
+
+<!-- ============ v0.1 ============ -->
+<section class="phase">
+  <h2>
+    <span class="phase-num">v0.1</span>
+    シリアル疎通 + ダミーデータ保存
+    <span class="phase-status current">現フェーズ</span>
+  </h2>
+  <p class="phase-desc">
+    実 I²S MIC を繋がず、MCU 内合成 chirp+残響を OpenSDA UART 経由で PC に流して保存パイプラインを通す。完了条件：実機を繋いで <code>captures/frame_*.wav</code> + <code>labels.csv</code> が連続生成される。
+  </p>
+  <div class="tasks">
+
+    <div class="task" data-status="completed">
+      <div class="task-id">IP-0.1.1</div>
+      <div class="task-body">
+        <h3 class="task-title">フレーム形式定義（C ヘッダ）</h3>
+        <p class="task-desc"><code>firmware/include/ichiping_frame.h</code> — magic / type / seq / ts / n_samples / rate / servo[5] + CRC-16/CCITT</p>
+        <div class="task-meta"><span>担当: <b>MCU</b></span><span>ヘッダサイズ: 36 B</span></div>
+      </div>
+      <div class="task-status"><span class="status-badge completed">完了</span></div>
+    </div>
+
+    <div class="task" data-status="completed">
+      <div class="task-id">IP-0.1.2</div>
+      <div class="task-body">
+        <h3 class="task-title">MCU 側ダミー送信ループ</h3>
+        <p class="task-desc"><code>firmware/source/main.c</code> + <code>dummy_audio.c</code>。SysTick + LPUART + 3 秒周期で chirp+残響 32000 サンプルを送出</p>
+        <div class="task-meta"><span>担当: <b>MCU</b></span><span>言語: C</span></div>
+      </div>
+      <div class="task-status"><span class="status-badge completed">完了</span></div>
+    </div>
+
+    <div class="task" data-status="completed">
+      <div class="task-id">IP-0.1.3</div>
+      <div class="task-body">
+        <h3 class="task-title">PC 側受信スクリプト</h3>
+        <p class="task-desc"><code>pc/receiver.py</code> — UART 921600bps → magic 同期 → ヘッダ + ペイロード読取 → CRC 検証 → WAV/CSV 保存</p>
+        <div class="task-meta"><span>担当: <b>PC</b></span><span>依存: pyserial</span></div>
+      </div>
+      <div class="task-status"><span class="status-badge completed">完了</span></div>
+    </div>
+
+    <div class="task" data-status="completed">
+      <div class="task-id">IP-0.1.4</div>
+      <div class="task-body">
+        <h3 class="task-title">フレーム形式の PC 側ユニットテスト</h3>
+        <p class="task-desc">CRC 既知ベクタ + ヘッダバイトオフセット + pack→unpack ラウンドトリップを <code>unittest</code> 9 件で守る。MCU 側ヘッダ拡張時のドリフト検出</p>
+        <div class="task-meta"><span>担当: <b>PC</b></span><span>ファイル: <code>pc/test_frame_format.py</code></span></div>
+      </div>
+      <div class="task-status"><span class="status-badge completed">完了</span></div>
+    </div>
+
+    <div class="task" data-status="completed">
+      <div class="task-id">IP-0.1.5</div>
+      <div class="task-body">
+        <h3 class="task-title">ローカル loopback エミュレータ</h3>
+        <p class="task-desc"><code>pc/emulator.py</code> — <code>ichp_frame.pack_frame</code> で偽フレームを stdout / TCP / file に流す。<code>receiver.py</code> も <code>--port</code> / <code>--tcp</code> / <code>--in</code> 3 ソース対応に拡張。<code>test_loopback.py</code> で 6 件の E2E 自動テスト</p>
+        <div class="task-meta"><span>担当: <b>PC</b></span><span>テスト: 6 件 PASS</span><span>実機要らず</span></div>
+      </div>
+      <div class="task-status"><span class="status-badge completed">完了</span></div>
+    </div>
+
+    <div class="task" data-status="completed">
+      <div class="task-id">IP-0.1.6</div>
+      <div class="task-body">
+        <h3 class="task-title">receiver.py 品質改善</h3>
+        <p class="task-desc"><code>sync_to_magic</code> と <code>read_exact</code> のビジーループ解消（<code>time.sleep(0.005)</code> + 進捗デッドライン）、stall timeout を 30s → 5s に短縮、入力ソース抽象化（Stream 基底クラス）。EOF も例外で穏当に終了</p>
+        <div class="task-meta"><span>担当: <b>PC</b></span><span>カテゴリ: バグ修正 + リファクタ</span></div>
+      </div>
+      <div class="task-status"><span class="status-badge completed">完了</span></div>
+    </div>
+
+    <div class="task" data-status="completed">
+      <div class="task-id">IP-0.1.7</div>
+      <div class="task-body">
+        <h3 class="task-title">C 側 frame packer のホストビルド + ctypes 突合</h3>
+        <p class="task-desc"><code>firmware/host_build/Makefile</code> で gcc/MinGW から共有ライブラリ化。<code>pc/test_ctypes_packer.py</code> で C 側 <code>ichp_pack_frame</code> と Python 側 <code>pack_frame</code> がバイト一致することを検証（gcc 不在環境では自動 skip）</p>
+        <div class="task-meta"><span>担当: <b>PC + ツールチェイン</b></span><span>足場: 完成</span><span>実行: gcc 導入後</span></div>
+      </div>
+      <div class="task-status"><span class="status-badge completed">完了</span></div>
+    </div>
+
+    <div class="task" data-status="blocked">
+      <div class="task-id">IP-0.1.8</div>
+      <div class="task-body">
+        <h3 class="task-title">実機での OpenSDA UART 疎通確認</h3>
+        <p class="task-desc">FRDM-MCXN947 にファーム書込、OpenSDA COM ポートを <code>receiver.py</code> で開いて連続 100 フレーム取得。手順書は <a href="docs/bringup.html">docs/bringup.html</a> に整備済</p>
+        <div class="task-meta"><span>担当: <b>両側統合</b></span><span>ブロッカー: 実機未到着</span><span>完了条件: CRC OK 100% で 5 分連続動作</span></div>
+      </div>
+      <div class="task-status"><span class="status-badge blocked">ブロック</span></div>
+    </div>
+
+    <div class="task" data-status="completed">
+      <div class="task-id">IP-0.1.9</div>
+      <div class="task-body">
+        <h3 class="task-title">受信ストリーム検証ツール</h3>
+        <p class="task-desc"><code>pc/verify.py</code> — シリアル/TCP/ファイルから受け取った各フレームを 8 項目（type / CRC / seq 連番 / ts 単調増加 / n_samples / rate / サーボ範囲 / サンプル範囲）で検証。<code>--strict</code> で CI 利用可。loopback 動作確認済（5/5 frames PASS）</p>
+        <div class="task-meta"><span>担当: <b>PC</b></span><span>用途: 実機接続時の正常性チェック</span><span>VS Code F5 構成あり</span></div>
+      </div>
+      <div class="task-status"><span class="status-badge completed">完了</span></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============ v0.2 ============ -->
+<section class="phase">
+  <h2>
+    <span class="phase-num">v0.2</span>
+    実 I²S 取り込み + chirp 放射
+    <span class="phase-status">予定</span>
+  </h2>
+  <p class="phase-desc">
+    <code>dummy_audio_generate</code> を I²S SAI1 RX（INMP441）に置換、SAI0 TX で MAX98357A 経由 chirp を放射。完了条件：実マイクで録音した波形が PC に届き、放射 chirp が物理スピーカから出る。
+  </p>
+  <div class="tasks">
+
+    <div class="task" data-status="pending">
+      <div class="task-id">IP-0.2.1</div>
+      <div class="task-body">
+        <h3 class="task-title">BOARD_LED_INFER ピンを Config Tools で定義</h3>
+        <p class="task-desc">Arduino A1 を GPIO 出力に。<code>infer_led_on/off</code> の <code>GPIO_PinWrite</code> コメントアウトを解除</p>
+        <div class="task-meta"><span>担当: <b>MCU</b></span><span>ハード: LED + 330Ω</span></div>
+      </div>
+      <div class="task-status"><span class="status-badge pending">未着手</span></div>
+    </div>
+
+    <div class="task" data-status="pending">
+      <div class="task-id">IP-0.2.2</div>
+      <div class="task-body">
+        <h3 class="task-title">INMP441 配線 + SAI1 RX セットアップ</h3>
+        <p class="task-desc">SAI1 RX BCLK/SYNC/DATA を INMP441 SCK/WS/SD に接続。L/R ピン GND、16 kHz 24-bit Right-justified に設定</p>
+        <div class="task-meta"><span>担当: <b>MCU + ハード</b></span><span>依存: IP-0.1.8</span></div>
+      </div>
+      <div class="task-status"><span class="status-badge pending">未着手</span></div>
+    </div>
+
+    <div class="task" data-status="pending">
+      <div class="task-id">IP-0.2.3</div>
+      <div class="task-body">
+        <h3 class="task-title">DMA リングバッファで I²S RX 受信</h3>
+        <p class="task-desc">eDMA + SAI1 で 2 秒分（32000 サンプル）のリングバッファ受信を実装し、<code>dummy_audio_generate</code> 呼び出しを実データに差し替え</p>
+        <div class="task-meta"><span>担当: <b>MCU</b></span><span>完了条件: 部屋の暗ノイズ + 拍手が WAV に保存される</span></div>
+      </div>
+      <div class="task-status"><span class="status-badge pending">未着手</span></div>
+    </div>
+
+    <div class="task" data-status="pending">
+      <div class="task-id">IP-0.2.4</div>
+      <div class="task-body">
+        <h3 class="task-title">MAX98357A 配線 + SAI0 TX で chirp 放射</h3>
+        <p class="task-desc">SAI0 TX BCLK/SYNC/DATA を MAX98357A に接続、SD = 3.3V、GAIN 無接続。<code>dummy_audio</code> の chirp 部分を 16 kHz 16-bit PCM として再生</p>
+        <div class="task-meta"><span>担当: <b>MCU + ハード</b></span></div>
+      </div>
+      <div class="task-status"><span class="status-badge pending">未着手</span></div>
+    </div>
+
+    <div class="task" data-status="pending">
+      <div class="task-id">IP-0.2.5</div>
+      <div class="task-body">
+        <h3 class="task-title">同時放射・録音シーケンス</h3>
+        <p class="task-desc">chirp 放射開始 → 200 ms 待機 → 録音開始 → 2 秒録音 → 終了。タイミングの再現性確認</p>
+        <div class="task-meta"><span>担当: <b>MCU</b></span><span>注意: スピーカ→マイクのクロストーク機械的分離 40mm 以上</span></div>
+      </div>
+      <div class="task-status"><span class="status-badge pending">未着手</span></div>
+    </div>
+
+    <div class="task" data-status="pending">
+      <div class="task-id">IP-0.2.6</div>
+      <div class="task-body">
+        <h3 class="task-title">PC 側 SNR / 周波数応答可視化</h3>
+        <p class="task-desc"><code>pc/analyze.py</code>（新規）でスペクトログラム + RT60 暫定値プロット。chirp が想定通り 200→8 kHz をスイープしているか確認</p>
+        <div class="task-meta"><span>担当: <b>PC</b></span><span>依存: numpy/scipy/matplotlib</span></div>
+      </div>
+      <div class="task-status"><span class="status-badge pending">未着手</span></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============ v0.3 ============ -->
+<section class="phase">
+  <h2>
+    <span class="phase-num">v0.3</span>
+    RIR 抽出 + 永続保存
+    <span class="phase-status">予定</span>
+  </h2>
+  <p class="phase-desc">
+    PowerQuad FFT で MCU 内 RIR 抽出、または PC 側で整合フィルタによる RIR 推定。データは microSD に HDF5 で保存（後段の NN 訓練用）。
+  </p>
+  <div class="tasks">
+
+    <div class="task" data-status="pending">
+      <div class="task-id">IP-0.3.1</div>
+      <div class="task-body">
+        <h3 class="task-title">整合フィルタによる RIR 推定（PC 側 Python）</h3>
+        <p class="task-desc">放射 chirp テンプレートと録音波形の相互相関で RIR 推定。RT60 / EDC / 周波数応答プロット</p>
+        <div class="task-meta"><span>担当: <b>PC</b></span><span>言語: Python (scipy)</span></div>
+      </div>
+      <div class="task-status"><span class="status-badge pending">未着手</span></div>
+    </div>
+
+    <div class="task" data-status="pending">
+      <div class="task-id">IP-0.3.2</div>
+      <div class="task-body">
+        <h3 class="task-title">PowerQuad FFT ラッパ（C）</h3>
+        <p class="task-desc">MCU 側 NPU/PowerQuad で N=2048 の FFT を回す薄いラッパ。テスト用既知信号で結果を検証</p>
+        <div class="task-meta"><span>担当: <b>MCU</b></span></div>
+      </div>
+      <div class="task-status"><span class="status-badge pending">未着手</span></div>
+    </div>
+
+    <div class="task" data-status="pending">
+      <div class="task-id">IP-0.3.3</div>
+      <div class="task-body">
+        <h3 class="task-title">microSD FatFs + HDF5 保存</h3>
+        <p class="task-desc">SPI FC3 経由 microSD マウント。1 サンプル = WAV + meta JSON でローカル蓄積</p>
+        <div class="task-meta"><span>担当: <b>MCU</b></span><span>ハード: microSD カード</span></div>
+      </div>
+      <div class="task-status"><span class="status-badge pending">未着手</span></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============ v0.4 ============ -->
+<section class="phase">
+  <h2>
+    <span class="phase-num">v0.4</span>
+    サーボ + 模型でデータ自動収集
+    <span class="phase-status">予定</span>
+  </h2>
+  <p class="phase-desc">
+    PCA9685 + SG90 ×5 でサーボを駆動、3 部屋アクリル模型と統合し、PC オーケストレータから状態空間を自動掃引してデータ収集。
+  </p>
+  <div class="tasks">
+
+    <div class="task" data-status="pending">
+      <div class="task-id">IP-0.4.1</div>
+      <div class="task-body">
+        <h3 class="task-title">PCA9685 I²C ドライバ（C）</h3>
+        <p class="task-desc">FC4 I²C 0x40。サーボ角度 0〜180° のキャリブレーション + ch0〜4 同時駆動</p>
+        <div class="task-meta"><span>担当: <b>MCU</b></span></div>
+      </div>
+      <div class="task-status"><span class="status-badge pending">未着手</span></div>
+    </div>
+
+    <div class="task" data-status="pending">
+      <div class="task-id">IP-0.4.2</div>
+      <div class="task-body">
+        <h3 class="task-title">PC → MCU コマンド受信路</h3>
+        <p class="task-desc">これまで TX のみだった LPUART を双方向化。<code>RX</code> 有効化 + コマンドフレーム（サーボ角度指定 / 収集開始）を受信</p>
+        <div class="task-meta"><span>担当: <b>両側統合</b></span><span>新規フレーム: type=0x02 servo cmd</span></div>
+      </div>
+      <div class="task-status"><span class="status-badge pending">未着手</span></div>
+    </div>
+
+    <div class="task" data-status="pending">
+      <div class="task-id">IP-0.4.3</div>
+      <div class="task-body">
+        <h3 class="task-title">3 部屋模型製作 + サーボ機構取付</h3>
+        <p class="task-desc">アクリル 5mm レーザーカット → 接着 → 扉/窓ヒンジ + サーボリンケージ装着</p>
+        <div class="task-meta"><span>担当: <b>ハード</b></span><span>外注 or 自前カット</span></div>
+      </div>
+      <div class="task-status"><span class="status-badge pending">未着手</span></div>
+    </div>
+
+    <div class="task" data-status="pending">
+      <div class="task-id">IP-0.4.4</div>
+      <div class="task-body">
+        <h3 class="task-title">PC オーケストレータ（自動掃引）</h3>
+        <p class="task-desc">14 状態（観測可能性で縮約）+ 中間角を層化サンプリング → サーボ指示 → 待機 → chirp トリガ → 録音受信 → WAV+CSV 追記をループ</p>
+        <div class="task-meta"><span>担当: <b>PC</b></span><span>完了条件: 1,000 サンプル / ~25 分</span></div>
+      </div>
+      <div class="task-status"><span class="status-badge pending">未着手</span></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============ v0.5 ============ -->
+<section class="phase">
+  <h2>
+    <span class="phase-num">v0.5</span>
+    NN 訓練 + INT8 量子化 + MCU 推論
+    <span class="phase-status">予定</span>
+  </h2>
+  <div class="tasks">
+
+    <div class="task" data-status="in_progress">
+      <div class="task-id">IP-0.5.1</div>
+      <div class="task-body">
+        <h3 class="task-title">PyTorch で 1D-CNN AE を訓練（足場完成）</h3>
+        <p class="task-desc">spec §4.3 の構成を <a href="pc/training/model.py">pc/training/model.py</a> に実装。特徴抽出は <a href="pc/training/features.py">features.py</a>、データセット <a href="pc/training/dataset.py">dataset.py</a>、訓練ループ + ONNX エクスポート <a href="pc/training/train.py">train.py</a>。詳細は <a href="docs/nn_design.html">docs/nn_design.html</a></p>
+        <div class="task-meta"><span>担当: <b>PC</b></span><span>未着手: 実データ収集（IP-0.4.4 依存）</span></div>
+      </div>
+      <div class="task-status"><span class="status-badge in_progress">足場完成</span></div>
+    </div>
+
+    <div class="task" data-status="pending">
+      <div class="task-id">IP-0.5.2</div>
+      <div class="task-body">
+        <h3 class="task-title">ONNX エクスポート + eIQ Toolkit で INT8 量子化</h3>
+        <p class="task-desc">PTQ、キャリブレーションセット使用。MCXN947 NPU 用 C コード生成。手順は <a href="docs/mcu_deployment.html">docs/mcu_deployment.html</a> §2</p>
+        <div class="task-meta"><span>担当: <b>PC → MCU</b></span><span>ツール: eIQ Toolkit 1.8+</span></div>
+      </div>
+      <div class="task-status"><span class="status-badge pending">未着手</span></div>
+    </div>
+
+    <div class="task" data-status="pending">
+      <div class="task-id">IP-0.5.3</div>
+      <div class="task-body">
+        <h3 class="task-title">MCU 側推論統合（chirp → RIR → NN → 結果）</h3>
+        <p class="task-desc">PowerQuad FFT + Neutron NPU invoke + 後処理。レイテンシ 50 ms 以内目標、EXEC ボタンでトリガ、結果は UART でも送信。手順は <a href="docs/mcu_deployment.html">docs/mcu_deployment.html</a> §3</p>
+        <div class="task-meta"><span>担当: <b>MCU</b></span></div>
+      </div>
+      <div class="task-status"><span class="status-badge pending">未着手</span></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============ Docs / 文書化 ============ -->
+<section class="phase">
+  <h2>
+    <span class="phase-num">DOC</span>
+    ドキュメント整備（横断）
+    <span class="phase-status">運用</span>
+  </h2>
+  <p class="phase-desc">
+    HTML 一式 + SVG 図 + BOM + ディスプレイ選定。CLAUDE ルールにより、図は常に SVG（ASCII 図は禁止）。
+  </p>
+  <div class="tasks">
+
+    <div class="task" data-status="completed">
+      <div class="task-id">IP-DOC.1</div>
+      <div class="task-body">
+        <h3 class="task-title">HTML ドキュメント一式 + 共通 CSS</h3>
+        <p class="task-desc"><a href="index.html">index.html</a> / <a href="tasks.html">tasks.html</a> / <a href="CLAUDE.html">CLAUDE.html</a> / <a href="hardware/wiring.html">wiring.html</a> / <a href="firmware/README.html">firmware/README.html</a> / <a href="pc/README.html">pc/README.html</a> + <code>docs/style.css</code></p>
+      </div>
+      <div class="task-status"><span class="status-badge completed">完了</span></div>
+    </div>
+
+    <div class="task" data-status="completed">
+      <div class="task-id">IP-DOC.2</div>
+      <div class="task-body">
+        <h3 class="task-title">図を SVG 化（ASCII 廃止）</h3>
+        <p class="task-desc">CLAUDE.md / .html に SVG ルール追加。<code>docs/img/</code> に dataflow / mcu_sequence / frame_format / bringup_flow / nn_architecture / feature_pipeline / deploy_flow の 7 図、各 markdown/HTML から参照</p>
+      </div>
+      <div class="task-status"><span class="status-badge completed">完了</span></div>
+    </div>
+
+    <div class="task" data-status="completed">
+      <div class="task-id">IP-DOC.3</div>
+      <div class="task-body">
+        <h3 class="task-title">NN 詳細設計ドキュメント</h3>
+        <p class="task-desc"><a href="docs/nn_design.html">docs/nn_design.html</a> — アーキテクチャ全体図、各層の設計理由、特徴抽出パイプライン、パラメータ見積もり、マルチタスク学習のコツ</p>
+      </div>
+      <div class="task-status"><span class="status-badge completed">完了</span></div>
+    </div>
+
+    <div class="task" data-status="completed">
+      <div class="task-id">IP-DOC.4</div>
+      <div class="task-body">
+        <h3 class="task-title">MCXN947 デプロイ手順書</h3>
+        <p class="task-desc"><a href="docs/mcu_deployment.html">docs/mcu_deployment.html</a> — eIQ Toolkit / MCUXpresso 等のツール導入方法、ONNX → INT8 → C 生成 → 統合 → レイテンシ計測の 3 レーン全体フロー</p>
+      </div>
+      <div class="task-status"><span class="status-badge completed">完了</span></div>
+    </div>
+
+    <div class="task" data-status="completed">
+      <div class="task-id">IP-DOC.5</div>
+      <div class="task-body">
+        <h3 class="task-title">実機ブリングアップ手順書</h3>
+        <p class="task-desc"><a href="docs/bringup.html">docs/bringup.html</a> — IP-0.1.8 完了条件のチェックリスト + 判断フロー SVG + 症状別対処表</p>
+      </div>
+      <div class="task-status"><span class="status-badge completed">完了</span></div>
+    </div>
+
+    <div class="task" data-status="completed">
+      <div class="task-id">IP-DOC.6</div>
+      <div class="task-body">
+        <h3 class="task-title">BOM（部品表）</h3>
+        <p class="task-desc"><a href="hardware/bom.html">hardware/bom.html</a> + <a href="hardware/bom.csv">bom.csv</a> — DigiKey 部品 v1 必須計 ~$252。実験模型材料、オプション部品まで網羅</p>
+      </div>
+      <div class="task-status"><span class="status-badge completed">完了</span></div>
+    </div>
+
+    <div class="task" data-status="completed">
+      <div class="task-id">IP-DOC.7</div>
+      <div class="task-body">
+        <h3 class="task-title">ディスプレイ候補比較</h3>
+        <p class="task-desc"><a href="hardware/display_options.html">hardware/display_options.html</a> — SSD1306 / SH1106 / SSD1327 / SSD1351 / ST7789 を視認性・I/F・価格で比較。SH1106 1.3" を推奨に決定（BOM 反映済）</p>
+      </div>
+      <div class="task-status"><span class="status-badge completed">完了</span></div>
+    </div>
+
+    <div class="task" data-status="completed">
+      <div class="task-id">IP-DOC.8</div>
+      <div class="task-body">
+        <h3 class="task-title">VS Code セットアップ手順 + 設定同梱</h3>
+        <p class="task-desc"><a href="docs/vscode_setup.html">docs/vscode_setup.html</a> + <code>.vscode/{extensions,settings,launch}.json</code> — Conda 環境引き継ぎ、MCUXpresso 拡張、F5 7 構成（receiver/verify/emulator/unittest 等）、テストエクスプローラ連携、ワークスペース構成 SVG</p>
+      </div>
+      <div class="task-status"><span class="status-badge completed">完了</span></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============ v1.0 ============ -->
+<section class="phase">
+  <h2>
+    <span class="phase-num">v1.0</span>
+    UI 完成 + デモモード
+    <span class="phase-status">予定</span>
+  </h2>
+  <div class="tasks">
+
+    <div class="task" data-status="pending">
+      <div class="task-id">IP-1.0.1</div>
+      <div class="task-body">
+        <h3 class="task-title">SSD1306 OLED ドライバ + 表示レイアウト</h3>
+        <p class="task-desc">128×64 で 5 部屋ステータスを表示。推論結果を 0.5 秒以内に反映</p>
+        <div class="task-meta"><span>担当: <b>MCU</b></span></div>
+      </div>
+      <div class="task-status"><span class="status-badge pending">未着手</span></div>
+    </div>
+
+    <div class="task" data-status="pending">
+      <div class="task-id">IP-1.0.2</div>
+      <div class="task-body">
+        <h3 class="task-title">トグル ×5 + EXEC ボタン入力</h3>
+        <p class="task-desc">D4〜D9 のプルアップ入力。手動デモモードで「真値 vs 推論結果」を OLED 表示</p>
+        <div class="task-meta"><span>担当: <b>MCU + ハード</b></span></div>
+      </div>
+      <div class="task-status"><span class="status-badge pending">未着手</span></div>
+    </div>
+
+    <div class="task" data-status="pending">
+      <div class="task-id">IP-1.0.3</div>
+      <div class="task-body">
+        <h3 class="task-title">デモ動画撮影 + ProtoPedia 登録</h3>
+        <p class="task-desc">2 分以内、spec.html §8 絵コンテ準拠。myLists 部品表 URL を ProtoPedia に貼付</p>
+        <div class="task-meta"><span>担当: <b>応募準備</b></span><span>締切: 2026-06-22 23:59</span></div>
+      </div>
+      <div class="task-status"><span class="status-badge pending">未着手</span></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============ v2.0 ============ -->
+<section class="phase">
+  <h2>
+    <span class="phase-num">v2.0</span>
+    ROHM Solist-AI 移植版
+    <span class="phase-status">予定</span>
+  </h2>
+  <div class="tasks">
+
+    <div class="task" data-status="pending">
+      <div class="task-id">IP-2.0.1</div>
+      <div class="task-body">
+        <h3 class="task-title">ML63Q2557 ターゲット環境構築 + 特徴抽出移植</h3>
+        <p class="task-desc">M0+ コアで特徴抽出パイプラインを動作させる</p>
+        <div class="task-meta"><span>担当: <b>MCU (ROHM)</b></span></div>
+      </div>
+      <div class="task-status"><span class="status-badge pending">未着手</span></div>
+    </div>
+
+    <div class="task" data-status="pending">
+      <div class="task-id">IP-2.0.2</div>
+      <div class="task-body">
+        <h3 class="task-title">マハラノビス距離 + 専門 ELM × 4 の階層推論</h3>
+        <p class="task-desc">β 学習を 30 秒以内に完了する自律学習デモシナリオを実装</p>
+        <div class="task-meta"><span>担当: <b>MCU (ROHM)</b></span></div>
+      </div>
+      <div class="task-status"><span class="status-badge pending">未着手</span></div>
+    </div>
+
+    <div class="task" data-status="pending">
+      <div class="task-id">IP-2.0.3</div>
+      <div class="task-body">
+        <h3 class="task-title">v1 との精度比較 + 応募提出</h3>
+        <p class="task-desc">5% 差以内達成検証。ROHM EDGE HACK 締切までに提出</p>
+        <div class="task-meta"><span>担当: <b>応募準備</b></span><span>締切: 2026-09-28 23:59</span></div>
+      </div>
+      <div class="task-status"><span class="status-badge pending">未着手</span></div>
+    </div>
+
+  </div>
+</section>
+
+<div class="legend">
+  <span class="legend-item"><span class="status-badge pending">未着手</span> = まだ手をつけていない</span>
+  <span class="legend-item"><span class="status-badge in_progress">進行中</span> = 現在作業中</span>
+  <span class="legend-item"><span class="status-badge completed">完了</span> = 完了条件を満たした</span>
+  <span class="legend-item"><span class="status-badge blocked">ブロック</span> = 依存タスクや外部要因で進めない</span>
+</div>
+
+<div class="footer-note">
+  関連ページ:
+  <a href="index.html">README (index.html)</a> ／
+  <a href="docs/spec.html">仕様書 spec.html</a> ／
+  <a href="hardware/wiring.html">配線テーブル</a> ／
+  <a href="firmware/README.html">firmware ガイド</a> ／
+  <a href="pc/README.html">PC スクリプトガイド</a>
+  <br><br>
+  本ボードは進行状況に応じて手動で更新する。タスクのステータスは <code>data-status="completed"</code> / <code>"in_progress"</code> / <code>"blocked"</code> に書き換え、ヘッダ数値カウンタも合わせて更新する。タスク粒度は「1 PR で完結する」レベルに揃える。
+</div>
+
+</main>
+</body>
+</html>

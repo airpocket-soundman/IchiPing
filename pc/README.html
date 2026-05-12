@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IchiPing PC 受信側</title>
+<link rel="stylesheet" href="../docs/style.css">
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../index.html">トップ</a>
+      <a href="../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="../docs/spec.html">仕様書 (spec)</a>
+      <a href="../docs/nn_design.html">NN 設計</a>
+      <a href="../docs/mcu_deployment.html">MCU デプロイ</a>
+      <a href="../docs/bringup.html">実機ブリングアップ</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="../hardware/wiring.html">配線テーブル</a>
+      <a href="../hardware/bom.html">BOM (部品表)</a>
+      <a href="../hardware/display_options.html">ディスプレイ候補</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../firmware/README.html">firmware ガイド</a>
+      <a href="../pc/README.html" class="current">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="../docs/vscode_setup.html">VS Code セットアップ</a>
+      <a href="../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a><br>
+    <a href="https://github.com/airpocket-soundman/digikey_project">正本 digikey_project</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../index.html">← IchiPing トップ</a>
+    ／ <a href="../tasks.html">タスクボード</a>
+    ／ <a href="../firmware/README.html">firmware</a>
+    ／ <a href="../hardware/wiring.html">配線</a>
+  </div>
+  <h1>IchiPing PC 受信側</h1>
+  <div class="sub">
+    MCU から <b>OpenSDA UART 921600 bps</b> で流れてくる IchiPing バイナリフレームを読み、
+    <b>WAV + CSV ラベル</b>として保存する Python スクリプト。
+  </div>
+  <div class="meta">
+    <span class="meta-stat active"><span class="num">v0.1</span> 現フェーズ</span>
+    <span class="meta-stat"><span class="num">Python 3.11+</span> 推奨</span>
+    <span class="meta-stat done"><span class="num">9/9</span> ユニットテスト</span>
+  </div>
+</header>
+
+<main>
+
+<h2>なぜ UART か（v0.1）</h2>
+<table>
+  <thead>
+    <tr><th></th><th>OpenSDA UART</th><th>USB CDC</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>実装難易度</td><td>★（LPUART init + WriteBlocking 1 関数）</td><td>★★★（USB スタック・クラスドライバ・エンドポイント）</td></tr>
+    <tr><td>1 フレーム（64 KB）転送時間</td><td>約 556 ms @ 921600</td><td>約 50 ms @ 12 Mbps</td></tr>
+    <tr><td>結線</td><td>既存 OpenSDA で完結（追加配線なし）</td><td>既存 USB-C で完結</td></tr>
+    <tr><td>採用判断</td><td><b>v0.1 で採用</b> — 立ち上げ最短</td><td>v0.3 以降で置換予定</td></tr>
+  </tbody>
+</table>
+<p>v0.1 の目的（シリアル経路と保存パイプラインを通す）には UART で十分。</p>
+
+<h2>セットアップ — conda（推奨）</h2>
+<pre><code># Miniconda / Anaconda 前提
+conda env create -f environment.yml
+conda activate ichiping</code></pre>
+
+<p>更新したいとき:</p>
+<pre><code>conda env update -f environment.yml --prune</code></pre>
+
+<p>削除:</p>
+<pre><code>conda deactivate
+conda env remove -n ichiping</code></pre>
+
+<h2>セットアップ — venv（conda を使わない場合）</h2>
+<pre><code>python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt</code></pre>
+
+<h2>実行</h2>
+
+<h3>A. 実機が繋がっている場合（OpenSDA から取得）</h3>
+<pre><code># デバイスマネージャで FRDM-MCXN947 の OpenSDA COM 番号を確認（例: COM7）
+python receiver.py --port COM7 --baud 921600 --out ../captures</code></pre>
+
+<h3>B. 実機なしでパイプラインを試す（loopback）</h3>
+<pre><code># 偽 MCU が 10 フレームをファイルに書き出す
+python emulator.py --out ../captures/loopback.bin --frames 10 --cadence 0
+# それを receiver.py で読んで WAV+CSV に保存
+python receiver.py --in ../captures/loopback.bin --out ../captures</code></pre>
+
+<h3>C. 受信ストリームを期待値と突合（CI 向き）</h3>
+<pre><code># 実機 100 フレームを 8 項目で検証、1 件でも FAIL なら exit 1
+python verify.py --port COM7 --frames 100 --strict
+# loopback ファイルを検証
+python verify.py --in ../captures/loopback.bin --strict</code></pre>
+
+<p>期待される <code>receiver.py</code> の出力:</p>
+<pre><code>opening serial:COM7@921600
+writing to D:\GitHub\IchiPing\captures
+waiting for frames... (Ctrl+C to stop)
+[     0] t=    3001ms sr=16000 N=32000 servos=[ 17.0, 65.0, 82.0,  3.0, 41.0] CRC=OK (0.33 fps)
+[     1] t=    6002ms sr=16000 N=32000 servos=[ 33.0, 12.0,  7.0, 88.0, 56.0] CRC=OK (0.33 fps)
+...</code></pre>
+
+<p><kbd>Ctrl+C</kbd> で停止。保存先:</p>
+<pre><code>captures/
+├── labels.csv             各フレームのメタ + サーボ角度
+├── frame_000000.wav       2 秒分の 16 kHz mono PCM
+├── frame_000001.wav
+└── ...</code></pre>
+
+<h2>オプション (<code>receiver.py</code>)</h2>
+<table>
+  <thead>
+    <tr><th>フラグ</th><th>用途</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>--port</code></td><td>シリアルポート (例: COM7、<code>--port</code> / <code>--tcp</code> / <code>--in</code> のいずれか必須)</td></tr>
+    <tr><td><code>--tcp HOST:PORT</code></td><td>TCP サーバから読む（emulator の TCP モードと組み合わせ）</td></tr>
+    <tr><td><code>--in PATH</code></td><td>バイナリファイルから読む（オフラインリプレイ）</td></tr>
+    <tr><td><code>--baud</code></td><td>シリアルボーレート（既定 921600）</td></tr>
+    <tr><td><code>--out</code></td><td>出力ディレクトリ（既定 <code>./captures</code>）</td></tr>
+    <tr><td><code>--max-frames N</code></td><td>N フレーム受信したら自動終了（既定 0 = 無制限）</td></tr>
+    <tr><td><code>--keep-bad-crc</code></td><td>CRC 不一致フレームも保存（デバッグ用）</td></tr>
+  </tbody>
+</table>
+
+<h2>テスト（実機なし）</h2>
+<p>
+  フレーム形式は MCU 側 <a href="../firmware/include/ichiping_frame.h">ichiping_frame.h</a> と
+  PC 側 <a href="ichp_frame.py">ichp_frame.py</a> で二重定義される。
+  両者がドリフトすると CRC が通らないので、PC 側だけは自動テストで守る:
+</p>
+<pre><code>cd pc
+python -m unittest test_frame_format -v</code></pre>
+
+<p>9 テストでカバー:</p>
+<ul>
+  <li>ヘッダ長 36 B</li>
+  <li>各フィールドのバイトオフセット（magic / type / reserved / seq / timestamp_ms）</li>
+  <li>CRC-16/CCITT-FALSE の既知ベクタ（<code>"123456789"</code> → <code>0x29B1</code>）</li>
+  <li>pack → unpack ラウンドトリップ</li>
+  <li>エラー系（不正な servo 個数、不正な magic、不正な header 長）</li>
+</ul>
+
+<div class="callout warn">
+  <strong>MCU 側ヘッダ変更時:</strong> <code>ichiping_frame_header_t</code> を変更したら、
+  合わせて <code>pc/ichp_frame.py</code> の <code>HEADER_FMT</code> を更新し、このテストを通すこと。
+</div>
+
+<h2>トラブルシュート</h2>
+<table>
+  <thead>
+    <tr><th>症状</th><th>対処</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>PermissionError</code> で開けない</td><td>同じ COM を他端末（TeraTerm 等）が掴んでいる。閉じる</td></tr>
+    <tr><td><code>frame error: only got X/Y bytes</code> が連発</td><td>ボーレート不一致。MCU 側 <code>ICHP_UART_BAUD</code> と一致させる</td></tr>
+    <tr><td>CRC BAD が定期的</td><td>バッファ溢れ。<code>fc.serial_rx_buffer_size</code> を大きく、もしくは MCU 側のフレーム周期を伸ばす</td></tr>
+    <tr><td>何も来ない</td><td>
+      ・LED が点灯しているか / ファームが起動しているか<br>
+      ・COM 番号合っているか<br>
+      ・USB ケーブルがデータ通信対応か
+    </td></tr>
+  </tbody>
+</table>
+
+<h2>フレームフォーマット</h2>
+<p>
+  <a href="../firmware/include/ichiping_frame.h">firmware/include/ichiping_frame.h</a> が正本。
+  Python 側は <a href="ichp_frame.py">ichp_frame.py</a> の <code>HEADER_FMT</code> を同期させる。
+</p>
+<img src="../docs/img/frame_format.svg" alt="ICHP フレーム形式: 36 B ヘッダ + N×2 B の int16 PCM ペイロード + 2 B CRC-16/CCITT-FALSE" style="width: 100%; max-width: 760px; display: block; margin: 14px 0;">
+
+<h2>モジュール構成</h2>
+<table>
+  <thead>
+    <tr><th>ファイル</th><th>役割</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><a href="ichp_frame.py"><code>ichp_frame.py</code></a></td><td>フレーム形式の単一情報源。<code>MAGIC</code>, <code>HEADER_FMT</code>, <code>crc16_ccitt</code>, <code>pack_frame</code>, <code>unpack_header</code></td></tr>
+    <tr><td><a href="receiver.py"><code>receiver.py</code></a></td><td>シリアル受信 → CRC 検証 → WAV/CSV 保存のメインスクリプト</td></tr>
+    <tr><td><a href="test_frame_format.py"><code>test_frame_format.py</code></a></td><td><code>unittest</code> ベースのフレーム形式回帰テスト</td></tr>
+    <tr><td><code>environment.yml</code></td><td>conda 環境定義（numpy/scipy/matplotlib も含む）</td></tr>
+    <tr><td><code>requirements.txt</code></td><td>venv 用最小依存（pyserial のみ）</td></tr>
+  </tbody>
+</table>
+
+<div class="footer-note">
+  関連ページ:
+  <a href="../index.html">index.html</a> ／
+  <a href="../tasks.html">tasks.html</a> ／
+  <a href="../docs/spec.html">spec.html</a> ／
+  <a href="../hardware/wiring.html">hardware/wiring.html</a> ／
+  <a href="../firmware/README.html">firmware/README.html</a> ／
+  <a href="../CLAUDE.html">CLAUDE.html</a>
+</div>
+
+</main>
+</body>
+</html>

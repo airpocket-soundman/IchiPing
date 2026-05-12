@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 460" role="img" aria-label="MCU v0.1 main loop: boot then a 3-second loop of LED on, servo angles generation, dummy audio generation, frame packing, UART blocking write, LED off, delay">
+  <title>MCU v0.1 動作シーケンス</title>
+  <defs>
+    <marker id="arr-seq" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#6ea8fe"/>
+    </marker>
+    <marker id="arr-loop" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#ffb454"/>
+    </marker>
+  </defs>
+  <style>
+    .step    { fill: #1f242d; stroke: #2a313d; stroke-width: 1.2; rx: 8; }
+    .step.boot   { stroke: #7be0a4; }
+    .step.io     { stroke: #6ea8fe; }
+    .step.compute{ stroke: #ffb454; }
+    .step.send   { stroke: #ff7ab6; }
+    .step.delay  { stroke: #5a6478; }
+    .num     { fill: #6ea8fe; font-family: 'JetBrains Mono',Consolas,monospace; font-size: 14px; font-weight: 700; }
+    .ttl     { fill: #e5e9f0; font-family: 'Hiragino Sans','Yu Gothic UI','Segoe UI',sans-serif; font-size: 13.5px; font-weight: 600; }
+    .sub     { fill: #8b95a7; font-family: 'JetBrains Mono',Consolas,monospace; font-size: 11px; }
+    .arrow   { stroke: #6ea8fe; stroke-width: 1.8; fill: none; }
+    .loop    { stroke: #ffb454; stroke-width: 1.8; fill: none; stroke-dasharray: 5,4; }
+    .head    { fill: #7be0a4; font-family: 'Hiragino Sans','Yu Gothic UI',sans-serif; font-size: 14px; font-weight: 700; }
+    .head-loop { fill: #ffb454; font-family: 'Hiragino Sans','Yu Gothic UI',sans-serif; font-size: 14px; font-weight: 700; }
+  </style>
+
+  <!-- Boot phase -->
+  <text class="head" x="40" y="32">[boot]</text>
+  <rect class="step boot" x="40" y="44" width="640" height="40"/>
+  <text class="ttl" x="60" y="70">BOARD_InitBootPins → InitBootClocks → uart_init_binary → systick_init_1ms → dummy_audio_seed</text>
+
+  <path class="arrow" d="M360,84 L360,108" marker-end="url(#arr-seq)"/>
+
+  <!-- Main loop header -->
+  <text class="head-loop" x="40" y="124">[main loop]  — 3 秒ごと —</text>
+
+  <!-- Step 1: INFER LED ON -->
+  <rect class="step io" x="40" y="138" width="640" height="38"/>
+  <text class="num" x="62" y="162">1.</text>
+  <text class="ttl" x="90" y="162">INFER LED ON</text>
+  <text class="sub" x="320" y="162">infer_led_on()  (A1 GPIO; v0.1 はコメントアウト)</text>
+
+  <!-- Step 2: servo angles -->
+  <rect class="step compute" x="40" y="184" width="640" height="38"/>
+  <text class="num" x="62" y="208">2.</text>
+  <text class="ttl" x="90" y="208">サーボ角 5 個を seq から決定論的に生成</text>
+  <text class="sub" x="430" y="208">random_servo_angles(seq, servo_deg)  /* 0..90° */</text>
+
+  <!-- Step 3: dummy audio -->
+  <rect class="step compute" x="40" y="230" width="640" height="38"/>
+  <text class="num" x="62" y="254">3.</text>
+  <text class="ttl" x="90" y="254">合成 chirp + 残響 2 秒分を生成（32000 × int16）</text>
+  <text class="sub" x="440" y="254">dummy_audio_generate(buf, 32000, 16000)</text>
+
+  <!-- Step 4: pack frame -->
+  <rect class="step compute" x="40" y="276" width="640" height="38"/>
+  <text class="num" x="62" y="300">4.</text>
+  <text class="ttl" x="90" y="300">ヘッダ + ペイロード + CRC-16 をバッファに詰める</text>
+  <text class="sub" x="440" y="300">ichp_pack_frame(...) → 64038 B</text>
+
+  <!-- Step 5: send -->
+  <rect class="step send" x="40" y="322" width="640" height="38"/>
+  <text class="num" x="62" y="346">5.</text>
+  <text class="ttl" x="90" y="346">LPUART で送出（ブロッキング）</text>
+  <text class="sub" x="380" y="346">LPUART_WriteBlocking(...)  ~556 ms @ 921600 bps</text>
+
+  <!-- Step 6: LED off -->
+  <rect class="step io" x="40" y="368" width="640" height="38"/>
+  <text class="num" x="62" y="392">6.</text>
+  <text class="ttl" x="90" y="392">INFER LED OFF → seq++</text>
+
+  <!-- Step 7: delay -->
+  <rect class="step delay" x="40" y="414" width="640" height="38"/>
+  <text class="num" x="62" y="438">7.</text>
+  <text class="ttl" x="90" y="438">delay_ms(3000)  ── 次サイクルまで __WFI() で待機</text>
+
+  <!-- Vertical arrows between steps 1..7 -->
+  <path class="arrow" d="M360,176 L360,184" marker-end="url(#arr-seq)"/>
+  <path class="arrow" d="M360,222 L360,230" marker-end="url(#arr-seq)"/>
+  <path class="arrow" d="M360,268 L360,276" marker-end="url(#arr-seq)"/>
+  <path class="arrow" d="M360,314 L360,322" marker-end="url(#arr-seq)"/>
+  <path class="arrow" d="M360,360 L360,368" marker-end="url(#arr-seq)"/>
+  <path class="arrow" d="M360,406 L360,414" marker-end="url(#arr-seq)"/>
+
+  <!-- Loop back arrow from step 7 to step 1 -->
+  <path class="loop" d="M40,433 L18,433 L18,157 L40,157" marker-end="url(#arr-loop)"/>
+  <text class="sub" x="6" y="295" fill="#ffb454" transform="rotate(-90 6 295)">loop</text>
+</svg>

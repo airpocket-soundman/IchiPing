@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IchiPing firmware ガイド</title>
+<link rel="stylesheet" href="../docs/style.css">
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../index.html">トップ</a>
+      <a href="../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="../docs/spec.html">仕様書 (spec)</a>
+      <a href="../docs/nn_design.html">NN 設計</a>
+      <a href="../docs/mcu_deployment.html">MCU デプロイ</a>
+      <a href="../docs/bringup.html">実機ブリングアップ</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="../hardware/wiring.html">配線テーブル</a>
+      <a href="../hardware/bom.html">BOM (部品表)</a>
+      <a href="../hardware/display_options.html">ディスプレイ候補</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../firmware/README.html" class="current">firmware ガイド</a>
+      <a href="../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="../docs/vscode_setup.html">VS Code セットアップ</a>
+      <a href="../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a><br>
+    <a href="https://github.com/airpocket-soundman/digikey_project">正本 digikey_project</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../index.html">← IchiPing トップ</a>
+    ／ <a href="../tasks.html">タスクボード</a>
+    ／ <a href="../hardware/wiring.html">配線</a>
+    ／ <a href="../pc/README.html">PC 側</a>
+  </div>
+  <h1>IchiPing firmware</h1>
+  <div class="sub">
+    MCUXpresso 用の最小スケルトン。<b>まだ実ハード（INMP441 マイク / MAX98357A / PCA9685 など）には触らず</b>、
+    合成 chirp + 残響テールを生成して OpenSDA デバッグ UART に流すだけ。
+    PC 側 <a href="../pc/README.html">pc/receiver.py</a> と組み合わせて、シリアル経路と保存パイプラインを先に通すための足場。
+  </div>
+  <div class="meta">
+    <span class="meta-stat active"><span class="num">v0.1</span> 現フェーズ</span>
+    <span class="meta-stat"><span class="num">FRDM-MCXN947</span> ターゲット</span>
+    <span class="meta-stat"><span class="num">MCUXpresso 11.9+</span> 必要</span>
+  </div>
+</header>
+
+<main>
+
+<h2>構成</h2>
+<pre><code>firmware/
+├── include/
+│   ├── ichiping_frame.h   フレームフォーマット定義（PC 側と共有する単一の真実）
+│   └── dummy_audio.h
+├── source/
+│   ├── main.c             SysTick + LPUART + フレーム送信ループ
+│   ├── ichiping_frame.c   ヘッダ・ペイロード・CRC-16/CCITT パッカー
+│   └── dummy_audio.c      合成 chirp 200→8 kHz + xorshift32 ホワイトノイズ残響
+└── README.md / README.html</code></pre>
+
+<h2>ビルド手順（MCUXpresso IDE）</h2>
+<ol>
+  <li><b>MCUXpresso SDK for FRDM-MCXN947</b> をインストール（11.9 以降）</li>
+  <li><code>File > New > Create a new C/C++ Project</code> → <code>frdmmcxn947</code> → 例として <code>driver_examples > lpuart > polling_transfer</code> をベースに作成</li>
+  <li>プロジェクト名を <code>ichiping_dummy</code> などに変更</li>
+  <li>デフォルトの <code>main.c</code> を <a href="source/main.c">source/main.c</a> で置き換え</li>
+  <li>プロジェクトに以下のソースを追加:
+    <ul>
+      <li><a href="source/ichiping_frame.c">source/ichiping_frame.c</a></li>
+      <li><a href="source/dummy_audio.c">source/dummy_audio.c</a></li>
+    </ul>
+  </li>
+  <li><code>Properties &gt; C/C++ Build &gt; Settings &gt; Includes</code> に <code>${ProjDirPath}/../firmware/include</code> を追加（あるいはヘッダを <code>source/</code> 直下にコピー）</li>
+  <li>ビルドして OpenSDA で書き込み → 緑の <code>PWR</code> LED 想定箇所 (Arduino A0) は未配線でも問題なし</li>
+</ol>
+
+<h2>シリアル設定</h2>
+<table>
+  <tbody>
+    <tr><th>ボード</th><td>FRDM-MCXN947、OpenSDA デバッグ COM ポート</td></tr>
+    <tr><th>ボーレート</th><td><b>921600 bps</b>（PC 側もこの値）</td></tr>
+    <tr><th>フレーミング</th><td>8N1、フロー制御なし</td></tr>
+    <tr><th>注意</th><td>バイナリ転送のため <b>端末ソフトでは開かないこと</b>（<a href="../pc/README.html">pc/receiver.py</a> で受ける）</td></tr>
+  </tbody>
+</table>
+
+<h2>動作シーケンス</h2>
+<img src="../docs/img/mcu_sequence_v01.svg" alt="MCU v0.1 メインループ: boot 後、3 秒周期で LED ON → サーボ角生成 → dummy audio 生成 → フレーム化 → UART 送信 → LED OFF → 待機" style="width: 100%; max-width: 720px; display: block; margin: 14px 0;">
+
+<h2>フレーム形式</h2>
+<p>
+  <a href="include/ichiping_frame.h">ichiping_frame.h</a> が単一の真実（single source of truth）。PC 側は
+  <a href="../pc/ichp_frame.py">pc/ichp_frame.py</a> の <code>HEADER_FMT</code> を同期させる。
+  ドリフトすると CRC が通らず無音状態になるため、<b>ヘッダ変更時は必ず両方を更新</b>し
+  <code>python -m unittest pc.test_frame_format -v</code> で 9 テスト全パスを確認。
+</p>
+<img src="../docs/img/frame_format.svg" alt="ICHP フレーム形式: 36 B ヘッダ（magic ICHP / type / reserved / seq / timestamp_ms / n_samples / rate_hz / servo_deg[5]） + N×2 B の int16 PCM ペイロード + 2 B CRC-16/CCITT-FALSE" style="width: 100%; max-width: 760px; display: block; margin: 14px 0;">
+
+<h2>TODO（実ハード接続フェーズ）</h2>
+<p>v0.2 以降の作業。詳細は <a href="../tasks.html">tasks.html</a> の IP-0.2.x を参照。</p>
+<ul>
+  <li><code>BOARD_LED_INFER_*</code> を MCUXpresso Config Tools で定義 → <code>infer_led_on/off()</code> の <code>GPIO_PinWrite</code> を有効化</li>
+  <li><code>dummy_audio_generate</code> → I²S SAI1 RX からの DMA リングバッファ受信に置き換え</li>
+  <li>サーボ角は PCA9685 への現在指令角度を返すように接続</li>
+  <li>OpenSDA UART → <b>USB CDC</b> にアップグレード（フレーム転送 556 ms → 50 ms 程度）</li>
+  <li>ホスト送 → MCU 受向きを足し、PC からのコマンド（収集セッション開始/サーボ角度指定）を受け付ける</li>
+</ul>
+
+<div class="callout">
+  <strong>ホストビルドの可能性:</strong>
+  <code>ichiping_frame.c</code> / <code>dummy_audio.c</code> は MCUXpresso SDK 非依存（<code>&lt;stdint.h&gt;</code>, <code>&lt;string.h&gt;</code>, <code>&lt;math.h&gt;</code> のみ）。
+  gcc / MSVC で .dll/.so 化し、Python から ctypes で呼んで PC 側パッカーと突合テストできる（タスク <a href="../tasks.html">IP-0.1.7</a>）。
+</div>
+
+<h2>参考</h2>
+<ul>
+  <li>バスとピンの割当: <a href="../hardware/wiring.html">hardware/wiring.html</a></li>
+  <li>視覚配線図: <a href="../hardware/wiring.svg">hardware/wiring.svg</a></li>
+  <li>システム全体仕様: <a href="../docs/spec.html">docs/spec.html</a></li>
+  <li>PC 側受信スクリプト: <a href="../pc/README.html">pc/README.html</a></li>
+</ul>
+
+<div class="footer-note">
+  関連ページ:
+  <a href="../index.html">index.html</a> ／
+  <a href="../tasks.html">tasks.html</a> ／
+  <a href="../docs/spec.html">spec.html</a> ／
+  <a href="../hardware/wiring.html">hardware/wiring.html</a> ／
+  <a href="../pc/README.html">pc/README.html</a> ／
+  <a href="../CLAUDE.html">CLAUDE.html</a>
+</div>
+
+</main>
+</body>
+</html>

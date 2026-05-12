@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 360" role="img" aria-label="VS Code workspace layout: MCUXpresso pane for firmware build/flash on the left, Python+Conda terminal for receiver/verify on the right, Test Explorer at the bottom">
+  <title>VS Code ワークスペース構成 (IchiPing)</title>
+  <defs>
+    <marker id="arrVS" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#6ea8fe"/>
+    </marker>
+  </defs>
+  <style>
+    .pane    { fill: #1f242d; stroke: #2a313d; stroke-width: 1.2; rx: 8; }
+    .mcu     { fill: #1f242d; stroke: #ff7ab6; stroke-width: 1.6; rx: 8; }
+    .pc      { fill: #1f242d; stroke: #7be0a4; stroke-width: 1.6; rx: 8; }
+    .test    { fill: #1f242d; stroke: #ffb454; stroke-width: 1.6; rx: 8; }
+    .title-h { fill: #e5e9f0; font-family: 'Hiragino Sans','Yu Gothic UI','Segoe UI',sans-serif; font-size: 14px; font-weight: 700; }
+    .lbl     { fill: #e5e9f0; font-family: 'JetBrains Mono',Consolas,monospace; font-size: 11.5px; font-weight: 600; }
+    .sub     { fill: #8b95a7; font-family: 'JetBrains Mono',Consolas,monospace; font-size: 10.5px; }
+    .arrow   { stroke: #6ea8fe; stroke-width: 1.8; fill: none; }
+    .arr-dat { stroke: #ffb454; stroke-width: 1.8; fill: none; stroke-dasharray: 4,3; }
+    .lab     { fill: #6ea8fe; font-family: 'JetBrains Mono',Consolas,monospace; font-size: 11px; font-weight: 700; }
+    .lab-dat { fill: #ffb454; font-family: 'JetBrains Mono',Consolas,monospace; font-size: 11px; font-weight: 700; }
+  </style>
+
+  <!-- VS Code outer frame -->
+  <rect x="20" y="20" width="780" height="320" rx="10" fill="#11141a" stroke="#2a313d" stroke-width="1.2"/>
+  <text class="sub" x="35" y="38">VS Code — IchiPing.code-workspace</text>
+
+  <!-- Left pane: MCUXpresso (firmware build/flash) -->
+  <rect class="mcu" x="40" y="56" width="350" height="170"/>
+  <text class="title-h" x="215" y="78" text-anchor="middle">MCUXpresso for VS Code</text>
+  <text class="sub" x="215" y="94" text-anchor="middle">(NXP 公式拡張)</text>
+  <text class="lbl" x="60" y="120">📁 firmware/source/main.c</text>
+  <text class="lbl" x="60" y="138">📁 firmware/source/dummy_audio.c</text>
+  <text class="lbl" x="60" y="156">📁 firmware/source/ichiping_frame.c</text>
+  <text class="sub" x="60" y="178">▸ Build → ichiping_dummy.axf</text>
+  <text class="sub" x="60" y="194">▸ Flash via OpenSDA (J17)</text>
+  <text class="sub" x="60" y="210">▸ Debug session — breakpoints, RTOS view</text>
+
+  <!-- Right pane: Python/Conda -->
+  <rect class="pc" x="410" y="56" width="370" height="170"/>
+  <text class="title-h" x="595" y="78" text-anchor="middle">Python (Conda env: ichiping)</text>
+  <text class="sub" x="595" y="94" text-anchor="middle">(Python + Pylance + debugpy)</text>
+  <text class="lbl" x="430" y="120">▶ pc/receiver.py  (serial → WAV+CSV)</text>
+  <text class="lbl" x="430" y="138">▶ pc/verify.py    (CRC + seq + range)</text>
+  <text class="lbl" x="430" y="156">▶ pc/emulator.py  (loopback fake MCU)</text>
+  <text class="sub" x="430" y="178">▸ F5 → launch.json の各 config を実行</text>
+  <text class="sub" x="430" y="194">▸ ターミナル自動 conda activate ichiping</text>
+  <text class="sub" x="430" y="210">▸ Test Explorer に unittest が自動表示</text>
+
+  <!-- Bottom pane: Test Explorer / output -->
+  <rect class="test" x="40" y="240" width="740" height="80"/>
+  <text class="title-h" x="410" y="262" text-anchor="middle">Test Explorer / Output / Serial Monitor</text>
+  <text class="sub" x="60" y="282">▸ pc/test_frame_format.py  (9 tests)   ▸ pc/test_loopback.py  (6 tests)   ▸ pc/test_ctypes_packer.py  (2, gcc 必要)</text>
+  <text class="sub" x="60" y="300">▸ Serial Monitor 拡張で COM ポートの生バイトを目視（バイナリ非対応 → 補助用）</text>
+
+  <!-- Arrows between panes -->
+  <!-- Flash: MCU pane → board (out of frame, but show outward arrow) -->
+  <path class="arrow" d="M260,228 L260,260 M260,260 L60,260" marker-end="url(#arrVS)"/>
+  <text class="lab" x="270" y="244">build &amp; flash</text>
+
+  <!-- Data flow: board emits → PC serial → receiver/verify -->
+  <path class="arr-dat" d="M540,228 L540,255" marker-end="url(#arrVS)"/>
+  <text class="lab-dat" x="550" y="244">UART 921600 frames</text>
+</svg>

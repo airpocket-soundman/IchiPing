@@ -1,0 +1,18 @@
+name: ichiping
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pyserial>=3.5
+  - numpy>=1.26
+  - scipy>=1.11
+  - matplotlib>=3.8
+  - h5py>=3.10               # HDF5 sample storage (v0.3)
+  - pytorch>=2.1             # NN training (v0.5); conda-forge ships CPU build by default
+  - onnx>=1.15               # ONNX export for eIQ Toolkit
+  - onnxruntime>=1.16        # offline NN sanity-check
+  - tqdm>=4.66
+  - pip
+  - pip:
+      - pyroomacoustics>=0.7  # transfer-learning data augmentation (§4 spec) — PyPI only
+      - tensorboard>=2.15     # training visualisation

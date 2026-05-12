@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 380" role="img" aria-label="ICHP frame format: 36-byte header, N samples int16 payload, CRC-16 trailer">
+  <title>ICHP frame format</title>
+  <style>
+    .hdr   { fill: #1f242d; stroke: #6ea8fe; stroke-width: 1.4; }
+    .pld   { fill: #1f242d; stroke: #7be0a4; stroke-width: 1.4; }
+    .crc   { fill: #1f242d; stroke: #ffb454; stroke-width: 1.4; }
+    .field { fill: #181b22; stroke: #2a313d; stroke-width: 1; }
+    .t-grp { fill: #e5e9f0; font-family: 'Hiragino Sans','Yu Gothic UI','Segoe UI',sans-serif; font-size: 13px; font-weight: 700; }
+    .t-fld { fill: #e5e9f0; font-family: 'JetBrains Mono',Consolas,monospace; font-size: 12px; font-weight: 600; }
+    .t-sz  { fill: #8b95a7; font-family: 'JetBrains Mono',Consolas,monospace; font-size: 11px; }
+    .t-cap { fill: #8b95a7; font-family: 'Hiragino Sans','Yu Gothic UI',sans-serif; font-size: 11.5px; }
+    .t-off { fill: #6ea8fe; font-family: 'JetBrains Mono',Consolas,monospace; font-size: 10px; }
+  </style>
+
+  <!-- Header group -->
+  <rect class="hdr" x="30" y="20" width="700" height="22" rx="4"/>
+  <text class="t-grp" x="380" y="36" text-anchor="middle">ICHP Header — 36 B（little-endian, packed）</text>
+
+  <!-- Header fields: 9 fields, total 36 B -->
+  <!-- magic 4B -->
+  <rect class="field" x="30"  y="50" width="60"  height="46"/>
+  <text class="t-fld" x="60"  y="68" text-anchor="middle">magic[4]</text>
+  <text class="t-fld" x="60"  y="84" text-anchor="middle" fill="#7be0a4">"ICHP"</text>
+  <text class="t-sz"  x="60"  y="108" text-anchor="middle">4 B</text>
+  <text class="t-off" x="60"  y="122" text-anchor="middle">off 0</text>
+
+  <!-- type 1B -->
+  <rect class="field" x="90"  y="50" width="44"  height="46"/>
+  <text class="t-fld" x="112" y="68" text-anchor="middle">type</text>
+  <text class="t-fld" x="112" y="84" text-anchor="middle" fill="#7be0a4">0x01</text>
+  <text class="t-sz"  x="112" y="108" text-anchor="middle">1 B</text>
+  <text class="t-off" x="112" y="122" text-anchor="middle">off 4</text>
+
+  <!-- reserved 1B -->
+  <rect class="field" x="134" y="50" width="44"  height="46"/>
+  <text class="t-fld" x="156" y="68" text-anchor="middle">resv</text>
+  <text class="t-fld" x="156" y="84" text-anchor="middle" fill="#8b95a7">0x00</text>
+  <text class="t-sz"  x="156" y="108" text-anchor="middle">1 B</text>
+  <text class="t-off" x="156" y="122" text-anchor="middle">off 5</text>
+
+  <!-- seq 2B -->
+  <rect class="field" x="178" y="50" width="60"  height="46"/>
+  <text class="t-fld" x="208" y="68" text-anchor="middle">seq</text>
+  <text class="t-sz"  x="208" y="84" text-anchor="middle">uint16</text>
+  <text class="t-sz"  x="208" y="108" text-anchor="middle">2 B</text>
+  <text class="t-off" x="208" y="122" text-anchor="middle">off 6</text>
+
+  <!-- ts 4B -->
+  <rect class="field" x="238" y="50" width="80"  height="46"/>
+  <text class="t-fld" x="278" y="68" text-anchor="middle">timestamp_ms</text>
+  <text class="t-sz"  x="278" y="84" text-anchor="middle">uint32</text>
+  <text class="t-sz"  x="278" y="108" text-anchor="middle">4 B</text>
+  <text class="t-off" x="278" y="122" text-anchor="middle">off 8</text>
+
+  <!-- n_samples 2B -->
+  <rect class="field" x="318" y="50" width="78"  height="46"/>
+  <text class="t-fld" x="357" y="68" text-anchor="middle">n_samples</text>
+  <text class="t-sz"  x="357" y="84" text-anchor="middle">uint16</text>
+  <text class="t-sz"  x="357" y="108" text-anchor="middle">2 B</text>
+  <text class="t-off" x="357" y="122" text-anchor="middle">off 12</text>
+
+  <!-- rate 2B -->
+  <rect class="field" x="396" y="50" width="64"  height="46"/>
+  <text class="t-fld" x="428" y="68" text-anchor="middle">rate_hz</text>
+  <text class="t-sz"  x="428" y="84" text-anchor="middle">uint16</text>
+  <text class="t-sz"  x="428" y="108" text-anchor="middle">2 B</text>
+  <text class="t-off" x="428" y="122" text-anchor="middle">off 14</text>
+
+  <!-- servo_deg 20B -->
+  <rect class="field" x="460" y="50" width="270" height="46"/>
+  <text class="t-fld" x="595" y="68" text-anchor="middle">servo_deg[5]</text>
+  <text class="t-sz"  x="595" y="84" text-anchor="middle">float32 ×5 — a, b, c, AB, BC</text>
+  <text class="t-sz"  x="595" y="108" text-anchor="middle">20 B</text>
+  <text class="t-off" x="595" y="122" text-anchor="middle">off 16…35</text>
+
+  <!-- Payload group -->
+  <rect class="pld" x="30" y="160" width="700" height="22" rx="4"/>
+  <text class="t-grp" x="380" y="176" text-anchor="middle">Payload — N × 2 B（int16 PCM, little-endian）</text>
+
+  <rect class="field" x="30" y="190" width="700" height="60"/>
+  <text class="t-fld" x="380" y="216" text-anchor="middle" fill="#7be0a4">int16 samples[n_samples]</text>
+  <text class="t-sz"  x="380" y="234" text-anchor="middle">v0.1: n_samples = 32000 → 64000 B（2 秒 @ 16 kHz）</text>
+
+  <!-- CRC group -->
+  <rect class="crc" x="30" y="270" width="700" height="22" rx="4"/>
+  <text class="t-grp" x="380" y="286" text-anchor="middle">CRC trailer — 2 B</text>
+
+  <rect class="field" x="30" y="300" width="700" height="46"/>
+  <text class="t-fld" x="380" y="326" text-anchor="middle" fill="#ffb454">crc16 — CRC-16/CCITT-FALSE (poly 0x1021, init 0xFFFF) over header + payload</text>
+
+  <!-- Total label -->
+  <text class="t-cap" x="380" y="368" text-anchor="middle">Total = 36 + 2N + 2 B　（v0.1 では 64038 B / フレーム）</text>
+</svg>

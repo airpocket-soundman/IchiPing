@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 220" role="img" aria-label="IchiPing feature pipeline: chirp + recording, matched filter, RIR window, FFT, log magnitude, drop DC, normalise — yielding 1024-bin input">
+  <title>IchiPing 特徴抽出パイプライン (PC ↔ MCU 共通)</title>
+  <defs>
+    <marker id="arrFx" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#6ea8fe"/>
+    </marker>
+  </defs>
+  <style>
+    .stage { fill: #1f242d; stroke: #6ea8fe; stroke-width: 1.4; rx: 8; }
+    .ttl   { fill: #e5e9f0; font-family: 'Hiragino Sans','Yu Gothic UI','Segoe UI',sans-serif; font-size: 12.5px; font-weight: 700; }
+    .sub   { fill: #8b95a7; font-family: 'JetBrains Mono',Consolas,monospace; font-size: 10.5px; }
+    .arrow { stroke: #6ea8fe; stroke-width: 1.8; fill: none; }
+    .shape { fill: #6ea8fe; font-family: 'JetBrains Mono',Consolas,monospace; font-size: 10px; font-weight: 600; }
+    .where { fill: #7be0a4; font-family: 'JetBrains Mono',Consolas,monospace; font-size: 10px; font-weight: 700; }
+  </style>
+
+  <!-- Stage 1: input WAV -->
+  <rect class="stage" x="20" y="40" width="120" height="80"/>
+  <text class="ttl" x="80" y="62" text-anchor="middle">入力 WAV</text>
+  <text class="sub" x="80" y="80" text-anchor="middle">2.0 s @ 16 kHz</text>
+  <text class="sub" x="80" y="94" text-anchor="middle">int16 → float</text>
+  <text class="shape" x="80" y="112" text-anchor="middle">(32000,)</text>
+
+  <path class="arrow" d="M140,80 L170,80" marker-end="url(#arrFx)"/>
+
+  <!-- Stage 2: matched filter -->
+  <rect class="stage" x="170" y="40" width="135" height="80"/>
+  <text class="ttl" x="237" y="62" text-anchor="middle">整合フィルタ</text>
+  <text class="sub" x="237" y="80" text-anchor="middle">FFT( s * chirp[::-1] )</text>
+  <text class="sub" x="237" y="94" text-anchor="middle">→ irFFT</text>
+  <text class="shape" x="237" y="112" text-anchor="middle">x-correlation</text>
+
+  <path class="arrow" d="M305,80 L335,80" marker-end="url(#arrFx)"/>
+
+  <!-- Stage 3: RIR window -->
+  <rect class="stage" x="335" y="40" width="125" height="80"/>
+  <text class="ttl" x="397" y="62" text-anchor="middle">RIR 窓 (128 ms)</text>
+  <text class="sub" x="397" y="80" text-anchor="middle">最初の 2048 サンプル</text>
+  <text class="sub" x="397" y="94" text-anchor="middle">= 直接音 + 初期反射</text>
+  <text class="shape" x="397" y="112" text-anchor="middle">(2048,)</text>
+
+  <path class="arrow" d="M460,80 L490,80" marker-end="url(#arrFx)"/>
+
+  <!-- Stage 4: FFT -->
+  <rect class="stage" x="490" y="40" width="120" height="80"/>
+  <text class="ttl" x="550" y="62" text-anchor="middle">rFFT 2048</text>
+  <text class="sub" x="550" y="80" text-anchor="middle">|X|, drop DC</text>
+  <text class="sub" x="550" y="94" text-anchor="middle">→ 1024 bin</text>
+  <text class="shape" x="550" y="112" text-anchor="middle">(1024,)</text>
+
+  <path class="arrow" d="M610,80 L640,80" marker-end="url(#arrFx)"/>
+
+  <!-- Stage 5: log + norm -->
+  <rect class="stage" x="640" y="40" width="160" height="80"/>
+  <text class="ttl" x="720" y="62" text-anchor="middle">log10 + 平均ゼロ正規化</text>
+  <text class="sub" x="720" y="80" text-anchor="middle">20·log10(|X| + ε)</text>
+  <text class="sub" x="720" y="94" text-anchor="middle">→ 平均減算 / dB-floor</text>
+  <text class="shape" x="720" y="112" text-anchor="middle">(1024,) float32</text>
+
+  <!-- Where it runs labels -->
+  <text class="where" x="80"  y="148" text-anchor="middle">PC: receiver.py / WAV</text>
+  <text class="where" x="237" y="148" text-anchor="middle">PC: features.py</text>
+  <text class="where" x="397" y="148" text-anchor="middle">MCU: PowerQuad</text>
+  <text class="where" x="550" y="148" text-anchor="middle">MCU: PowerQuad-FFT</text>
+  <text class="where" x="720" y="148" text-anchor="middle">MCU: NPU 前処理層</text>
+
+  <!-- Bottom note -->
+  <text class="sub" x="410" y="190" text-anchor="middle" fill="#ffb454">
+    NN 入力までを PC と MCU で同一手順にすると、訓練 ↔ 推論の特徴ドリフトが消える（量子化誤差のみ残る）
+  </text>
+  <text class="sub" x="410" y="208" text-anchor="middle">
+    詳細: pc/training/features.py / docs/mcu_deployment.html §特徴抽出層
+  </text>
+</svg>

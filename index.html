@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IchiPing — 1 マイクで家を聴く</title>
+<link rel="stylesheet" href="docs/style.css">
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="index.html" class="current">トップ</a>
+      <a href="tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="docs/spec.html">仕様書 (spec)</a>
+      <a href="docs/nn_design.html">NN 設計</a>
+      <a href="docs/mcu_deployment.html">MCU デプロイ</a>
+      <a href="docs/bringup.html">実機ブリングアップ</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="hardware/wiring.html">配線テーブル</a>
+      <a href="hardware/bom.html">BOM (部品表)</a>
+      <a href="hardware/display_options.html">ディスプレイ候補</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="firmware/README.html">firmware ガイド</a>
+      <a href="pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="docs/vscode_setup.html">VS Code セットアップ</a>
+      <a href="CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a><br>
+    <a href="https://github.com/airpocket-soundman/digikey_project">正本 digikey_project</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="tasks.html">タスクボード</a>
+    ／ <a href="docs/spec.html">仕様書</a>
+    ／ <a href="docs/nn_design.html">NN 設計</a>
+    ／ <a href="docs/mcu_deployment.html">MCU デプロイ</a>
+    ／ <a href="docs/bringup.html">ブリングアップ</a>
+    ／ <a href="hardware/wiring.html">配線</a>
+    ／ <a href="hardware/bom.html">BOM</a>
+    ／ <a href="hardware/display_options.html">ディスプレイ</a>
+    ／ <a href="firmware/README.html">firmware</a>
+    ／ <a href="pc/README.html">PC</a>
+    ／ <a href="CLAUDE.html">Claude</a>
+  </div>
+  <h1>IchiPing</h1>
+  <div class="sub">
+    <b>イチ発のピンで、家のすべての窓を聴く。</b><br>
+    1 個のマイクと NN で、連続音響空間内の窓・扉の開閉状態を
+    <b>能動 chirp + RIR + 1D CNN</b> で同時推定するエッジ AI デバイス。
+  </div>
+  <div class="meta">
+    <span class="meta-stat active"><span class="num">v0.1</span> 現フェーズ</span>
+    <span class="meta-stat"><span class="num">DigiKey M1</span> 応募予定</span>
+    <span class="meta-stat"><span class="num">ROHM EDGE HACK 2026</span> 応募予定</span>
+  </div>
+</header>
+
+<main>
+
+<div class="callout">
+  <strong>母プロジェクト:</strong>
+  <a href="https://github.com/airpocket-soundman/digikey_project">airpocket-soundman/digikey_project §C4</a>
+  からピボットして専用リポジトリ化。アイデア・仕様の正本は <b>digikey_project 側</b>にあり、本リポはそこから生まれた実装専用のサブプロジェクト。詳細は <a href="CLAUDE.html">CLAUDE.html</a>。
+</div>
+
+<h2>ハードウェア前提（v1）</h2>
+<table>
+  <thead>
+    <tr><th>役割</th><th>部品</th><th>備考</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>MCU</td><td><b>FRDM-MCXN947</b></td><td>NPU + PowerQuad + I²S 多系統</td></tr>
+    <tr><td>マイク</td><td><b>INMP441</b></td><td>I²S MEMS, 24-bit。DC オフセット問題なしで chirp/RIR に好適</td></tr>
+    <tr><td>スピーカ駆動</td><td>MAX98357A I²S DAC</td><td>Class-D 3.2 W</td></tr>
+    <tr><td>サーボ駆動</td><td>PCA9685 + SG90 ×5</td><td>I²C, 16ch PWM</td></tr>
+    <tr><td>表示</td><td>SSD1306 OLED 128×64</td><td>I²C 0x3C</td></tr>
+    <tr><td>補助センサ</td><td>BMP585 気圧</td><td>I²C 0.1 Pa 分解能</td></tr>
+    <tr><td>ストレージ</td><td>microSD</td><td>SPI / FatFs</td></tr>
+    <tr><td>通信</td><td>USB-C CDC（第一案）／ ESP32-WROOM UART（任意）</td><td>v0.1 は OpenSDA UART 921600bps</td></tr>
+    <tr><td>UI</td><td>トグル ×5 + EXEC + LED ×2</td><td>—</td></tr>
+  </tbody>
+</table>
+<p>詳細仕様は <a href="docs/spec.html">docs/spec.html</a>（正本 <code>digikey_project/details/C4-IchiPing.html</code> の完全コピー）参照。</p>
+
+<h2>リポジトリ構成</h2>
+<pre><code>IchiPing/
+├── index.html / README.md       (このページ)
+├── tasks.html                   タスクボード（v0.1〜v2.0）
+├── CLAUDE.html / CLAUDE.md      Claude 向け作業ガイド
+├── .vscode/                     VS Code ワークスペース設定
+│   ├── extensions.json          推奨拡張
+│   ├── settings.json            Python / テスト設定
+│   └── launch.json              F5 起動構成（receiver/verify/emulator/unittest）
+├── docs/
+│   ├── spec.html                C4 仕様書（正本 digikey_project の完全コピー）
+│   ├── nn_design.html           NN 詳細設計
+│   ├── mcu_deployment.html      MCXN947 デプロイ手順（eIQ Toolkit）
+│   ├── bringup.html             実機ブリングアップ手順
+│   ├── vscode_setup.html        VS Code セットアップ
+│   ├── style.css                共通サイドバー / レイアウト CSS
+│   └── img/                     SVG 図（dataflow / frame_format / nn_arch ...）
+├── hardware/
+│   ├── wiring.html / wiring.md  GPIO ↔ デバイス端子マップ
+│   ├── wiring.svg               視覚配線図（バス色分け）
+│   ├── netlist.csv              機械可読ネットリスト
+│   ├── bom.html / bom.csv       部品表（DigiKey M1 想定、必須計 ~$252）
+│   └── display_options.html     ディスプレイ候補比較（SH1106 推奨）
+├── firmware/                    MCUXpresso 用 C コード
+│   ├── README.html / README.md
+│   ├── include/
+│   │   ├── ichiping_frame.h     フレーム形式（PC 側と共有する単一の真実）
+│   │   └── dummy_audio.h
+│   ├── source/
+│   │   ├── main.c               SysTick + LPUART + フレーム送信
+│   │   ├── ichiping_frame.c     ヘッダ + CRC-16/CCITT パッカー
+│   │   └── dummy_audio.c        合成 chirp 200→8 kHz + xorshift32 残響
+│   └── host_build/              gcc/MinGW でホストビルドする足場
+│       ├── Makefile             .so/.dll を作って ctypes 突合テストに使う
+│       └── README.md
+└── pc/                          PC 側 Python（受信・検証・訓練）
+    ├── README.html / README.md
+    ├── ichp_frame.py            フレーム形式の単一情報源（Python 側）
+    ├── receiver.py              シリアル/TCP/file → WAV + CSV ラベル保存
+    ├── emulator.py              実機なしでフレームを生成する偽 MCU
+    ├── verify.py                受信ストリームを 8 項目で検証する CLI
+    ├── test_frame_format.py     ヘッダ/CRC ラウンドトリップ単体テスト（9 件）
+    ├── test_loopback.py         emulator → receiver E2E テスト（6 件）
+    ├── test_ctypes_packer.py    C ↔ Python パッカー突合（gcc 必要、無ければ skip）
+    ├── environment.yml          conda 環境定義（PyTorch / ONNX 含む）
+    ├── requirements.txt         venv 用最小依存
+    └── training/                NN 訓練パイプライン（v0.5）
+        ├── README.md
+        ├── model.py             1D-CNN マルチタスク（~14K params）
+        ├── features.py          WAV → 整合フィルタ → 1024-bin log-mag
+        ├── dataset.py           captures/ PyTorch Dataset
+        └── train.py             訓練 + ベスト保存 + ONNX エクスポート
+</code></pre>
+
+<h2>現在のステータス：<span class="pill warn">v0.1 — シリアル疎通フェーズ</span></h2>
+<p>
+  実ハード（INMP441 / MAX98357A / PCA9685 …）をまだ繋がず、<b>MCU 内で合成した chirp+残響データを PC に流して保存パイプラインを通す</b> ところまでが目標。次に I²S MIC 取り込みに置き換えていく。
+</p>
+
+<img src="docs/img/dataflow_v01.svg" alt="v0.1 データフロー: MCU 内の合成 chirp+残響を UART 921600 bps で PC に送り、WAV と CSV ラベルに保存" style="width: 100%; max-width: 760px; display: block; margin: 14px 0;">
+
+<h2>クイックスタート</h2>
+
+<h3>1. ファーム側</h3>
+<ol>
+  <li>MCUXpresso IDE で <code>frdmmcxn947</code> SDK から LPUART ベースのテンプレートを作成</li>
+  <li><code>source/main.c</code> を <a href="firmware/source/main.c">firmware/source/main.c</a> で置き換え、<code>ichiping_frame.c</code> + <code>dummy_audio.c</code> を追加、Include パスに <code>firmware/include</code> を追加</li>
+  <li>ビルド → OpenSDA で書き込み</li>
+</ol>
+<p>詳細は <a href="firmware/README.html">firmware/README.html</a>。</p>
+
+<h3>2. PC 側（conda 推奨）</h3>
+<pre><code>cd pc
+conda env create -f environment.yml
+conda activate ichiping
+python receiver.py --port COM7 --baud 921600 --out ../captures
+</code></pre>
+<p>OpenSDA の COM ポート番号はデバイスマネージャで確認。venv 派の手順は <a href="pc/README.html">pc/README.html</a>、VS Code でセットアップする場合は <a href="docs/vscode_setup.html">docs/vscode_setup.html</a> 参照（F5 で受信・検証が走る）。</p>
+
+<h3>3. 動作確認用ユニットテスト（実機なし）</h3>
+<pre><code>cd pc
+python -m unittest test_frame_format test_loopback -v
+</code></pre>
+<p>
+  15 テストでカバー — <code>test_frame_format</code> 9 件はヘッダ長 36 B、各フィールドのバイトオフセット、CRC-16/CCITT-FALSE 既知ベクタ、pack→unpack ラウンドトリップ。<code>test_loopback</code> 6 件は <code>emulator.py</code> → <code>receiver.py</code> の E2E、<code>random_servo_angles</code> の C 互換性、chirp 構造。
+  gcc/MinGW があれば <code>test_ctypes_packer.py</code> も走り C ↔ Python パッカーのバイト一致を 2 件検証（無ければ自動 skip）。
+  フレーム形式は MCU と PC で二重定義されており、ドリフトすると CRC が通らず実機通信が全滅するため、実機到着前にここを必ず通す。
+</p>
+
+<h3>4. 受信ストリームの検証（実機到着後 / loopback 両対応）</h3>
+<pre><code># 実機 100 フレームを 8 項目で検証、1 件でも FAIL なら exit 1
+python verify.py --port COM7 --frames 100 --strict
+# loopback: emulator が書いたファイルを検証
+python verify.py --in ../captures/loopback.bin --strict
+</code></pre>
+
+<h2>通信方式</h2>
+<p>
+  <b>v0.1 は OpenSDA UART 921600 bps</b>（最も簡単に立ち上がる構成）。1 フレーム 64 KB を約 556 ms で転送、フレーム周期 3 秒なので帯域は余裕。USB CDC への置換は v0.3 以降のロードマップ項目。
+</p>
+
+<h2>ロードマップ</h2>
+<table>
+  <thead>
+    <tr><th>バージョン</th><th>内容</th><th>状態</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>v0.1</td><td>シリアル疎通 + ダミーデータ保存</td><td><span class="status-badge in_progress">現フェーズ</span></td></tr>
+    <tr><td>v0.2</td><td>I²S DAC（MAX98357A）からの chirp 放射、INMP441 からの実音取り込み</td><td><span class="status-badge pending">予定</span></td></tr>
+    <tr><td>v0.3</td><td>PowerQuad FFT で RIR 抽出、microSD への HDF5 保存</td><td><span class="status-badge pending">予定</span></td></tr>
+    <tr><td>v0.4</td><td>PCA9685 + SG90 ×5、3 部屋模型での自動データ収集</td><td><span class="status-badge pending">予定</span></td></tr>
+    <tr><td>v0.5</td><td>1D CNN autoencoder（INT8）で全閉/開状態の二値分類</td><td><span class="status-badge pending">予定</span></td></tr>
+    <tr><td>v1.0</td><td>OLED 表示 + EXEC ボタンによる手動デモモード完成</td><td><span class="status-badge pending">予定</span></td></tr>
+    <tr><td>v2.0</td><td>ML63Q2557 + Solist-AI への移植（ROHM EDGE HACK 提出版）</td><td><span class="status-badge pending">予定</span></td></tr>
+  </tbody>
+</table>
+<p>詳細タスクは <a href="tasks.html">tasks.html</a> 参照。</p>
+
+<h2>ライセンス</h2>
+<p>未定（DigiKey/ROHM コンテスト応募後に MIT 想定）。</p>
+
+<div class="footer-note">
+  関連ページ:
+  <a href="tasks.html">tasks.html</a> ／
+  <a href="docs/spec.html">docs/spec.html</a> ／
+  <a href="hardware/wiring.html">hardware/wiring.html</a> ／
+  <a href="firmware/README.html">firmware/README.html</a> ／
+  <a href="pc/README.html">pc/README.html</a> ／
+  <a href="CLAUDE.html">CLAUDE.html</a>
+</div>
+
+</main>
+</body>
+</html>

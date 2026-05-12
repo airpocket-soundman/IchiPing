@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IchiPing 配線テーブル</title>
+<link rel="stylesheet" href="../docs/style.css">
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../index.html">トップ</a>
+      <a href="../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="../docs/spec.html">仕様書 (spec)</a>
+      <a href="../docs/nn_design.html">NN 設計</a>
+      <a href="../docs/mcu_deployment.html">MCU デプロイ</a>
+      <a href="../docs/bringup.html">実機ブリングアップ</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="../hardware/wiring.html" class="current">配線テーブル</a>
+      <a href="../hardware/bom.html">BOM (部品表)</a>
+      <a href="../hardware/display_options.html">ディスプレイ候補</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../firmware/README.html">firmware ガイド</a>
+      <a href="../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="../docs/vscode_setup.html">VS Code セットアップ</a>
+      <a href="../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a><br>
+    <a href="https://github.com/airpocket-soundman/digikey_project">正本 digikey_project</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../index.html">← IchiPing トップ</a>
+    ／ <a href="../tasks.html">タスクボード</a>
+    ／ <a href="../docs/spec.html">仕様書</a>
+  </div>
+  <h1>IchiPing 配線テーブル <span class="pill">v1, FRDM-MCXN947 / INMP441 想定</span></h1>
+  <div class="sub">
+    主要な配線図は <a href="wiring.svg">wiring.svg</a>、機械可読ネットリストは <a href="netlist.csv">netlist.csv</a>。
+    本ドキュメントは <b>MCU ピン → 接続先デバイス端子</b> の関係を表形式で整理。
+  </div>
+</header>
+
+<main>
+
+<h2>1. バス割り当てサマリ</h2>
+<table>
+  <thead>
+    <tr><th>バス</th><th>MCU 周辺</th><th>接続先デバイス</th><th>アドレス / CS</th><th>Arduino ヘッダ</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>I²S RX</td><td>SAI1</td><td>INMP441（マイク）</td><td>—</td><td>SAI ブレイクアウト</td></tr>
+    <tr><td>I²S TX</td><td>SAI0</td><td>MAX98357A → 8Ω スピーカ</td><td>—</td><td>SAI ブレイクアウト</td></tr>
+    <tr><td>I²C</td><td>FC4（共有）</td><td>PCA9685 / SSD1306 / BMP585</td><td>0x40 / 0x3C / 0x47</td><td>D14 (SDA), D15 (SCL)</td></tr>
+    <tr><td>SPI</td><td>FC3</td><td>microSD（FatFs）</td><td>CS=D10</td><td>D10–D13</td></tr>
+    <tr><td>UART</td><td>FC2</td><td>ESP32-WROOM（任意）</td><td>—</td><td>D0, D1</td></tr>
+    <tr><td>USB</td><td>USB0</td><td>PC（CDC データ転送）</td><td>—</td><td>オンボード USB-C</td></tr>
+    <tr><td>PWM</td><td>（PCA9685 経由）</td><td>SG90 ×5</td><td>PCA ch 0–4</td><td>—</td></tr>
+    <tr><td>GPIO IN</td><td>—</td><td>トグル ×5 + EXEC ×1 + BMP INT</td><td>内蔵プルアップ</td><td>D2–D9</td></tr>
+    <tr><td>GPIO OUT</td><td>—</td><td>LED ×2</td><td>330Ω 直列</td><td>A0, A1</td></tr>
+  </tbody>
+</table>
+
+<h2>2. MCU ピン → デバイス端子マップ</h2>
+<div class="callout warn">
+  <strong>注:</strong> Arduino ヘッダ番号（D0–D15、A0–A5）は FRDM-MCXN947 ボード上の刻印。実 P-port 番号は <b>MCUXpresso Config Tools の Pins ツール</b>で確定すること（<code>pin_mux.c</code> に反映）。
+</div>
+
+<h3>2.1 I²S（音響系）</h3>
+<table>
+  <thead>
+    <tr><th>Arduino/Header</th><th>MCU 機能</th><th>接続先</th><th>信号</th><th>方向</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>SAI ブレイクアウト</td><td><code>SAI1_RX_BCLK</code></td><td>INMP441</td><td>SCK</td><td>MCU → MIC</td></tr>
+    <tr><td>SAI ブレイクアウト</td><td><code>SAI1_RX_SYNC</code></td><td>INMP441</td><td>WS（LRCLK）</td><td>MCU → MIC</td></tr>
+    <tr><td>SAI ブレイクアウト</td><td><code>SAI1_RX_DATA</code></td><td>INMP441</td><td>SD（DATA）</td><td>MIC → MCU</td></tr>
+    <tr><td>SAI ブレイクアウト</td><td><code>SAI0_TX_BCLK</code></td><td>MAX98357A</td><td>BCLK</td><td>MCU → DAC</td></tr>
+    <tr><td>SAI ブレイクアウト</td><td><code>SAI0_TX_SYNC</code></td><td>MAX98357A</td><td>LRC</td><td>MCU → DAC</td></tr>
+    <tr><td>SAI ブレイクアウト</td><td><code>SAI0_TX_DATA</code></td><td>MAX98357A</td><td>DIN</td><td>MCU → DAC</td></tr>
+  </tbody>
+</table>
+<p>INMP441 の <code>L/R</code> ピンは <b>GND に接続</b>（左チャネル選択）。MAX98357A の <code>GAIN</code> は無接続（9 dB デフォルト）、<code>SD</code> は 3.3V 直結（常時 ON）。</p>
+
+<h3>2.2 I²C（共有バス FC4, 4.7 kΩ プルアップ ×2）</h3>
+<table>
+  <thead>
+    <tr><th>Arduino</th><th>MCU 機能</th><th>I²C アドレス</th><th>デバイス</th><th>役割</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>D14</td><td><code>FC4_I2C_SDA</code></td><td>0x40</td><td>PCA9685</td><td>サーボ PWM ドライバ</td></tr>
+    <tr><td>D15</td><td><code>FC4_I2C_SCL</code></td><td>0x3C</td><td>SSD1306</td><td>OLED 128×64</td></tr>
+    <tr><td>—</td><td>—</td><td>0x47</td><td>BMP585</td><td>気圧センサ（補助）</td></tr>
+  </tbody>
+</table>
+
+<h3>2.3 SPI（microSD, FC3）</h3>
+<table>
+  <thead>
+    <tr><th>Arduino</th><th>MCU 機能</th><th>microSD ピン</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>D10</td><td><code>FC3_SPI_CS</code></td><td>CS</td></tr>
+    <tr><td>D11</td><td><code>FC3_SPI_MOSI</code></td><td>MOSI（DI）</td></tr>
+    <tr><td>D12</td><td><code>FC3_SPI_MISO</code></td><td>MISO（DO）</td></tr>
+    <tr><td>D13</td><td><code>FC3_SPI_SCK</code></td><td>SCK</td></tr>
+  </tbody>
+</table>
+
+<h3>2.4 UART（ESP32, FC2）</h3>
+<table>
+  <thead>
+    <tr><th>Arduino</th><th>MCU 機能</th><th>ESP32 ピン</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>D0</td><td><code>FC2_UART_RX</code></td><td>U0TXD</td></tr>
+    <tr><td>D1</td><td><code>FC2_UART_TX</code></td><td>U0RXD</td></tr>
+  </tbody>
+</table>
+
+<h3>2.5 PWM サーボ（PCA9685 経由）</h3>
+<table>
+  <thead>
+    <tr><th>PCA9685 ch</th><th>機構</th><th>サーボ役割</th><th>角度範囲（仮）</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>PWM0</td><td>窓 a</td><td>開閉</td><td>0°（閉） – 90°（全開）</td></tr>
+    <tr><td>PWM1</td><td>窓 b</td><td>開閉</td><td>0° – 90°</td></tr>
+    <tr><td>PWM2</td><td>窓 c</td><td>開閉</td><td>0° – 90°</td></tr>
+    <tr><td>PWM3</td><td>扉 AB</td><td>開閉</td><td>0° – 90°</td></tr>
+    <tr><td>PWM4</td><td>扉 BC</td><td>開閉</td><td>0° – 90°</td></tr>
+  </tbody>
+</table>
+<p>サーボ電源 V+ は <b>5V 専用レール</b>（MCU の 3.3V から分離）。V+ ↔ GND 間に 1000 µF 電解で突入電流吸収。</p>
+
+<h3>2.6 GPIO 入力（プルアップ有効、アクティブ Low）</h3>
+<table>
+  <thead>
+    <tr><th>Arduino</th><th>用途</th><th>ハード</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>D2</td><td>BMP585 INT（任意）</td><td>センサからのイベント割込</td></tr>
+    <tr><td>D3</td><td>microSD CD（任意）</td><td>カード挿抜検出</td></tr>
+    <tr><td>D4</td><td>トグル: 窓 a</td><td>SPST → GND</td></tr>
+    <tr><td>D5</td><td>トグル: 窓 b</td><td>SPST → GND</td></tr>
+    <tr><td>D6</td><td>トグル: 窓 c</td><td>SPST → GND</td></tr>
+    <tr><td>D7</td><td>トグル: 扉 AB</td><td>SPST → GND</td></tr>
+    <tr><td>D8</td><td>トグル: 扉 BC</td><td>SPST → GND</td></tr>
+    <tr><td>D9</td><td>EXEC ボタン</td><td>モーメンタリ SPST → GND</td></tr>
+  </tbody>
+</table>
+
+<h3>2.7 GPIO 出力（330Ω 直列、アノードコモン）</h3>
+<table>
+  <thead>
+    <tr><th>Arduino</th><th>用途</th><th>LED</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>A0</td><td>PWR LED</td><td>緑、電源 ON で常時点灯</td></tr>
+    <tr><td>A1</td><td>推論中 LED</td><td>橙、推論サイクル実行中点灯</td></tr>
+  </tbody>
+</table>
+
+<h3>2.8 USB（PC データ転送）</h3>
+<table>
+  <thead>
+    <tr><th>機能</th><th>MCU</th><th>用途</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>USB0 D+/D-</td><td>オンボード USB-C</td><td>CDC で生音声・ラベルを PC に送信／プログラム書込</td></tr>
+    <tr><td>VBUS</td><td>USB-C</td><td>5V 電源入力（LiPo 充電も兼用）</td></tr>
+  </tbody>
+</table>
+
+<h2>3. 電源系統</h2>
+<table>
+  <thead>
+    <tr><th>レール</th><th>供給</th><th>消費先</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>5V</td><td>USB-C VBUS or LiPo→ブースト</td><td>MAX98357A VIN、PCA9685 V+（サーボ系）、ESP32</td></tr>
+    <tr><td>3.3V</td><td>FRDM オンボード LDO</td><td>MCU、INMP441、SSD1306、BMP585、microSD、PCA9685 VCC（ロジック）</td></tr>
+    <tr><td>GND</td><td>全共通</td><td>サーボ電源 GND も必ずここに集約</td></tr>
+  </tbody>
+</table>
+<p>LiPo（3.7V, 2000 mAh）+ TP4056 充電 IC で携帯動作可能。USB-C 接続時は USB 給電に切替。</p>
+
+<h2>4. ピン使用統計（参考）</h2>
+<table>
+  <thead>
+    <tr><th>種別</th><th>使用数</th><th>余裕</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>I²S（SAI 占有）</td><td>6 ピン</td><td>SAI0/1 専有なので干渉なし</td></tr>
+    <tr><td>I²C（共有）</td><td>2 ピン</td><td>4 デバイス目以上追加可</td></tr>
+    <tr><td>SPI</td><td>4 ピン</td><td>CS を増やせばデバイス追加可</td></tr>
+    <tr><td>UART</td><td>2 ピン</td><td>別 FC で増設可</td></tr>
+    <tr><td>GPIO</td><td>9 ピン</td><td>FRDM 拡張ヘッダで多数余り</td></tr>
+    <tr><td><b>合計</b></td><td><b>23 ピン</b></td><td>Arduino ヘッダ 36 本中</td></tr>
+  </tbody>
+</table>
+
+<h2>5. 配線手順の推奨順序</h2>
+<ol>
+  <li><b>電源</b>（3.3V/5V/GND）を先に配り、テスタで各レール電圧を確認</li>
+  <li><b>I²C</b> を結線 → PCA9685 → SSD1306 → BMP585 を <code>i2cdetect</code> 相当のコードで全アドレス確認（0x40 / 0x3C / 0x47）</li>
+  <li><b>GPIO 入力</b>（トグル + EXEC）を結線 → MCU ポーリングで各ビット確認</li>
+  <li><b>GPIO 出力</b>（LED）を結線 → ブリンクテスト</li>
+  <li><b>SPI microSD</b> を結線 → FatFs マウント、ファイル書き込みテスト</li>
+  <li><b>I²S DAC</b>（MAX98357A）→ 440 Hz サイン波テスト、スピーカから音が出ることを確認</li>
+  <li><b>I²S MIC</b>（INMP441）→ 16 kHz 録音 → microSD に WAV 保存、PC で再生確認</li>
+  <li><b>PCA9685 → SG90 ×5</b> → スイープテスト、各サーボの角度キャリブレーション</li>
+  <li><b>ESP32 UART</b>（任意） → AT コマンド疎通</li>
+  <li><b>USB CDC</b> → PC との双方向通信テスト（<a href="../firmware/README.html">firmware/</a> と <a href="../pc/README.html">pc/</a> のスケルトン使用）</li>
+</ol>
+
+<h2>6. 既知の注意点</h2>
+<div class="callout warn">
+  <ul style="margin: 0;">
+    <li><b>MAX98357A → INMP441 の機械クロストーク</b>: スピーカと MEMS マイクは筐体内で 40 mm 以上離し、防振フォームで挟む（spec.html §7.5 参照）</li>
+    <li><b>サーボ動作音の chirp 混入</b>: サーボ完了後 500 ms 以上の待機を入れてから chirp 放射（<a href="../docs/spec.html">spec.html §7.5</a> シーケンス）</li>
+    <li><b>I²C プルアップは 1 セットのみ</b>: PCA9685 / SSD1306 / BMP585 のモジュールに既存プルアップがある場合、バス上で合成されて値が変わるので注意（多くのブレイクアウトに 10 kΩ が乗っている）</li>
+    <li><b>3.3V ロジック で 5V サーボ電源</b>: PCA9685 のオープンドレイン PWM 出力は 5V トレラントなので問題なし</li>
+  </ul>
+</div>
+
+<div class="footer-note">
+  関連ページ:
+  <a href="../index.html">index.html</a> ／
+  <a href="../tasks.html">tasks.html</a> ／
+  <a href="../docs/spec.html">spec.html</a> ／
+  <a href="wiring.svg">wiring.svg</a> ／
+  <a href="netlist.csv">netlist.csv</a> ／
+  <a href="../firmware/README.html">firmware/README.html</a>
+</div>
+
+</main>
+</body>
+</html>

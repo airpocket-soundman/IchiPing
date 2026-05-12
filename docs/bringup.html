@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>v0.1 実機ブリングアップ手順</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../index.html">トップ</a>
+      <a href="../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="../docs/spec.html">仕様書 (spec)</a>
+      <a href="../docs/nn_design.html">NN 設計</a>
+      <a href="../docs/mcu_deployment.html">MCU デプロイ</a>
+      <a href="../docs/bringup.html" class="current">実機ブリングアップ</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="../hardware/wiring.html">配線テーブル</a>
+      <a href="../hardware/bom.html">BOM (部品表)</a>
+      <a href="../hardware/display_options.html">ディスプレイ候補</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../firmware/README.html">firmware ガイド</a>
+      <a href="../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="../docs/vscode_setup.html">VS Code セットアップ</a>
+      <a href="../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a><br>
+    <a href="https://github.com/airpocket-soundman/digikey_project">正本 digikey_project</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../index.html">← IchiPing トップ</a>
+    ／ <a href="../tasks.html">タスクボード</a>
+    ／ <a href="../firmware/README.html">firmware</a>
+    ／ <a href="../pc/README.html">PC</a>
+  </div>
+  <h1>v0.1 実機ブリングアップ手順</h1>
+  <div class="sub">
+    FRDM-MCXN947 が手元に届いたときに、<b>5 分で v0.1 シリアル疎通を完了</b>させるためのチェックリスト。
+    タスク <a href="../tasks.html">IP-0.1.8</a> の完了条件「CRC OK 100% で 5 分連続動作」をここで満たす。
+  </div>
+  <div class="meta">
+    <span class="meta-stat pending"><span class="num">IP-0.1.8</span> 実機ブロック中</span>
+    <span class="meta-stat"><span class="num">~30 分</span> 想定所要</span>
+  </div>
+</header>
+
+<main>
+
+<h2>事前準備（実機を待つ間にやっておくこと）</h2>
+<ol>
+  <li><b>MCUXpresso IDE 11.9+ を導入</b>し、<code>frdmmcxn947</code> SDK をダウンロード</li>
+  <li>本リポを clone、<code>firmware/source/main.c</code> を含む空プロジェクトをビルドできることを確認</li>
+  <li>PC 側で <code>python -m unittest test_frame_format test_loopback -v</code> が全 PASS することを確認（実機なしで実証可能なソフト品質はここまで担保）</li>
+  <li>OpenSDA J17 用 micro-USB ケーブル（<b>充電専用は不可</b>、データ通信対応）を確保</li>
+  <li>余裕があれば MinGW-w64 を入れて <code>firmware/host_build && make</code> を実行 → <code>test_ctypes_packer</code> も走るようになる</li>
+</ol>
+
+<h2>ブリングアップ判断フロー</h2>
+<img src="img/bringup_flow.svg" alt="v0.1 実機ブリングアップ判断フロー: ファーム書込 → COM 確認 → PWR LED → receiver.py 起動 → フレーム到着 → CRC OK 連続 100 で完了" style="width: 100%; max-width: 760px; display: block; margin: 16px 0;">
+
+<h2>ステップ詳細</h2>
+
+<h3>① ファーム書込</h3>
+<pre><code># MCUXpresso IDE で:
+#   1) New Project → frdmmcxn947 → driver_examples/lpuart/polling_transfer をベース
+#   2) main.c を firmware/source/main.c で置き換え
+#   3) firmware/source/ichiping_frame.c, dummy_audio.c を追加
+#   4) Includes に firmware/include を追加
+#   5) Build → Debug As → OpenSDA で Flash
+</code></pre>
+
+<h3>② COM ポート確認</h3>
+<p>Windows: デバイスマネージャ → 「ポート (COM と LPT)」配下に <code>OpenSDA - CDC Serial Port (COMx)</code>。番号をメモ。Linux/macOS: <code>ls /dev/ttyACM*</code>。</p>
+
+<h3>③ PWR LED 点灯確認</h3>
+<table>
+  <thead><tr><th>症状</th><th>原因</th><th>対処</th></tr></thead>
+  <tbody>
+    <tr><td>PWR LED 消灯</td><td>USB ケーブルが充電専用</td><td>データ通信対応ケーブルに交換</td></tr>
+    <tr><td>OpenSDA LED が点滅し続ける</td><td>SDA ファームの bootloader モード</td><td>J17 から繋ぎ直し / Reset ボタン押下</td></tr>
+    <tr><td>COM 番号が見えない</td><td>OpenSDA ドライバ未導入</td><td>NXP の <code>opensda-driver</code> を入れる（Windows のみ）</td></tr>
+  </tbody>
+</table>
+
+<h3>④ receiver.py 起動</h3>
+<pre><code>cd pc
+conda activate ichiping        # or .\.venv\Scripts\Activate.ps1
+python receiver.py --port COMx --baud 921600 --out ../captures --max-frames 100
+</code></pre>
+
+<p>期待される出力（3 秒に 1 行ずつ）:</p>
+<pre><code>opening serial:COM7@921600
+writing to D:\GitHub\IchiPing\captures
+waiting for frames... (Ctrl+C to stop)
+[     0] t=    3001ms sr=16000 N=32000 servos=[ 17.0, 65.0, 82.0,  3.0, 41.0] CRC=OK (0.33 fps)
+[     1] t=    6002ms sr=16000 N=32000 servos=[ 33.0, 12.0,  7.0, 88.0, 56.0] CRC=OK (0.33 fps)
+...
+[    99] t=  300010ms sr=16000 N=32000 servos=[ 22.0, 81.0, 14.0, 47.0, 60.0] CRC=OK (0.33 fps)
+saved 100 frames (bad CRC: 0) to ..\captures
+</code></pre>
+
+<h3>⑤ / ⑥ フレーム取得と CRC 検証</h3>
+<table>
+  <thead><tr><th>症状</th><th>原因</th><th>対処</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>PermissionError</code> で開けない</td>
+      <td>他プログラムが COM を占有</td>
+      <td>TeraTerm / MCUXpresso のターミナルを閉じる</td>
+    </tr>
+    <tr>
+      <td><code>frame error: only got X/Y bytes</code></td>
+      <td>ボーレート不一致</td>
+      <td>firmware 側 <code>ICHP_UART_BAUD</code> を確認</td>
+    </tr>
+    <tr>
+      <td><code>CRC BAD</code> が定期的</td>
+      <td>バッファ溢れ</td>
+      <td>
+        ・<code>fc.serial_rx_buffer_size</code> を 1 MB に拡大<br>
+        ・firmware の <code>ICHP_FRAME_PERIOD_MS</code> を 5000 に伸ばす
+      </td>
+    </tr>
+    <tr>
+      <td>何も来ない（タイムアウト連発）</td>
+      <td>ファームが走っていない / TX ピン未接続</td>
+      <td>PRINTF の起動メッセージが端末に出るか別 COM で確認（バイナリ COM と PRINTF COM は別経路）</td>
+    </tr>
+    <tr>
+      <td>「frame_error: bad magic」が連発</td>
+      <td>UART パリティ / フレーム同期ずれ</td>
+      <td>MCU 側設定が 8N1 / フロー制御なしか確認</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>完了基準（IP-0.1.8 のチェックボックス）</h2>
+<div class="callout">
+  <ul style="margin: 0;">
+    <li>☐ <code>receiver.py --max-frames 100</code> が <b>bad CRC = 0</b> で完走</li>
+    <li>☐ <code>captures/labels.csv</code> に 100 行記録される</li>
+    <li>☐ <code>captures/frame_000099.wav</code> を音声プレイヤで再生し、200→8 kHz のスイープ + 残響が聞こえる</li>
+    <li>☐ <code>seq</code> 列が 0〜99 まで <b>欠番なし</b></li>
+  </ul>
+</div>
+
+<p>すべて埋まったら <a href="../tasks.html">tasks.html</a> の IP-0.1.8 を <code>completed</code> に。次は v0.2（INMP441 接続）に進む。</p>
+
+<h2>収集データの軽い目視確認</h2>
+<pre><code># Python REPL で WAV のスペクトログラム確認（実機チェック後）
+import wave, numpy as np, matplotlib.pyplot as plt
+with wave.open("captures/frame_000050.wav", "rb") as wf:
+    raw = wf.readframes(wf.getnframes())
+x = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+plt.specgram(x, NFFT=512, Fs=16000); plt.show()
+</code></pre>
+<p>200→8 kHz のスイープ + 指数減衰ノイズが見えれば dummy_audio_generate が正常に動作。</p>
+
+<div class="footer-note">
+  関連ページ:
+  <a href="../index.html">index.html</a> ／
+  <a href="../tasks.html">tasks.html</a> ／
+  <a href="../firmware/README.html">firmware/README.html</a> ／
+  <a href="../pc/README.html">pc/README.html</a> ／
+  <a href="../hardware/wiring.html">hardware/wiring.html</a>
+</div>
+
+</main>
+</body>
+</html>

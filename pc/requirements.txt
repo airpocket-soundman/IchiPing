@@ -1,0 +1,13 @@
+pyserial>=3.5
+
+# Optional — the receiver-only path works with just pyserial. Add these
+# when you want to train, analyse, or export NNs (see environment.yml for
+# the conda-recommended path that bundles the same packages).
+numpy>=1.26
+scipy>=1.11
+matplotlib>=3.8
+h5py>=3.10
+torch>=2.1
+onnx>=1.15
+onnxruntime>=1.16
+tqdm>=4.66

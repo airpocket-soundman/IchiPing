@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VS Code セットアップ — IchiPing</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../index.html">トップ</a>
+      <a href="../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="../docs/spec.html">仕様書 (spec)</a>
+      <a href="../docs/nn_design.html">NN 設計</a>
+      <a href="../docs/mcu_deployment.html">MCU デプロイ</a>
+      <a href="../docs/bringup.html">実機ブリングアップ</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="../hardware/wiring.html">配線テーブル</a>
+      <a href="../hardware/bom.html">BOM (部品表)</a>
+      <a href="../hardware/display_options.html">ディスプレイ候補</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../firmware/README.html">firmware ガイド</a>
+      <a href="../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="../docs/vscode_setup.html" class="current">VS Code セットアップ</a>
+      <a href="../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a><br>
+    <a href="https://github.com/airpocket-soundman/digikey_project">正本 digikey_project</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../index.html">← IchiPing トップ</a>
+    ／ <a href="../tasks.html">タスクボード</a>
+    ／ <a href="bringup.html">ブリングアップ</a>
+    ／ <a href="mcu_deployment.html">MCU デプロイ</a>
+  </div>
+  <h1>VS Code セットアップ手順</h1>
+  <div class="sub">
+    本リポは <b>MCU 側ビルド・PC 側スクリプト・テスト・デバッグ</b>をすべて
+    VS Code 1 つで扱う前提で <code>.vscode/</code> を同梱している。
+    本ページでは <b>Conda 環境の引き継ぎ</b>、<b>NXP の MCUXpresso 拡張導入</b>、
+    <b>F5 で receiver/verify が起動するまで</b>を 1 通りカバー。
+  </div>
+  <div class="meta">
+    <span class="meta-stat"><span class="num">Conda</span> + ichiping env</span>
+    <span class="meta-stat"><span class="num">MCUXpresso</span> for VS Code</span>
+    <span class="meta-stat"><span class="num">F5</span> で実行</span>
+  </div>
+</header>
+
+<main>
+
+<h2>ワークスペース全体像</h2>
+<img src="img/vscode_workspace.svg" alt="VS Code ワークスペース構成: 左に MCUXpresso for VS Code（firmware ビルド・書込）、右に Python+Conda（receiver/verify/emulator）、下に Test Explorer。ボード ↔ PC は UART 921600 で繋がる" style="width: 100%; max-width: 820px; display: block; margin: 16px 0;">
+
+<h2>0. 事前準備</h2>
+<table>
+  <thead><tr><th>必要なもの</th><th>確認コマンド</th><th>無ければ</th></tr></thead>
+  <tbody>
+    <tr><td>VS Code 1.85+</td><td><code>code --version</code></td><td><a href="https://code.visualstudio.com/">公式</a>からインストール</td></tr>
+    <tr><td>Miniconda / Anaconda</td><td><code>conda --version</code></td><td><a href="https://docs.conda.io/en/latest/miniconda.html">Miniconda</a> 推奨。確認済の置き場: <code>C:\ProgramData\anaconda3\</code> など</td></tr>
+    <tr><td>Git</td><td><code>git --version</code></td><td>—</td></tr>
+    <tr><td>MCUXpresso SDK for FRDM-MCXN947</td><td>SDK Builder で取得</td><td><a href="https://mcuxpresso.nxp.com/">mcuxpresso.nxp.com</a></td></tr>
+    <tr><td>OpenSDA ドライバ (Windows のみ)</td><td>デバイスマネージャに <code>OpenSDA - CDC Serial Port</code></td><td>NXP <code>opensda-driver</code></td></tr>
+  </tbody>
+</table>
+
+<h2>1. リポを開く</h2>
+<pre><code>git clone https://github.com/airpocket-soundman/IchiPing.git
+cd IchiPing
+code .</code></pre>
+
+<p>VS Code が <code>.vscode/extensions.json</code> を検出し、右下に「Do you want to install the recommended extensions?」と聞いてくる。<b>Install All</b> をクリック。</p>
+
+<h3>同梱されている設定</h3>
+<table>
+  <thead><tr><th>ファイル</th><th>役割</th></tr></thead>
+  <tbody>
+    <tr><td><a href="../.vscode/extensions.json"><code>.vscode/extensions.json</code></a></td><td>推奨拡張リスト（Python / Pylance / debugpy / MCUXpresso / Cortex-Debug / C++ / Jupyter / YAML / Hex Editor）</td></tr>
+    <tr><td><a href="../.vscode/settings.json"><code>.vscode/settings.json</code></a></td><td>Python テスト発見、analysis paths、フォーマッタ、Files/Watcher 除外</td></tr>
+    <tr><td><a href="../.vscode/launch.json"><code>.vscode/launch.json</code></a></td><td>F5 から receiver/verify/emulator/unittest を実行するための 7 構成</td></tr>
+  </tbody>
+</table>
+
+<h2>2. Conda 環境を作る／引き継ぐ</h2>
+
+<h3>2.1 まだ環境が無い場合（新規作成）</h3>
+<p>VS Code の<b>統合ターミナル</b>（<kbd>Ctrl</kbd>+<kbd>`</kbd>）を開いて:</p>
+<pre><code>conda env create -f pc/environment.yml
+# → 'ichiping' という名前の env が作られる（数 GB のダウンロード、10〜15 分）
+conda activate ichiping</code></pre>
+
+<div class="callout">
+  <strong>確認済み:</strong> <code>conda env create --dry-run -f pc/environment.yml</code> を実行して exit 0 になることを Windows 上で確認済（conda-forge から pytorch 2.10 / onnx 1.21 / onnxruntime 1.25 等が解決される）。<code>pyroomacoustics</code> は PyPI 経由なので <code>pip:</code> サブセクションに置いてある。
+</div>
+
+<h3>2.2 既存環境を別マシンに引き継ぐ場合</h3>
+<p>環境の中身（バージョン pin 込み）を export → 別マシンで再現する手順:</p>
+<pre><code># 旧マシン側で固定したい完全な状態を吐き出す
+conda activate ichiping
+conda env export --no-builds &gt; pc/environment-lock.yml
+
+# 新マシン側で復元
+conda env create -f pc/environment-lock.yml</code></pre>
+
+<p>
+  <code>--no-builds</code> を付けると Linux/macOS/Windows 間でも比較的そのまま動く（CUDA ビルドの違いはあり得る）。完全 pin したい場合は <code>--no-builds</code> を外す。
+</p>
+
+<h3>2.3 Pip 追加分を export したい場合</h3>
+<pre><code># conda + pip の両方を保存
+conda env export &gt; pc/env-conda.yml
+pip freeze &gt; pc/env-pip.txt</code></pre>
+
+<h2>3. VS Code から Conda 環境を選ぶ</h2>
+
+<ol>
+  <li><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> → <code>Python: Select Interpreter</code></li>
+  <li>リストから <code>Python 3.11.x ('ichiping')</code> を選ぶ — Conda 拡張が自動検出</li>
+  <li>右下のステータスバーに <code>{} Python 3.11.x ('ichiping')</code> と表示されれば OK</li>
+</ol>
+
+<h3>3.1 ターミナル起動時の自動 activate</h3>
+<p>
+  <code>.vscode/settings.json</code> で <code>python.terminal.activateEnvironment: true</code> を設定済。
+  新しい統合ターミナルを開くと自動で <code>conda activate ichiping</code> が走る。
+  プロンプトの先頭に <code>(ichiping)</code> と付くことで確認できる。
+</p>
+
+<h3>3.2 動かない場合のフォールバック</h3>
+<p>初回だけ手動で:</p>
+<pre><code>conda init powershell    # PowerShell 用フック登録
+# VS Code を再起動 → ターミナルが自動 activate するようになる</code></pre>
+
+<p>それでもダメなら <code>.vscode/settings.json</code> の以下のコメントアウト行を有効化し、自分の Anaconda パスに合わせる:</p>
+<pre><code>// "python.defaultInterpreterPath": "C:/ProgramData/anaconda3/envs/ichiping/python.exe"</code></pre>
+
+<h2>4. MCU 側 — firmware のビルド・書込</h2>
+
+<p>MCUXpresso for VS Code 拡張 (<code>nxp-mcuxpresso.mcuxpresso</code>) を使う:</p>
+
+<ol>
+  <li>左サイドバーの <b>MCUXpresso</b> アイコンをクリック</li>
+  <li><b>Import Repository</b> → <code>frdmmcxn947</code> SDK を選択</li>
+  <li><b>Import Example</b> → <code>driver_examples/lpuart/polling_transfer</code> をベースに <code>ichiping_dummy</code> プロジェクト作成</li>
+  <li>生成された <code>main.c</code> を <a href="../firmware/source/main.c">firmware/source/main.c</a> で置き換え</li>
+  <li><a href="../firmware/source/ichiping_frame.c">ichiping_frame.c</a> と <a href="../firmware/source/dummy_audio.c">dummy_audio.c</a> を <code>source/</code> に追加</li>
+  <li>Include path に <code>${workspaceFolder}/firmware/include</code> を追加</li>
+  <li><b>Build</b> ボタン（または <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd>）</li>
+  <li>USB ケーブル接続後、<b>Debug</b> アイコン → OpenSDA で書込</li>
+</ol>
+
+<p>詳細手順とトラブルシュートは <a href="../firmware/README.html">firmware/README.html</a> と <a href="bringup.html">bringup.html</a> 参照。</p>
+
+<h2>5. PC 側 — F5 で receiver / verify を起動</h2>
+
+<p><a href="../.vscode/launch.json"><code>.vscode/launch.json</code></a> には 7 つの構成を入れてある。<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>D</kbd> でデバッグサイドバーを開き、上のドロップダウンから選んで <kbd>F5</kbd>。</p>
+
+<table>
+  <thead><tr><th>構成名</th><th>用途</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>PC: receiver — serial (COM7)</code></td>
+      <td>実機の COM7 から 20 フレーム受信して WAV+CSV 保存。実機到着後の本番動作確認</td>
+    </tr>
+    <tr>
+      <td><code>PC: verify — serial (COM7, strict 100 frames)</code></td>
+      <td>実機から 100 フレーム受信 → 8 項目すべて PASS かチェック → 1 件でも FAIL なら exit 1（CI 向き）</td>
+    </tr>
+    <tr>
+      <td><code>PC: verify — file loopback</code></td>
+      <td>事前に書き出した <code>captures/loopback.bin</code> を検証（実機不要）</td>
+    </tr>
+    <tr>
+      <td><code>PC: emulator — write 20 frames to file</code></td>
+      <td>偽 MCU として 20 フレームをファイルに書き出す</td>
+    </tr>
+    <tr>
+      <td><code>PC: emulator — TCP server (port 5000)</code></td>
+      <td>偽 MCU を TCP サーバとして起動。別構成の <code>verify --tcp</code> から接続して E2E 確認</td>
+    </tr>
+    <tr>
+      <td><code>PC: run all unittests</code></td>
+      <td><code>pc/</code> 配下の <code>test_*.py</code> を unittest で全部走らせる</td>
+    </tr>
+    <tr>
+      <td><code>PC: training — smoke run model.py</code></td>
+      <td>1D-CNN のパラメータ数と出力 shape を確認（requires <code>conda activate ichiping</code>）</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>5.1 ハード無しで全部通すレシピ</h3>
+<pre><code># 1) emulator がフレームをファイルに書く（F5 → "PC: emulator — write 20 frames to file"）
+# 2) verify がそれを読んで検証（F5 → "PC: verify — file loopback"）
+
+# 期待される出力:
+#   ==================================================================
+#   Verification summary   (20 frame(s) in 0.X s)
+#   ==================================================================
+#     CODE  NAME                              PASS  FAIL  STATUS
+#     M2    type byte = 0x01                    20     0  PASS
+#     C1    CRC-16/CCITT-FALSE                  20     0  PASS
+#     S1    seq monotonic (+1, wrap)            20     0  PASS
+#     T1    timestamp_ms monotonic              20     0  PASS
+#     N1    n_samples == expected               20     0  PASS
+#     R1    rate_hz == expected                 20     0  PASS
+#     V1    servo angles in [0, 90]             20     0  PASS
+#     P1    samples in int16 range              20     0  PASS
+#   ==================================================================
+#     result: ALL CHECKS PASSED</code></pre>
+
+<h2>6. テストエクスプローラ</h2>
+
+<p>サイドバーのフラスコ型アイコン（Testing）を開くと、<code>pc/test_*.py</code> が自動的に表示される。各テストの ▶ を押せば個別実行、再生ボタンで全実行。</p>
+
+<table>
+  <thead><tr><th>テストファイル</th><th>件数</th><th>備考</th></tr></thead>
+  <tbody>
+    <tr><td><code>pc/test_frame_format.py</code></td><td>9</td><td>ヘッダ層 + CRC ラウンドトリップ</td></tr>
+    <tr><td><code>pc/test_loopback.py</code></td><td>6</td><td>E2E（emulator → receiver の往復）</td></tr>
+    <tr><td><code>pc/test_ctypes_packer.py</code></td><td>2</td><td>gcc/MinGW があれば実行、無ければ skip</td></tr>
+  </tbody>
+</table>
+
+<h2>7. デバッグの基本パターン</h2>
+
+<h3>7.1 receiver / verify にブレークポイント</h3>
+<ul>
+  <li>左マージンをクリックしてブレーク → <kbd>F5</kbd> → 該当行で停止</li>
+  <li>変数 panel で <code>frame</code> dict の中身、<code>state</code> の前 seq などを観察</li>
+  <li><kbd>F10</kbd> ステップオーバー / <kbd>F11</kbd> ステップイン</li>
+</ul>
+
+<h3>7.2 MCU 側にブレークポイント</h3>
+<ul>
+  <li>MCUXpresso の <b>Debug</b> 構成で起動 → <code>main.c</code> 内の行に左マージンクリックでブレーク</li>
+  <li>OpenSDA 経由でハードリセットから半自動で停止</li>
+  <li>Cortex-Debug 拡張で SVD レジスタや SAI/LPUART のステータスも見える</li>
+</ul>
+
+<h2>8. トラブルシュート</h2>
+
+<table>
+  <thead><tr><th>症状</th><th>原因</th><th>対処</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>ターミナルで <code>conda</code> コマンドが見つからない</td>
+      <td>Conda の初期化が PowerShell に通っていない</td>
+      <td><code>conda init powershell</code> → VS Code 再起動</td>
+    </tr>
+    <tr>
+      <td>Select Interpreter に <code>ichiping</code> が出ない</td>
+      <td>環境作成が完了していない or Python 拡張が古い</td>
+      <td><code>conda env list</code> で確認 → 拡張更新 → VS Code 再起動</td>
+    </tr>
+    <tr>
+      <td>F5 で <code>ModuleNotFoundError: No module named 'serial'</code></td>
+      <td>インタプリタが Conda env でなく system Python になっている</td>
+      <td>ステータスバー Python バージョン名をクリック → <code>ichiping</code> を選び直し</td>
+    </tr>
+    <tr>
+      <td>F5 で COM ポートが開けない</td>
+      <td>TeraTerm 等が掴んでいる / ドライバ未導入</td>
+      <td>他端末を閉じる、デバイスマネージャで COMx の有無確認</td>
+    </tr>
+    <tr>
+      <td>Pylance が <code>from receiver import …</code> を解決しない</td>
+      <td>analysis paths が未設定</td>
+      <td><code>.vscode/settings.json</code> の <code>python.analysis.extraPaths</code> に <code>${workspaceFolder}/pc</code> がある事を確認</td>
+    </tr>
+    <tr>
+      <td>MCUXpresso for VS Code が SDK を認識しない</td>
+      <td>SDK Builder からの取得忘れ / 解凍位置のミス</td>
+      <td>拡張内 <b>Manage Installed SDKs</b> → 解凍済 zip を Import</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>9. 関連ドキュメント</h2>
+<ul>
+  <li><a href="../pc/README.html">pc/README.html</a> — Python スクリプト個別の使い方</li>
+  <li><a href="../firmware/README.html">firmware/README.html</a> — MCUXpresso でのプロジェクト作成と書込</li>
+  <li><a href="bringup.html">bringup.html</a> — 実機接続時のチェックリスト</li>
+  <li><a href="mcu_deployment.html">mcu_deployment.html</a> — eIQ Toolkit + MCU 推論デプロイ</li>
+  <li><a href="../tasks.html">tasks.html</a> — タスクボード（v0.1〜v2.0）</li>
+</ul>
+
+<div class="footer-note">
+  関連ページ:
+  <a href="../index.html">index.html</a> ／
+  <a href="../tasks.html">tasks.html</a> ／
+  <a href="../pc/README.html">pc/README.html</a> ／
+  <a href="../firmware/README.html">firmware/README.html</a> ／
+  <a href="bringup.html">bringup.html</a>
+</div>
+
+</main>
+</body>
+</html>

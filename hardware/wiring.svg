@@ -1,0 +1,311 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 960" font-family="'Hiragino Sans','Yu Gothic UI','Segoe UI',sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#8b95a7"/>
+    </marker>
+    <style>
+      .bg { fill: #0f1115; }
+      .panel { fill: #181b22; stroke: #2a313d; stroke-width: 1.5; }
+      .mcu { fill: #1f242d; stroke: #6ea8fe; stroke-width: 2.2; }
+      .label { fill: #e5e9f0; font-size: 13px; font-weight: 600; }
+      .sub { fill: #8b95a7; font-size: 11px; }
+      .pin { fill: #c8cfdd; font-size: 10.5px; font-family: 'Consolas','SF Mono',monospace; }
+      .title { fill: #e5e9f0; font-size: 18px; font-weight: 700; }
+      .header { fill: #6ea8fe; font-size: 12.5px; font-weight: 700; }
+      .bus-i2s { stroke: #ffb454; stroke-width: 2.2; fill: none; }
+      .bus-i2c { stroke: #6ea8fe; stroke-width: 2.2; fill: none; }
+      .bus-spi { stroke: #7be0a4; stroke-width: 2.2; fill: none; }
+      .bus-uart { stroke: #c79cff; stroke-width: 2.2; fill: none; }
+      .bus-gpio { stroke: #8b95a7; stroke-width: 1.8; fill: none; }
+      .bus-pwm  { stroke: #ff7ab6; stroke-width: 2.0; fill: none; }
+      .bus-pwr3 { stroke: #ff6b6b; stroke-width: 1.6; fill: none; stroke-dasharray: 4 3; }
+      .bus-pwr5 { stroke: #ff9bb3; stroke-width: 1.6; fill: none; stroke-dasharray: 4 3; }
+      .bus-gnd  { stroke: #6b7384; stroke-width: 1.4; fill: none; stroke-dasharray: 2 3; }
+      .bus-usb  { stroke: #7be0a4; stroke-width: 2.2; fill: none; }
+      .wire-label { fill: #e5e9f0; font-size: 10px; font-family: 'Consolas','SF Mono',monospace; }
+      .wire-label-bg { fill: #0f1115; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1280" height="960"/>
+
+  <!-- Title -->
+  <text class="title" x="640" y="32" text-anchor="middle">IchiPing — 制御ボックス配線図 v1（FRDM-MCXN947 / INMP441 想定）</text>
+  <text class="sub" x="640" y="52" text-anchor="middle">バス色: I²S=橙 / I²C=青 / SPI=緑 / UART=紫 / GPIO=灰 / PWM=桃 / 3.3V=赤(破線) / 5V=薄桃(破線) / GND=灰(破線)</text>
+
+  <!-- Legend -->
+  <g transform="translate(40, 70)">
+    <rect class="panel" x="0" y="0" width="220" height="180" rx="6"/>
+    <text class="header" x="12" y="20">凡例（バス色）</text>
+    <line class="bus-i2s"  x1="14" y1="40" x2="44" y2="40"/><text class="pin" x="52" y="44">I²S（SAI0/SAI1）</text>
+    <line class="bus-i2c"  x1="14" y1="58" x2="44" y2="58"/><text class="pin" x="52" y="62">I²C（FC4 共有）</text>
+    <line class="bus-spi"  x1="14" y1="76" x2="44" y2="76"/><text class="pin" x="52" y="80">SPI（FC3）</text>
+    <line class="bus-uart" x1="14" y1="94" x2="44" y2="94"/><text class="pin" x="52" y="98">UART（FC2）</text>
+    <line class="bus-pwm"  x1="14" y1="112" x2="44" y2="112"/><text class="pin" x="52" y="116">PWM（PCA9685）</text>
+    <line class="bus-gpio" x1="14" y1="130" x2="44" y2="130"/><text class="pin" x="52" y="134">GPIO</text>
+    <line class="bus-pwr3" x1="14" y1="148" x2="44" y2="148"/><text class="pin" x="52" y="152">3.3V</text>
+    <line class="bus-pwr5" x1="14" y1="166" x2="44" y2="166"/><text class="pin" x="52" y="170">5V</text>
+  </g>
+
+  <!-- ===== Central MCU block ===== -->
+  <g id="mcu" transform="translate(490, 320)">
+    <rect class="mcu" x="0" y="0" width="300" height="380" rx="10"/>
+    <text class="header" x="150" y="28" text-anchor="middle">FRDM-MCXN947</text>
+    <text class="sub" x="150" y="46" text-anchor="middle">NPU + PowerQuad + I²S×2 + USB</text>
+
+    <!-- Pin labels - LEFT side (UART, GPIO) -->
+    <text class="pin" x="-4" y="86" text-anchor="end">D0 / FC2_RXD</text>
+    <text class="pin" x="-4" y="106" text-anchor="end">D1 / FC2_TXD</text>
+    <text class="pin" x="-4" y="138" text-anchor="end">A0 / GPIO</text>
+    <text class="pin" x="-4" y="158" text-anchor="end">A1 / GPIO</text>
+    <text class="pin" x="-4" y="194" text-anchor="end">D4 / GPIO IN</text>
+    <text class="pin" x="-4" y="214" text-anchor="end">D5 / GPIO IN</text>
+    <text class="pin" x="-4" y="234" text-anchor="end">D6 / GPIO IN</text>
+    <text class="pin" x="-4" y="254" text-anchor="end">D7 / GPIO IN</text>
+    <text class="pin" x="-4" y="274" text-anchor="end">D8 / GPIO IN</text>
+    <text class="pin" x="-4" y="294" text-anchor="end">D9 / GPIO IN</text>
+    <text class="pin" x="-4" y="324" text-anchor="end">D2 / GPIO IN</text>
+    <text class="pin" x="-4" y="344" text-anchor="end">USB0 D±</text>
+
+    <!-- Pin labels - RIGHT side (I2S, I2C, SPI) -->
+    <text class="pin" x="304" y="86">SAI1_RX_SCK</text>
+    <text class="pin" x="304" y="104">SAI1_RX_WS</text>
+    <text class="pin" x="304" y="122">SAI1_RX_DATA</text>
+    <text class="pin" x="304" y="146">SAI0_TX_BCLK</text>
+    <text class="pin" x="304" y="164">SAI0_TX_LRC</text>
+    <text class="pin" x="304" y="182">SAI0_TX_DIN</text>
+    <text class="pin" x="304" y="210">D14 / FC4_SDA</text>
+    <text class="pin" x="304" y="228">D15 / FC4_SCL</text>
+    <text class="pin" x="304" y="258">D10 / FC3_CS</text>
+    <text class="pin" x="304" y="276">D11 / FC3_MOSI</text>
+    <text class="pin" x="304" y="294">D12 / FC3_MISO</text>
+    <text class="pin" x="304" y="312">D13 / FC3_SCK</text>
+    <text class="pin" x="304" y="340">D3 / GPIO IN</text>
+
+    <text class="sub" x="150" y="370" text-anchor="middle">※ 実 P-port 番号は pin_mux.c で確定</text>
+  </g>
+
+  <!-- ===== Top-left: INMP441 MIC (I²S RX) ===== -->
+  <g id="mic" transform="translate(280, 90)">
+    <rect class="panel" x="0" y="0" width="180" height="120" rx="8"/>
+    <text class="header" x="90" y="20" text-anchor="middle">INMP441 MIC</text>
+    <text class="sub" x="90" y="36" text-anchor="middle">I²S MEMS, 24-bit</text>
+    <text class="pin" x="14" y="58">VDD ── 3.3V</text>
+    <text class="pin" x="14" y="74">GND ── GND</text>
+    <text class="pin" x="14" y="90">L/R ── GND（左ch）</text>
+    <text class="pin" x="14" y="106">SCK / WS / SD ─→ SAI1_RX</text>
+  </g>
+  <!-- MIC wires to MCU SAI1 RX (right side) -->
+  <path class="bus-i2s" d="M 460 158 C 540 158, 520 250, 700 250 L 790 250 L 790 86 L 794 86" marker-end="url(#arrow)"/>
+  <path class="bus-i2s" d="M 460 168 C 540 168, 522 256, 700 256 L 786 256 L 786 104 L 794 104" marker-end="url(#arrow)"/>
+  <path class="bus-i2s" d="M 460 178 C 540 178, 524 262, 700 262 L 782 262 L 782 122 L 794 122" marker-end="url(#arrow)"/>
+  <rect class="wire-label-bg" x="540" y="160" width="40" height="14"/>
+  <text class="wire-label" x="544" y="171">I²S RX</text>
+
+  <!-- ===== Top-center: MAX98357A + Speaker (I²S TX) ===== -->
+  <g id="dac" transform="translate(540, 90)">
+    <rect class="panel" x="0" y="0" width="200" height="120" rx="8"/>
+    <text class="header" x="100" y="20" text-anchor="middle">MAX98357A + 8Ω Speaker</text>
+    <text class="sub" x="100" y="36" text-anchor="middle">I²S DAC + D級アンプ 3.2 W</text>
+    <text class="pin" x="14" y="58">VIN ── 5V</text>
+    <text class="pin" x="14" y="74">GND ── GND</text>
+    <text class="pin" x="14" y="90">BCLK / LRC / DIN ←─ SAI0</text>
+    <text class="pin" x="14" y="106">SPK± ── 8Ω 28mm SP</text>
+  </g>
+  <!-- DAC wires to MCU SAI0 TX (right side) - go around -->
+  <path class="bus-i2s" d="M 640 210 L 640 250 L 798 250 L 798 146 L 794 146"/>
+  <path class="bus-i2s" d="M 650 210 L 650 256 L 802 256 L 802 164 L 794 164"/>
+  <path class="bus-i2s" d="M 660 210 L 660 262 L 806 262 L 806 182 L 794 182"/>
+  <rect class="wire-label-bg" x="660" y="225" width="40" height="14"/>
+  <text class="wire-label" x="664" y="236">I²S TX</text>
+
+  <!-- ===== Top-right: OLED + PCA9685 + BMP585 (I²C shared bus) ===== -->
+  <g id="oled" transform="translate(820, 90)">
+    <rect class="panel" x="0" y="0" width="180" height="80" rx="8"/>
+    <text class="header" x="90" y="20" text-anchor="middle">SSD1306 OLED</text>
+    <text class="sub" x="90" y="36" text-anchor="middle">128×64, I²C 0x3C</text>
+    <text class="pin" x="14" y="58">VDD/GND/SDA/SCL</text>
+    <text class="pin" x="14" y="72">→ I²C 共有バス</text>
+  </g>
+  <g id="bmp" transform="translate(820, 190)">
+    <rect class="panel" x="0" y="0" width="180" height="80" rx="8"/>
+    <text class="header" x="90" y="20" text-anchor="middle">BMP585 (補助)</text>
+    <text class="sub" x="90" y="36" text-anchor="middle">気圧, I²C 0x47, 0.1 Pa</text>
+    <text class="pin" x="14" y="58">CSB→VDDIO（I²C モード）</text>
+    <text class="pin" x="14" y="72">INT ─→ D3（任意）</text>
+  </g>
+  <g id="pca" transform="translate(1020, 90)">
+    <rect class="panel" x="0" y="0" width="220" height="180" rx="8"/>
+    <text class="header" x="110" y="20" text-anchor="middle">PCA9685 + SG90 ×5</text>
+    <text class="sub" x="110" y="36" text-anchor="middle">16ch PWM, I²C 0x40</text>
+    <text class="pin" x="14" y="58">VCC=3.3V / V+=5V / GND</text>
+    <text class="pin" x="14" y="74">SDA/SCL → I²C 共有</text>
+    <text class="pin" x="14" y="94">PWM0 → Servo 窓 a</text>
+    <text class="pin" x="14" y="110">PWM1 → Servo 窓 b</text>
+    <text class="pin" x="14" y="126">PWM2 → Servo 窓 c</text>
+    <text class="pin" x="14" y="142">PWM3 → Servo 扉 AB</text>
+    <text class="pin" x="14" y="158">PWM4 → Servo 扉 BC</text>
+  </g>
+
+  <!-- I²C bus trunk: from MCU right side -->
+  <!-- main trunk vertical at x=860 from y=210 to y=230, then branches -->
+  <path class="bus-i2c" d="M 794 210 L 880 210 L 880 130 L 820 130"/>
+  <path class="bus-i2c" d="M 794 228 L 870 228 L 870 230 L 820 230"/>
+  <!-- branch to BMP -->
+  <path class="bus-i2c" d="M 880 210 L 880 220 L 820 220" />
+  <!-- branch to PCA -->
+  <path class="bus-i2c" d="M 880 210 L 1020 210"/>
+  <rect class="wire-label-bg" x="820" y="195" width="50" height="14"/>
+  <text class="wire-label" x="824" y="206">I²C共有</text>
+
+  <!-- BMP INT -> D3 -->
+  <path class="bus-gpio" d="M 820 235 L 770 235 L 770 340 L 794 340" marker-end="url(#arrow)"/>
+  <text class="wire-label" x="700" y="248">INT</text>
+
+  <!-- ===== Bottom-right: microSD (SPI FC3) ===== -->
+  <g id="sd" transform="translate(820, 380)">
+    <rect class="panel" x="0" y="0" width="220" height="120" rx="8"/>
+    <text class="header" x="110" y="20" text-anchor="middle">microSD ソケット</text>
+    <text class="sub" x="110" y="36" text-anchor="middle">SPI（FC3）+ FatFs</text>
+    <text class="pin" x="14" y="58">CS / MOSI / MISO / SCK</text>
+    <text class="pin" x="14" y="74">↔ D10 / D11 / D12 / D13</text>
+    <text class="pin" x="14" y="92">VDD=3.3V / GND</text>
+    <text class="pin" x="14" y="108">CD（任意）</text>
+  </g>
+  <!-- SPI bus wires -->
+  <path class="bus-spi" d="M 794 258 L 815 258 L 815 410 L 820 410" marker-end="url(#arrow)"/>
+  <path class="bus-spi" d="M 794 276 L 812 276 L 812 425 L 820 425" marker-end="url(#arrow)"/>
+  <path class="bus-spi" d="M 820 440 L 809 440 L 809 294 L 794 294" marker-end="url(#arrow)"/>
+  <path class="bus-spi" d="M 794 312 L 806 312 L 806 455 L 820 455" marker-end="url(#arrow)"/>
+  <rect class="wire-label-bg" x="812" y="380" width="32" height="14"/>
+  <text class="wire-label" x="815" y="391">SPI</text>
+
+  <!-- ===== Bottom-center: USB-C to PC ===== -->
+  <g id="usb" transform="translate(540, 760)">
+    <rect class="panel" x="0" y="0" width="200" height="80" rx="8"/>
+    <text class="header" x="100" y="20" text-anchor="middle">USB-C → PC</text>
+    <text class="sub" x="100" y="36" text-anchor="middle">電源 + USB CDC（データ転送）</text>
+    <text class="pin" x="14" y="58">VBUS=5V / GND</text>
+    <text class="pin" x="14" y="74">D+ / D- ── USB0</text>
+  </g>
+  <path class="bus-usb" d="M 640 760 L 640 720 L 690 720 L 690 660 L 690 660 L 690 660 C 690 700, 686 700, 660 700 L 644 700 L 644 660" />
+  <path class="bus-usb" d="M 640 760 L 640 700 L 490 700 L 490 660 L 486 660"/>
+  <rect class="wire-label-bg" x="600" y="720" width="50" height="14"/>
+  <text class="wire-label" x="604" y="731">USB CDC</text>
+
+  <!-- ===== Left: ESP32 (UART, optional) ===== -->
+  <g id="esp" transform="translate(120, 320)">
+    <rect class="panel" x="0" y="0" width="200" height="100" rx="8"/>
+    <text class="header" x="100" y="20" text-anchor="middle">ESP32-WROOM (任意)</text>
+    <text class="sub" x="100" y="36" text-anchor="middle">UART（FC2）/ Wi-Fi</text>
+    <text class="pin" x="14" y="58">VCC=3.3V / GND</text>
+    <text class="pin" x="14" y="74">RX ← MCU TX (D1)</text>
+    <text class="pin" x="14" y="90">TX → MCU RX (D0)</text>
+  </g>
+  <path class="bus-uart" d="M 320 360 L 380 360 L 380 86 L 486 86" marker-end="url(#arrow)"/>
+  <path class="bus-uart" d="M 486 106 L 386 106 L 386 380 L 320 380" marker-end="url(#arrow)"/>
+  <rect class="wire-label-bg" x="380" y="320" width="40" height="14"/>
+  <text class="wire-label" x="384" y="331">UART</text>
+
+  <!-- ===== Bottom-left: GPIO panel (toggles + EXEC + LEDs) ===== -->
+  <g id="ui" transform="translate(120, 470)">
+    <rect class="panel" x="0" y="0" width="320" height="280" rx="8"/>
+    <text class="header" x="160" y="22" text-anchor="middle">操作 UI（制御ボックス前面パネル）</text>
+
+    <!-- Toggle switches -->
+    <text class="sub" x="14" y="46">トグルスイッチ ×5（窓/扉手動）</text>
+    <g transform="translate(14, 56)">
+      <rect class="panel" x="0" y="0" width="42" height="48" rx="4"/>
+      <text class="pin" x="21" y="14" text-anchor="middle">a</text>
+      <circle cx="21" cy="30" r="6" fill="#7be0a4"/>
+      <text class="pin" x="21" y="62" text-anchor="middle">D4</text>
+    </g>
+    <g transform="translate(64, 56)">
+      <rect class="panel" x="0" y="0" width="42" height="48" rx="4"/>
+      <text class="pin" x="21" y="14" text-anchor="middle">b</text>
+      <circle cx="21" cy="40" r="6" fill="#8b95a7"/>
+      <text class="pin" x="21" y="62" text-anchor="middle">D5</text>
+    </g>
+    <g transform="translate(114, 56)">
+      <rect class="panel" x="0" y="0" width="42" height="48" rx="4"/>
+      <text class="pin" x="21" y="14" text-anchor="middle">c</text>
+      <circle cx="21" cy="30" r="6" fill="#7be0a4"/>
+      <text class="pin" x="21" y="62" text-anchor="middle">D6</text>
+    </g>
+    <g transform="translate(176, 56)">
+      <rect class="panel" x="0" y="0" width="42" height="48" rx="4"/>
+      <text class="pin" x="21" y="14" text-anchor="middle">AB</text>
+      <circle cx="21" cy="40" r="6" fill="#ffb454"/>
+      <text class="pin" x="21" y="62" text-anchor="middle">D7</text>
+    </g>
+    <g transform="translate(226, 56)">
+      <rect class="panel" x="0" y="0" width="42" height="48" rx="4"/>
+      <text class="pin" x="21" y="14" text-anchor="middle">BC</text>
+      <circle cx="21" cy="30" r="6" fill="#ffb454"/>
+      <text class="pin" x="21" y="62" text-anchor="middle">D8</text>
+    </g>
+
+    <!-- EXEC button -->
+    <text class="sub" x="14" y="148">実行ボタン（active-low）</text>
+    <g transform="translate(14, 158)">
+      <circle cx="32" cy="30" r="28" fill="#e64545" stroke="#9a2828" stroke-width="2.5"/>
+      <text class="pin" x="32" y="35" text-anchor="middle" fill="#fff" font-weight="700">EXEC</text>
+      <text class="pin" x="32" y="78" text-anchor="middle">D9</text>
+    </g>
+
+    <!-- LEDs -->
+    <text class="sub" x="160" y="148">表示 LED（330Ω 直列）</text>
+    <g transform="translate(160, 168)">
+      <circle cx="14" cy="14" r="8" fill="#7be0a4"/>
+      <text class="pin" x="32" y="18">PWR (緑)</text>
+      <text class="pin" x="120" y="18">→ A0</text>
+    </g>
+    <g transform="translate(160, 198)">
+      <circle cx="14" cy="14" r="8" fill="#ffb454"/>
+      <text class="pin" x="32" y="18">推論中 (橙)</text>
+      <text class="pin" x="120" y="18">→ A1</text>
+    </g>
+
+    <text class="sub" x="14" y="270">GPIO は内蔵プルアップ有効 / アクティブ Low</text>
+  </g>
+
+  <!-- GPIO wires from UI to MCU -->
+  <path class="bus-gpio" d="M 440 540 L 470 540 L 470 194 L 486 194" marker-end="url(#arrow)"/>
+  <path class="bus-gpio" d="M 440 555 L 466 555 L 466 214 L 486 214" marker-end="url(#arrow)"/>
+  <path class="bus-gpio" d="M 440 570 L 462 570 L 462 234 L 486 234" marker-end="url(#arrow)"/>
+  <path class="bus-gpio" d="M 440 585 L 458 585 L 458 254 L 486 254" marker-end="url(#arrow)"/>
+  <path class="bus-gpio" d="M 440 600 L 454 600 L 454 274 L 486 274" marker-end="url(#arrow)"/>
+  <path class="bus-gpio" d="M 440 660 L 450 660 L 450 294 L 486 294" marker-end="url(#arrow)"/>
+  <path class="bus-gpio" d="M 486 138 L 446 138 L 446 660 L 440 660 L 440 670"/>
+  <path class="bus-gpio" d="M 486 158 L 442 158 L 442 700 L 440 700"/>
+  <rect class="wire-label-bg" x="446" y="500" width="40" height="14"/>
+  <text class="wire-label" x="450" y="511">GPIO</text>
+
+  <!-- ===== Power rails (right side, vertical) ===== -->
+  <g id="power" transform="translate(60, 470)">
+    <rect class="panel" x="0" y="0" width="50" height="280" rx="6"/>
+    <text class="header" x="25" y="20" text-anchor="middle" font-size="11">電源</text>
+    <text class="pin" x="25" y="46" text-anchor="middle" fill="#ff6b6b">3.3V</text>
+    <text class="pin" x="25" y="62" text-anchor="middle" fill="#ff9bb3">5V</text>
+    <text class="pin" x="25" y="78" text-anchor="middle" fill="#8b95a7">GND</text>
+    <text class="pin" x="25" y="120" text-anchor="middle" font-size="10">LiPo</text>
+    <text class="pin" x="25" y="134" text-anchor="middle" font-size="10">2000</text>
+    <text class="pin" x="25" y="148" text-anchor="middle" font-size="10">mAh</text>
+    <text class="pin" x="25" y="180" text-anchor="middle" font-size="10">TP4056</text>
+    <text class="pin" x="25" y="194" text-anchor="middle" font-size="10">+ LDO</text>
+    <text class="pin" x="25" y="230" text-anchor="middle" font-size="10">USB-C</text>
+    <text class="pin" x="25" y="244" text-anchor="middle" font-size="10">入力</text>
+  </g>
+
+  <!-- ===== Notes ===== -->
+  <g transform="translate(40, 870)">
+    <rect class="panel" x="0" y="0" width="1200" height="70" rx="6"/>
+    <text class="header" x="14" y="20">注</text>
+    <text class="sub" x="14" y="38">• Arduino ピン番号（D0–D15, A0–A5）= FRDM-MCXN947 ヘッダ上の刻印。実 P-port は MCUXpresso Config Tools の Pins 設定で確定する</text>
+    <text class="sub" x="14" y="54">• I²C は SDA/SCL 1 組を PCA9685(0x40)・SSD1306(0x3C)・BMP585(0x47) の 3 デバイスで共有。プルアップ 4.7 kΩ × 2（バス上に 1 セットのみ）</text>
+    <text class="sub" x="630" y="38">• サーボ V+（5V）は MCU 3.3V とは別系統。サーボ突入電流対策に 1000 µF を V+ ↔ GND 間に入れる</text>
+    <text class="sub" x="630" y="54">• MAX98357A の SD ピンは 3.3V 直結（常時ON）でも、GPIO 経由でミュート制御を入れても可</text>
+  </g>
+
+</svg>

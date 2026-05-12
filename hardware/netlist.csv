@@ -1,0 +1,114 @@
+Device,DevicePin,Direction,Bus,MCU_Function,FRDM_Header,FRDM_HeaderPin,Voltage,Notes
+# === Power rails ===
+PowerRail,3V3,PWR,-,-,J1,4,3.3V,From FRDM onboard LDO
+PowerRail,5V,PWR,-,-,J1,5,5V,From USB-C / DC IN
+PowerRail,GND,PWR,-,-,J1,6 / 7,0V,Common ground (must tie servo external 5V GND here)
+# === I2S MIC (INMP441, SAI1 RX) ===
+INMP441,VDD,PWR,-,3V3,SAI_PMOD,1,3.3V,
+INMP441,GND,PWR,-,GND,SAI_PMOD,2,0V,
+INMP441,L/R,IN,-,GND,SAI_PMOD,3,0V,Tie to GND to select left channel
+INMP441,WS,IN,I2S,SAI1_RX_SYNC (FS/LRCLK),SAI_PMOD,4,3.3V,Pin to be set in pin_mux.c
+INMP441,SCK,IN,I2S,SAI1_RX_BCLK,SAI_PMOD,5,3.3V,Pin to be set in pin_mux.c
+INMP441,SD,OUT,I2S,SAI1_RX_DATA,SAI_PMOD,6,3.3V,Pin to be set in pin_mux.c
+# === I2S DAC + Amp (MAX98357A, SAI0 TX) ===
+MAX98357A,VIN,PWR,-,5V,SAI_PMOD,7,5V,3.2W class-D amp
+MAX98357A,GND,PWR,-,GND,SAI_PMOD,8,0V,
+MAX98357A,BCLK,IN,I2S,SAI0_TX_BCLK,SAI_PMOD,9,3.3V,
+MAX98357A,LRC,IN,I2S,SAI0_TX_SYNC,SAI_PMOD,10,3.3V,
+MAX98357A,DIN,IN,I2S,SAI0_TX_DATA,SAI_PMOD,11,3.3V,
+MAX98357A,GAIN,IN,-,3V3 via 100k (9 dB) or GND (15 dB),SAI_PMOD,12,-,Float = 9 dB default
+MAX98357A,SD,IN,-,3V3 (always on) or GPIO,SAI_PMOD,13,3.3V,Optional MCU enable line
+MAX98357A,SPK+,OUT,Analog,-,EXT_CONN,SP1,-,To 8 ohm speaker +
+MAX98357A,SPK-,OUT,Analog,-,EXT_CONN,SP2,-,To 8 ohm speaker -
+# === Speaker ===
+Speaker,+,IN,Analog,From MAX98357A SPK+,EXT_CONN,SP1,-,8 ohm 1-3 W fullrange 28 mm
+Speaker,-,IN,Analog,From MAX98357A SPK-,EXT_CONN,SP2,-,
+# === I2C bus #1 (FC4): PCA9685 + SSD1306 + BMP585 ===
+I2CBus_FC4,SDA,BIDIR,I2C,FC4_I2C_SDA,J4 (Arduino),D14,3.3V,Pull-up 4.7k to 3.3V (one set for whole bus)
+I2CBus_FC4,SCL,IN,I2C,FC4_I2C_SCL,J4 (Arduino),D15,3.3V,Pull-up 4.7k to 3.3V
+# === PCA9685 (I2C 0x40 servo driver) ===
+PCA9685,VCC,PWR,-,3V3,-,-,3.3V,Logic supply
+PCA9685,V+,PWR,-,5V (ext) / VBUS,-,-,5V,Servo motor supply (high current)
+PCA9685,GND,PWR,-,GND,-,-,0V,
+PCA9685,SDA,BIDIR,I2C,I2CBus_FC4 SDA,-,-,3.3V,
+PCA9685,SCL,IN,I2C,I2CBus_FC4 SCL,-,-,3.3V,
+PCA9685,A0..A5,IN,-,GND,-,-,0V,All low = I2C address 0x40
+PCA9685,OE,IN,-,GND,-,-,0V,Active-low output enable
+PCA9685,PWM0,OUT,PWM,-,PCA_OUT0,-,-,To servo: window a
+PCA9685,PWM1,OUT,PWM,-,PCA_OUT1,-,-,To servo: window b
+PCA9685,PWM2,OUT,PWM,-,PCA_OUT2,-,-,To servo: window c
+PCA9685,PWM3,OUT,PWM,-,PCA_OUT3,-,-,To servo: door AB
+PCA9685,PWM4,OUT,PWM,-,PCA_OUT4,-,-,To servo: door BC
+# === SG90 servos x5 ===
+Servo_WindowA,Signal,IN,PWM,PCA9685 PWM0,JST-XH 3p,SIG,3.3V,Yellow wire
+Servo_WindowA,V+,PWR,-,5V (servo rail),JST-XH 3p,V+,5V,Red wire
+Servo_WindowA,GND,PWR,-,GND,JST-XH 3p,GND,0V,Brown/black wire
+Servo_WindowB,Signal,IN,PWM,PCA9685 PWM1,JST-XH 3p,SIG,3.3V,
+Servo_WindowB,V+,PWR,-,5V (servo rail),JST-XH 3p,V+,5V,
+Servo_WindowB,GND,PWR,-,GND,JST-XH 3p,GND,0V,
+Servo_WindowC,Signal,IN,PWM,PCA9685 PWM2,JST-XH 3p,SIG,3.3V,
+Servo_WindowC,V+,PWR,-,5V (servo rail),JST-XH 3p,V+,5V,
+Servo_WindowC,GND,PWR,-,GND,JST-XH 3p,GND,0V,
+Servo_DoorAB,Signal,IN,PWM,PCA9685 PWM3,JST-XH 3p,SIG,3.3V,
+Servo_DoorAB,V+,PWR,-,5V (servo rail),JST-XH 3p,V+,5V,
+Servo_DoorAB,GND,PWR,-,GND,JST-XH 3p,GND,0V,
+Servo_DoorBC,Signal,IN,PWM,PCA9685 PWM4,JST-XH 3p,SIG,3.3V,
+Servo_DoorBC,V+,PWR,-,5V (servo rail),JST-XH 3p,V+,5V,
+Servo_DoorBC,GND,PWR,-,GND,JST-XH 3p,GND,0V,
+# === SSD1306 OLED (I2C 0x3C) ===
+SSD1306,VDD,PWR,-,3V3,-,-,3.3V,128x64 OLED
+SSD1306,GND,PWR,-,GND,-,-,0V,
+SSD1306,SDA,BIDIR,I2C,I2CBus_FC4 SDA,-,-,3.3V,
+SSD1306,SCL,IN,I2C,I2CBus_FC4 SCL,-,-,3.3V,
+# === BMP585 (I2C 0x47, auxiliary pressure sensor) ===
+BMP585,VDD,PWR,-,3V3,-,-,3.3V,
+BMP585,VDDIO,PWR,-,3V3,-,-,3.3V,
+BMP585,GND,PWR,-,GND,-,-,0V,
+BMP585,SDA,BIDIR,I2C,I2CBus_FC4 SDA,-,-,3.3V,
+BMP585,SCL,IN,I2C,I2CBus_FC4 SCL,-,-,3.3V,
+BMP585,CSB,IN,-,VDDIO,-,-,3.3V,Tie high to select I2C mode
+BMP585,INT,OUT,GPIO,GPIO (optional),J3 (Arduino),D2,3.3V,Optional event interrupt
+# === microSD socket (SPI FC3) ===
+microSD,VDD,PWR,-,3V3,-,-,3.3V,
+microSD,GND,PWR,-,GND,-,-,0V,
+microSD,CS,IN,SPI,FC3_SPI_CS / GPIO,J4 (Arduino),D10,3.3V,Active low
+microSD,MOSI,IN,SPI,FC3_SPI_MOSI,J4 (Arduino),D11,3.3V,
+microSD,MISO,OUT,SPI,FC3_SPI_MISO,J4 (Arduino),D12,3.3V,
+microSD,SCK,IN,SPI,FC3_SPI_SCK,J4 (Arduino),D13,3.3V,
+microSD,CD,OUT,GPIO,GPIO (optional),J3 (Arduino),D3,3.3V,Card-detect optional
+# === ESP32-WROOM (UART FC2) ===
+ESP32,VCC,PWR,-,3V3,-,-,3.3V,Or 5V depending on module
+ESP32,GND,PWR,-,GND,-,-,0V,
+ESP32,RX (U0RXD),IN,UART,FC2_UART_TX,J3 (Arduino),D1,3.3V,MCU TX -> ESP32 RX
+ESP32,TX (U0TXD),OUT,UART,FC2_UART_RX,J3 (Arduino),D0,3.3V,MCU RX <- ESP32 TX
+ESP32,EN,IN,-,3V3 (or GPIO reset),-,-,3.3V,Tie high for run
+ESP32,IO0,IN,-,3V3 (or GPIO boot),-,-,3.3V,Tie high for normal boot
+# === Toggle switches x5 (window a/b/c, door AB/BC) ===
+Toggle_a,SIG,IN,GPIO,GPIO input (pull-up),J3 (Arduino),D4,3.3V,Window a manual control
+Toggle_a,GND,PWR,-,GND,-,-,0V,
+Toggle_b,SIG,IN,GPIO,GPIO input (pull-up),J3 (Arduino),D5,3.3V,Window b
+Toggle_b,GND,PWR,-,GND,-,-,0V,
+Toggle_c,SIG,IN,GPIO,GPIO input (pull-up),J3 (Arduino),D6,3.3V,Window c
+Toggle_c,GND,PWR,-,GND,-,-,0V,
+Toggle_AB,SIG,IN,GPIO,GPIO input (pull-up),J3 (Arduino),D7,3.3V,Door AB
+Toggle_AB,GND,PWR,-,GND,-,-,0V,
+Toggle_BC,SIG,IN,GPIO,GPIO input (pull-up),J4 (Arduino),D8,3.3V,Door BC
+Toggle_BC,GND,PWR,-,GND,-,-,0V,
+# === EXEC button ===
+Button_EXEC,SIG,IN,GPIO,GPIO input (pull-up + debounce),J4 (Arduino),D9,3.3V,Active low when pressed
+Button_EXEC,GND,PWR,-,GND,-,-,0V,
+# === LEDs x2 ===
+LED_PWR,Anode,IN,GPIO,GPIO output -> 330 ohm,J2 (Analog),A0,3.3V,Green PWR LED
+LED_PWR,Cathode,PWR,-,GND,-,-,0V,
+LED_INFER,Anode,IN,GPIO,GPIO output -> 330 ohm,J2 (Analog),A1,3.3V,Orange inference LED
+LED_INFER,Cathode,PWR,-,GND,-,-,0V,
+# === USB-C ===
+USB_C,VBUS,PWR,-,5V in/out,Onboard,USB,5V,From PC or DC; powers board
+USB_C,GND,PWR,-,GND,Onboard,USB,0V,
+USB_C,D+,BIDIR,USB,USB0_DP,Onboard,USB,3.3V,High-speed USB
+USB_C,D-,BIDIR,USB,USB0_DM,Onboard,USB,3.3V,
+# === LiPo + charger (optional) ===
+LiPo,+,PWR,-,3.7V nominal,TP4056,BAT+,3.7V,2000 mAh
+LiPo,-,PWR,-,GND,TP4056,BAT-,0V,
+TP4056,VIN,PWR,-,From USB-C 5V,-,-,5V,Charging input
+TP4056,VOUT,PWR,-,Boost to 5V or 3.3V LDO,-,-,3.7-5V,Output to MCU rail

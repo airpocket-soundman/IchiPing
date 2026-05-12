@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IchiPing BOM (v1)</title>
+<link rel="stylesheet" href="../docs/style.css">
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../index.html">トップ</a>
+      <a href="../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="../docs/spec.html">仕様書 (spec)</a>
+      <a href="../docs/nn_design.html">NN 設計</a>
+      <a href="../docs/mcu_deployment.html">MCU デプロイ</a>
+      <a href="../docs/bringup.html">実機ブリングアップ</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="../hardware/wiring.html">配線テーブル</a>
+      <a href="../hardware/bom.html" class="current">BOM (部品表)</a>
+      <a href="../hardware/display_options.html">ディスプレイ候補</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../firmware/README.html">firmware ガイド</a>
+      <a href="../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="../docs/vscode_setup.html">VS Code セットアップ</a>
+      <a href="../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a><br>
+    <a href="https://github.com/airpocket-soundman/digikey_project">正本 digikey_project</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../index.html">← IchiPing トップ</a>
+    ／ <a href="../tasks.html">タスクボード</a>
+    ／ <a href="wiring.html">配線テーブル</a>
+    ／ <a href="display_options.html">ディスプレイ候補</a>
+    ／ <a href="../docs/spec.html">仕様書 §6</a>
+  </div>
+  <h1>IchiPing BOM <span class="pill">v1, DigiKey M1 想定</span></h1>
+  <div class="sub">
+    DigiKey M1 / ROHM EDGE HACK 2026 応募版（v1）の部品表。
+    機械可読版は <a href="bom.csv">bom.csv</a>。正本仕様 <a href="../docs/spec.html#6">spec.html §6</a> に
+    基づき、本リポ実装に必要な部品を網羅。
+    価格は 2026-05 時点の <b>参考値</b>。発注前に DigiKey で再確認。
+  </div>
+  <div class="meta">
+    <span class="meta-stat done"><span class="num">~$245</span> Required 部品計（試算）</span>
+    <span class="meta-stat"><span class="num">~$30</span> 模型・接着系（外注枠）</span>
+    <span class="meta-stat"><span class="num">stock</span> 主要部品在庫あり</span>
+  </div>
+</header>
+
+<main>
+
+<h2>1. 必須部品（v1 最小構成）</h2>
+
+<h3>1.1 コア演算系</h3>
+<table>
+  <thead><tr><th>カテゴリ</th><th>部品</th><th>数</th><th>単価</th><th>Vendor / 型番</th><th>備考</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>MCU</td>
+      <td><b>FRDM-MCXN947</b></td>
+      <td>1</td>
+      <td>$49.00</td>
+      <td>DigiKey: FRDM-MCXN947</td>
+      <td>NPU + PowerQuad DSP + I²S 多系統。本プロジェクトの中心</td>
+    </tr>
+    <tr>
+      <td>マイク</td>
+      <td>INMP441 I²S MEMS</td>
+      <td>1</td>
+      <td>$7.95</td>
+      <td>DigiKey: Adafruit 3421</td>
+      <td>24-bit、DC オフセット問題なしで chirp/RIR 用途に好適。<a href="../docs/spec.html#6">spec §6</a> 指定品</td>
+    </tr>
+    <tr>
+      <td>DAC + Amp</td>
+      <td>MAX98357A breakout</td>
+      <td>1</td>
+      <td>$5.95</td>
+      <td>DigiKey: Adafruit 3006</td>
+      <td>Class-D 3.2 W @ 8 Ω, I²S 直結</td>
+    </tr>
+    <tr>
+      <td>スピーカ</td>
+      <td>8 Ω 1〜3 W ミッドレンジ 28〜40 mm</td>
+      <td>1</td>
+      <td>$2.50</td>
+      <td>DigiKey: DBL40N1B-G 系</td>
+      <td>200 Hz〜10 kHz でフラット</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>1.2 サーボ・アクチュエータ系</h3>
+<table>
+  <thead><tr><th>カテゴリ</th><th>部品</th><th>数</th><th>単価</th><th>Vendor / 型番</th><th>備考</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>サーボドライバ</td>
+      <td>PCA9685 16ch PWM</td>
+      <td>1</td>
+      <td>$17.50</td>
+      <td>DigiKey: Adafruit 815</td>
+      <td>I²C 0x40</td>
+    </tr>
+    <tr>
+      <td>サーボ</td>
+      <td>SG90 9g micro servo</td>
+      <td>5</td>
+      <td>$5.95</td>
+      <td>DigiKey: Adafruit 169</td>
+      <td>窓 a/b/c + 扉 AB/BC を駆動</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>1.3 表示・センサ・ストレージ</h3>
+<table>
+  <thead><tr><th>カテゴリ</th><th>部品</th><th>数</th><th>単価</th><th>Vendor / 型番</th><th>備考</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><b>ディスプレイ</b></td>
+      <td>SH1106 1.3" OLED 128×64 (I²C 白)</td>
+      <td>1</td>
+      <td>$9.95</td>
+      <td>DigiKey: Adafruit 938</td>
+      <td>
+        <a href="display_options.html"><b>display_options.html で他候補も比較</b></a>。
+        spec §6 はサイズ未指定なので、視認性の高い 1.3" に更新（0.96" SSD1306 から）
+      </td>
+    </tr>
+    <tr>
+      <td>気圧センサ（補助）</td>
+      <td>BMP585</td>
+      <td>1</td>
+      <td>$7.50</td>
+      <td>DigiKey: Adafruit 5704</td>
+      <td>0.1 Pa 分解能</td>
+    </tr>
+    <tr>
+      <td>ストレージ</td>
+      <td>microSD ソケット (SPI)</td>
+      <td>1</td>
+      <td>$2.95</td>
+      <td>DigiKey: Adafruit 254</td>
+      <td>FatFs 用 4 線 SPI</td>
+    </tr>
+    <tr>
+      <td>ストレージ</td>
+      <td>microSD 64 GB Class 10</td>
+      <td>1</td>
+      <td>$12.95</td>
+      <td>DigiKey: SanDisk Ultra</td>
+      <td>~100 セッション分の学習データバッファ</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>1.4 ユーザー入力・表示</h3>
+<table>
+  <thead><tr><th>カテゴリ</th><th>部品</th><th>数</th><th>単価</th><th>備考</th></tr></thead>
+  <tbody>
+    <tr><td>トグル SPST</td><td>パネルマウント トグル</td><td>5</td><td>$1.85</td><td>窓/扉真値（D4〜D8）</td></tr>
+    <tr><td>モーメンタリ</td><td>タクトスイッチ</td><td>1</td><td>$0.45</td><td>EXEC ボタン（D9）</td></tr>
+    <tr><td>LED 緑</td><td>5 mm</td><td>1</td><td>$0.18</td><td>PWR (A0)</td></tr>
+    <tr><td>LED 橙</td><td>5 mm</td><td>1</td><td>$0.18</td><td>推論中 (A1)</td></tr>
+  </tbody>
+</table>
+
+<h3>1.5 受動部品・ケーブル</h3>
+<table>
+  <thead><tr><th>カテゴリ</th><th>部品</th><th>数</th><th>単価</th><th>用途</th></tr></thead>
+  <tbody>
+    <tr><td>抵抗</td><td>330 Ω 1/4 W</td><td>2</td><td>$0.05</td><td>LED 電流制限</td></tr>
+    <tr><td>抵抗</td><td>4.7 kΩ 1/4 W</td><td>4</td><td>$0.05</td><td>I²C プルアップ（バス毎 1 セット）</td></tr>
+    <tr><td>電解コンデンサ</td><td>1000 µF 16 V</td><td>1</td><td>$0.55</td><td>サーボ V+ 突入電流吸収</td></tr>
+    <tr><td>ジャンパ線</td><td>F/F + F/M Dupont 40 本×2</td><td>2</td><td>$5.95</td><td>プロトタイプ配線</td></tr>
+    <tr><td>USB ケーブル</td><td>Micro-USB データ通信対応 ≥ 1 m</td><td>1</td><td>$4.95</td><td>OpenSDA（充電専用 NG）</td></tr>
+    <tr><td>USB ケーブル</td><td>USB-C データ通信対応 ≥ 1 m</td><td>1</td><td>$5.95</td><td>後で本体 USB CDC へ</td></tr>
+  </tbody>
+</table>
+
+<h2>2. 実験模型（Phase 4 / IP-0.4.3）</h2>
+<p>3 部屋アクリル模型の製作に必要な部材。レーザーカットは fab 工房 or 外注を想定。</p>
+<table>
+  <thead><tr><th>カテゴリ</th><th>部品</th><th>数</th><th>単価</th><th>備考</th></tr></thead>
+  <tbody>
+    <tr><td>素材</td><td>5 mm 透明アクリル板 300×600 mm</td><td>2</td><td>$18</td><td>3 部屋分の壁/床/天井</td></tr>
+    <tr><td>接着</td><td>アクリル用溶剤系接着剤</td><td>1</td><td>$8</td><td>Weld-On 4 等</td></tr>
+    <tr><td>機構</td><td>15 mm ミニ蝶番</td><td>10</td><td>$4</td><td>扉・窓のヒンジ</td></tr>
+    <tr><td>音響</td><td>制振フォーム 5 mm 厚</td><td>1</td><td>$7</td><td>スピーカ-マイク クロストーク抑制</td></tr>
+  </tbody>
+</table>
+
+<h2>3. オプション（あると便利）</h2>
+<table>
+  <thead><tr><th>カテゴリ</th><th>部品</th><th>数</th><th>単価</th><th>備考</th></tr></thead>
+  <tbody>
+    <tr><td>無線</td><td>ESP32-WROOM-32 モジュール</td><td>1</td><td>$4.20</td><td>UART (FC2) 経由。v1 では必須でない</td></tr>
+    <tr><td>バッテリ</td><td>18650 Li-ion 3000 mAh + ホルダ</td><td>1</td><td>$11.50</td><td>携帯動作</td></tr>
+    <tr><td>充電</td><td>TP4056 Li-ion 充電モジュール</td><td>1</td><td>$1.95</td><td>USB-C 充電</td></tr>
+    <tr><td>昇圧</td><td>3.3→5 V Boost 変換モジュール</td><td>1</td><td>$2.95</td><td>LiPo + USB 無し動作時</td></tr>
+    <tr><td>筐体</td><td>3D プリント PLA フィラメント</td><td>1</td><td>~$5</td><td>1 ケース分</td></tr>
+  </tbody>
+</table>
+
+<h2>4. 概算サマリ</h2>
+<table>
+  <thead><tr><th>項目</th><th>小計</th></tr></thead>
+  <tbody>
+    <tr><td>必須電子部品 (§1)</td><td>~$215</td></tr>
+    <tr><td>実験模型材料 (§2)</td><td>~$37</td></tr>
+    <tr><td><b>応募 v1 必須計</b></td><td><b>~$252</b></td></tr>
+    <tr><td>オプション全部入り</td><td>+~$26</td></tr>
+  </tbody>
+</table>
+
+<div class="callout warn">
+  <strong>応募運用上の注意:</strong> DigiKey M1 応募の <b>myLists 部品表</b>に登録できるのは DigiKey 取扱品のみ。
+  「external（アクリル板等）」は myLists には載せず、ProtoPedia の「使用部品」セクションで補足する。
+</div>
+
+<h2>5. 同期管理</h2>
+<p>
+  正本 <a href="../docs/spec.html#6">spec.html §6</a> に部品変更があった場合は、本ファイル <b>と</b> <a href="bom.csv">bom.csv</a>
+  <b>と</b> <a href="wiring.html">wiring.html</a> をセットで更新する（<a href="../CLAUDE.html">CLAUDE.html</a> §6 行参照）。
+  発注前に DigiKey で在庫・価格を再確認するため、ここの値はあくまで <b>参考</b>。
+</p>
+
+<div class="footer-note">
+  関連ページ:
+  <a href="../index.html">index.html</a> ／
+  <a href="bom.csv">bom.csv (機械可読)</a> ／
+  <a href="display_options.html">display_options.html</a> ／
+  <a href="wiring.html">wiring.html</a> ／
+  <a href="../docs/spec.html">spec.html</a> ／
+  <a href="../tasks.html">tasks.html</a>
+</div>
+
+</main>
+</body>
+</html>

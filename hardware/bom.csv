@@ -1,0 +1,37 @@
+Category,Item,Qty,Vendor,PartNumber,UnitPriceUSD,LeadTime,Required,Notes
+# === Required for v1 minimum config ===
+MCU,FRDM-MCXN947 dev board,1,DigiKey,FRDM-MCXN947,49.00,stock,YES,NPU + PowerQuad + I2S multi
+MIC,INMP441 I2S MEMS microphone breakout,1,DigiKey,Adafruit-3421 or generic,7.95,stock,YES,24-bit, no DC offset; spec.html §6 specifies INMP441
+DAC,MAX98357A I2S amplifier breakout,1,DigiKey,Adafruit-3006,5.95,stock,YES,Class-D 3.2 W @ 8 ohm
+SPEAKER,8 ohm 1-3 W fullrange driver 28-40 mm,1,DigiKey,DBL40N1B-G or similar,2.50,stock,YES,200 Hz - 10 kHz fairly flat
+SERVO_DRV,PCA9685 16ch PWM driver breakout,1,DigiKey,Adafruit-815,17.50,stock,YES,I2C 0x40
+SERVO,SG90 micro servo 9g,5,DigiKey,Adafruit-169,5.95,stock,YES,Window/door actuators
+DISPLAY,SH1106 1.3 inch OLED 128x64 I2C white,1,DigiKey,Adafruit-938 or generic,9.95,stock,YES,Bigger than SSD1306 0.96 inch — see hardware/display_options.html
+BARO,BMP585 barometric pressure sensor breakout,1,DigiKey,Adafruit-5704,7.50,stock,YES,0.1 Pa resolution (aux input)
+STORAGE,microSD card socket breakout (SPI),1,DigiKey,Adafruit-254,2.95,stock,YES,FatFs over SPI
+STORAGE,microSD 64 GB Class 10,1,DigiKey,SanDisk-SDSDQAF3-064G,12.95,stock,YES,Training data buffer
+BUTTONS,Toggle SPST switches,5,DigiKey,EG2374-ND or generic,1.85,stock,YES,Window/door ground-truth toggles (D4-D8)
+BUTTON,Momentary SPST tactile push,1,DigiKey,EG2547-ND,0.45,stock,YES,EXEC trigger (D9)
+LED,5mm green LED,1,DigiKey,160-1062-ND,0.18,stock,YES,PWR indicator (A0)
+LED,5mm orange/amber LED,1,DigiKey,160-1063-ND,0.18,stock,YES,Inference busy (A1)
+RESISTOR,330 ohm 1/4W,2,DigiKey,CFR-25JR-52-330R,0.05,stock,YES,LED current limiting
+RESISTOR,4.7 kOhm 1/4W,4,DigiKey,CFR-25JR-52-4K7,0.05,stock,YES,I2C pull-ups (2 sets)
+CABLES,Dupont jumper wires F/F + F/M (40 pieces each),2,DigiKey,1568-1511-ND,5.95,stock,YES,Prototyping
+CABLES,Micro-USB cable data (>= 1 m),1,DigiKey,839-1067-ND,4.95,stock,YES,For OpenSDA — NOT charge-only
+CABLES,USB-C cable data (>= 1 m),1,DigiKey,839-1517-ND,5.95,stock,YES,For target USB later
+POWER,1000 uF 16V electrolytic capacitor,1,DigiKey,P5145-ND,0.55,stock,YES,Servo rail inrush filter
+# === Required for v1 mechanical model (Phase 4) ===
+ACRYLIC,5 mm clear acrylic sheet 300x600 mm,2,external,—,18.00,2 days,YES,Laser-cut 3-room model walls/floor/ceiling
+ACRYLIC,Acrylic solvent cement,1,Amazon-JP,—,8.00,stock,YES,Weld-On 4 or equivalent
+HINGE,Mini hinges 15 mm,10,Amazon-JP,—,4.00,stock,YES,Door + window pivots
+ABSORBER,Damping foam sheet 5 mm,1,Amazon-JP,—,7.00,stock,YES,Speaker-mic mechanical isolation
+# === Optional / nice-to-have ===
+WIFI,ESP32-WROOM-32 module,1,DigiKey,1965-1014-ND,4.20,stock,no,Wireless via UART (FC2) — v1 not strictly needed
+BATTERY,18650 Li-ion 3000 mAh + holder,1,DigiKey,1568-1853-ND,11.50,stock,no,Portable operation
+CHARGER,TP4056 Li-ion charger module,1,DigiKey,—,1.95,stock,no,USB-C charging
+LDO,Boost converter 3.3 -> 5V module,1,DigiKey,—,2.95,stock,no,If using LiPo and no USB
+ENCLOSURE,3D printed case (PLA filament),1,—,—,5.00,—,no,Filament estimate for one case
+# === Notes ===
+# Prices are reference 2026-05 — re-check on DigiKey before ordering.
+# Where vendor is "external", the item is from a non-DigiKey supplier (laser cut, chemicals).
+# Total Required column "YES" rough subtotal: ~$245 (excluding model fabrication).

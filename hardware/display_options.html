@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ディスプレイ候補比較 — IchiPing v1</title>
+<link rel="stylesheet" href="../docs/style.css">
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../index.html">トップ</a>
+      <a href="../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="../docs/spec.html">仕様書 (spec)</a>
+      <a href="../docs/nn_design.html">NN 設計</a>
+      <a href="../docs/mcu_deployment.html">MCU デプロイ</a>
+      <a href="../docs/bringup.html">実機ブリングアップ</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="../hardware/wiring.html">配線テーブル</a>
+      <a href="../hardware/bom.html">BOM (部品表)</a>
+      <a href="../hardware/display_options.html" class="current">ディスプレイ候補</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../firmware/README.html">firmware ガイド</a>
+      <a href="../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="../docs/vscode_setup.html">VS Code セットアップ</a>
+      <a href="../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a><br>
+    <a href="https://github.com/airpocket-soundman/digikey_project">正本 digikey_project</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../index.html">← IchiPing トップ</a>
+    ／ <a href="../tasks.html">タスクボード</a>
+    ／ <a href="bom.html">BOM</a>
+    ／ <a href="wiring.html">配線</a>
+    ／ <a href="../docs/spec.html">仕様書</a>
+  </div>
+  <h1>ディスプレイ候補比較</h1>
+  <div class="sub">
+    spec.html §6 の <b>SSD1306 0.96"</b> から進化版を選び直す。
+    用途は「5 部屋の窓・扉状態 + 推論結果 + 信頼度 + EXEC モード表示」。
+    視認性・配線本数・I²C 共有・MCU 負荷の 4 軸で比較し、本リポでの推奨候補を決める。
+  </div>
+  <div class="meta">
+    <span class="meta-stat done"><span class="num">5</span> 候補比較</span>
+    <span class="meta-stat active"><span class="num">SH1106 1.3"</span> 第一推奨</span>
+    <span class="meta-stat"><span class="num">I²C</span> バス維持</span>
+  </div>
+</header>
+
+<main>
+
+<h2>用途と要件</h2>
+<table>
+  <tbody>
+    <tr><th>表示すべき情報</th><td>
+      ・5 部屋の窓/扉状態（窓 a/b/c + 扉 AB/BC）<br>
+      ・推論結果（クラス + 信頼度）<br>
+      ・EXEC モード状態（収集中 / 待機 / エラー）<br>
+      ・seq カウンタ + ハートビート
+    </td></tr>
+    <tr><th>必要解像度</th><td>128×64 で最小限。128×128 / 240×135 で <b>状態のアイコン化</b>がグッと改善</td></tr>
+    <tr><th>応答時間</th><td>0.5 秒以内で 1 画面更新（I²C 400 kHz では 128×64 = 1 KB を ~20 ms）</td></tr>
+    <tr><th>視認性</th><td>3 m 離れたデモ動画で読める ≒ <b>1.3" 以上</b>を推奨</td></tr>
+    <tr><th>バス制約</th><td>FC4 I²C は PCA9685 0x40 / BMP585 0x47 と共有。OLED は 0x3C/0x3D が定番（衝突なし）</td></tr>
+    <tr><th>電源</th><td>3.3 V 単一（バックライト無し）。MCU 同電源で給電</td></tr>
+  </tbody>
+</table>
+
+<h2>候補比較</h2>
+<table>
+  <thead>
+    <tr>
+      <th>候補</th>
+      <th>サイズ / 解像度</th>
+      <th>方式</th>
+      <th>I/F</th>
+      <th>ピン</th>
+      <th>価格</th>
+      <th>視認性</th>
+      <th>推奨度</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>SSD1306</b><br>spec §6 既存</td>
+      <td>0.96" / 128×64</td>
+      <td>OLED 単色（白 or 黄青）</td>
+      <td>I²C (0x3C)</td>
+      <td>2 (SDA/SCL)</td>
+      <td>~$4</td>
+      <td>★★☆☆☆ 小さい</td>
+      <td><span class="status-badge pending">spec 既定値</span></td>
+    </tr>
+    <tr>
+      <td><b>SH1106 ★第一推奨</b></td>
+      <td><b>1.3" / 128×64</b></td>
+      <td>OLED 白</td>
+      <td>I²C (0x3C/0x3D)</td>
+      <td>2</td>
+      <td>~$10</td>
+      <td>★★★★☆ 同解像度で画面 1.4 倍</td>
+      <td><span class="status-badge in_progress">採用候補</span></td>
+    </tr>
+    <tr>
+      <td>SSD1327</td>
+      <td>1.5" / 128×128</td>
+      <td>OLED 16 階調グレー</td>
+      <td>I²C (0x3C)</td>
+      <td>2</td>
+      <td>~$22</td>
+      <td>★★★★☆ 解像度 +、アイコン化が映える</td>
+      <td><span class="status-badge pending">候補</span></td>
+    </tr>
+    <tr>
+      <td>SSD1351</td>
+      <td>1.5" / 128×128 RGB</td>
+      <td>OLED フルカラー</td>
+      <td>SPI</td>
+      <td>5 (CS/DC/RST/MOSI/SCK)</td>
+      <td>~$30</td>
+      <td>★★★★★ デモ映え</td>
+      <td><span class="status-badge blocked">SPI 圧迫 / FC3 microSD と競合</span></td>
+    </tr>
+    <tr>
+      <td>ST7789</td>
+      <td>1.14"〜1.69" / 240×135〜240×280</td>
+      <td>IPS LCD カラー</td>
+      <td>SPI</td>
+      <td>5</td>
+      <td>~$8〜$15</td>
+      <td>★★★★★ 安いのに高解像度</td>
+      <td><span class="status-badge blocked">SPI 圧迫、バックライトが消費電力 +</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>選定理由 — なぜ SH1106 1.3"</h2>
+
+<table>
+  <thead><tr><th>判定軸</th><th>SH1106 採用根拠</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><b>I²C 維持</b></td>
+      <td>既に FC4 I²C が走っているので 2 ピン追加で済む。SPI 系は <b>FC3 SPI を microSD と取り合う</b>ことになり配線が増える</td>
+    </tr>
+    <tr>
+      <td><b>視認性</b></td>
+      <td>0.96" → 1.3" で画面面積 1.4 倍。<b>デモ動画（2 m 撮影）で状態アイコンが明確に読める</b></td>
+    </tr>
+    <tr>
+      <td><b>ライブラリ互換</b></td>
+      <td>SH1106 は SSD1306 互換ドライバ（u8g2, adafruit_sh110x）で大体動く。差分はオフセット 2px のみ</td>
+    </tr>
+    <tr>
+      <td><b>消費電力</b></td>
+      <td>OLED でバックライト無し、点灯ピクセルだけ電流 → 状態表示用途では ~10 mA。LCD バックライトが ~30 mA</td>
+    </tr>
+    <tr>
+      <td><b>価格</b></td>
+      <td>$10 — 解像度同じだが視認性が劇的に良いので妥当な premium</td>
+    </tr>
+    <tr>
+      <td><b>I²C アドレス</b></td>
+      <td>0x3C — PCA9685 0x40, BMP585 0x47 と被らない</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>レイアウト案（SH1106 1.3" / 128×64）</h2>
+
+<svg viewBox="0 0 600 380" xmlns="http://www.w3.org/2000/svg" style="width: 100%; max-width: 600px; display: block; margin: 16px auto;">
+  <style>
+    .frame { fill: #0f1115; stroke: #6ea8fe; stroke-width: 2; rx: 6; }
+    .cell-on  { fill: #ffb454; }
+    .cell-off { fill: #2a313d; }
+    .lbl-room { fill: #e5e9f0; font-family: 'Hiragino Sans','Yu Gothic UI',sans-serif; font-size: 11px; font-weight: 700; }
+    .lbl-state { fill: #8b95a7; font-family: 'JetBrains Mono',Consolas,monospace; font-size: 10px; }
+    .title { fill: #7be0a4; font-family: 'JetBrains Mono',Consolas,monospace; font-size: 12px; font-weight: 700; }
+    .cap { fill: #8b95a7; font-family: 'JetBrains Mono',Consolas,monospace; font-size: 11px; }
+  </style>
+  <!-- Physical bezel -->
+  <rect x="40" y="40" width="520" height="260" rx="10" fill="#181b22" stroke="#2a313d" stroke-width="1.4"/>
+  <text class="cap" x="300" y="32" text-anchor="middle">SH1106 1.3" (実寸比 約 5×)</text>
+
+  <!-- Display area (mapped 128 x 64 to 480 x 200; pixel ratio 3.75 x 3.125) -->
+  <rect class="frame" x="60" y="50" width="480" height="200"/>
+
+  <!-- top row: seq + mode -->
+  <text class="title" x="76" y="76">seq=00042  mode=COLLECT</text>
+  <text class="title" x="76" y="100" fill="#ffb454">EXEC: ready</text>
+
+  <!-- center: 5 cells as windows/doors -->
+  <!-- window a -->
+  <rect class="cell-on" x="76" y="120" width="60" height="50"/>
+  <text class="lbl-room" x="106" y="146" text-anchor="middle">窓 a</text>
+  <text class="lbl-state" x="106" y="162" text-anchor="middle" fill="#0f1115">OPEN</text>
+  <!-- window b -->
+  <rect class="cell-off" x="146" y="120" width="60" height="50"/>
+  <text class="lbl-room" x="176" y="146" text-anchor="middle">窓 b</text>
+  <text class="lbl-state" x="176" y="162" text-anchor="middle">CLOSED</text>
+  <!-- window c -->
+  <rect class="cell-on" x="216" y="120" width="60" height="50"/>
+  <text class="lbl-room" x="246" y="146" text-anchor="middle">窓 c</text>
+  <text class="lbl-state" x="246" y="162" text-anchor="middle" fill="#0f1115">OPEN</text>
+  <!-- door AB -->
+  <rect class="cell-off" x="296" y="120" width="60" height="50"/>
+  <text class="lbl-room" x="326" y="146" text-anchor="middle">扉 AB</text>
+  <text class="lbl-state" x="326" y="162" text-anchor="middle">CLOSED</text>
+  <!-- door BC -->
+  <rect class="cell-on" x="366" y="120" width="60" height="50"/>
+  <text class="lbl-room" x="396" y="146" text-anchor="middle">扉 BC</text>
+  <text class="lbl-state" x="396" y="162" text-anchor="middle" fill="#0f1115">OPEN</text>
+
+  <!-- right column: inference result -->
+  <rect x="446" y="120" width="84" height="50" fill="#1f242d" stroke="#7be0a4" stroke-width="1.2"/>
+  <text class="lbl-room" x="488" y="140" text-anchor="middle" fill="#7be0a4">NN</text>
+  <text class="lbl-state" x="488" y="156" text-anchor="middle" fill="#7be0a4">any_open</text>
+  <text class="lbl-state" x="488" y="168" text-anchor="middle" fill="#7be0a4">95.2%</text>
+
+  <!-- bottom: status line -->
+  <text class="lbl-state" x="76" y="200">INMP441 OK  PCA9685 OK  uSD 4.2 GB free</text>
+  <text class="lbl-state" x="76" y="218" fill="#ffb454">▌ INFER  RT60=0.42s  DRR=+3.1dB</text>
+  <text class="lbl-state" x="76" y="236">heartbeat ●</text>
+
+  <!-- Caption -->
+  <text class="cap" x="300" y="282" text-anchor="middle">128×64 SH1106 → 6 セル + ステータス 3 行で「家の状態」が一目でわかる</text>
+  <text class="cap" x="300" y="300" text-anchor="middle" fill="#7be0a4">u8g2 ライブラリで描画。CPU 負荷は 1 画面 ~20 ms</text>
+</svg>
+
+<h2>I²C アドレス衝突チェック</h2>
+<table>
+  <thead><tr><th>デバイス</th><th>アドレス</th><th>FC4 衝突</th></tr></thead>
+  <tbody>
+    <tr><td>PCA9685（既存）</td><td>0x40</td><td>—</td></tr>
+    <tr><td>BMP585（既存）</td><td>0x47</td><td>—</td></tr>
+    <tr><td><b>SH1106 OLED</b></td><td><b>0x3C</b> (or 0x3D)</td><td>無し ✓</td></tr>
+  </tbody>
+</table>
+<p>
+  プルアップ抵抗は <b>4.7 kΩ ×2 を 1 セットのみ</b>共有。SH1106 モジュールにオンボードプルアップが付いている場合は
+  ジャンパで切るか、別バスデバイスから一つ外す（spec §6 の I²C 注意点参照）。
+</p>
+
+<h2>将来の拡張余地</h2>
+<table>
+  <thead><tr><th>シナリオ</th><th>移行候補</th></tr></thead>
+  <tbody>
+    <tr><td>カラー表示でデモ動画の訴求力を上げたい</td><td>SSD1351（SPI、microSD と FC3 を取り合うので CS 2 本目）</td></tr>
+    <tr><td>14 状態の階層表示を fancy にしたい</td><td>SSD1327 1.5" 128×128 グレースケール（I²C 維持）</td></tr>
+    <tr><td>ROHM v2 で別 MCU に移植時</td><td>同じ SH1106 でドライバを M0+ 用に書き直すだけ。バス変更不要</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <strong>BOM への反映:</strong> 本ページの結論を受けて <a href="bom.html">bom.html</a> および <a href="bom.csv">bom.csv</a> では
+  ディスプレイを <b>SH1106 1.3" OLED</b>（Adafruit 938）に更新済み。spec.html §6 は正本側で別途更新する想定。
+</div>
+
+<div class="footer-note">
+  関連ページ:
+  <a href="../index.html">index.html</a> ／
+  <a href="bom.html">bom.html</a> ／
+  <a href="bom.csv">bom.csv</a> ／
+  <a href="wiring.html">wiring.html</a> ／
+  <a href="../docs/spec.html">spec.html</a> ／
+  <a href="../tasks.html">tasks.html</a>
+</div>
+
+</main>
+</body>
+</html>

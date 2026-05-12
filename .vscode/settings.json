@@ -1,0 +1,57 @@
+{
+  // Python — let the Python extension auto-detect the conda env.
+  // First run: Cmd/Ctrl+Shift+P → "Python: Select Interpreter" → choose "ichiping".
+  // If you want to pin the path explicitly, uncomment and adjust:
+  //   "python.defaultInterpreterPath": "C:/ProgramData/anaconda3/envs/ichiping/python.exe"
+
+  "python.terminal.activateEnvironment": true,
+  "python.terminal.activateEnvInCurrentTerminal": true,
+
+  // Unit tests live in pc/ — make the Test Explorer pick them up.
+  "python.testing.unittestEnabled": true,
+  "python.testing.pytestEnabled": false,
+  "python.testing.cwd": "${workspaceFolder}/pc",
+  "python.testing.unittestArgs": [
+    "-v",
+    "-s",
+    "${workspaceFolder}/pc",
+    "-p",
+    "test_*.py"
+  ],
+
+  // Analysis: treat pc/ as the source root so imports like `from receiver import …`
+  // resolve in Pylance without manual sys.path tinkering.
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/pc",
+    "${workspaceFolder}/pc/training"
+  ],
+  "python.analysis.typeCheckingMode": "basic",
+
+  // Editor — keep ASCII art OUT of code; see CLAUDE.md "SVG only" rule for docs.
+  "editor.rulers": [100],
+  "editor.tabSize": 4,
+  "editor.insertSpaces": true,
+  "[python]": {
+    "editor.tabSize": 4
+  },
+  "[c]": {
+    "editor.tabSize": 4
+  },
+
+  // Hide noise so the explorer matches what the README claims.
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/.pytest_cache": true,
+    "**/*.pyc": true
+  },
+  "files.watcherExclude": {
+    "**/__pycache__/**": true,
+    "**/captures/**": true,
+    "**/runs/**": true
+  },
+
+  // YAML — pin the environment file schema for autocompletion.
+  "yaml.schemas": {
+    "https://json.schemastore.org/conda-environment.json": "pc/environment.yml"
+  }
+}

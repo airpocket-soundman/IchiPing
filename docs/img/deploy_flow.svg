@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 480" role="img" aria-label="MCXN947 deployment flow: PyTorch training, ONNX export, eIQ Toolkit INT8 quantisation, C code generation, MCUXpresso integration, on-device inference">
+  <title>MCXN947 への NN デプロイフロー</title>
+  <defs>
+    <marker id="arrDep" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#6ea8fe"/>
+    </marker>
+  </defs>
+  <style>
+    .stage-pc  { fill: #1f242d; stroke: #7be0a4; stroke-width: 1.6; rx: 8; }
+    .stage-eiq { fill: #1f242d; stroke: #ffb454; stroke-width: 1.6; rx: 8; }
+    .stage-mcu { fill: #1f242d; stroke: #ff7ab6; stroke-width: 1.6; rx: 8; }
+    .ttl   { fill: #e5e9f0; font-family: 'Hiragino Sans','Yu Gothic UI','Segoe UI',sans-serif; font-size: 13px; font-weight: 700; }
+    .sub   { fill: #8b95a7; font-family: 'JetBrains Mono',Consolas,monospace; font-size: 11px; }
+    .arrow { stroke: #6ea8fe; stroke-width: 1.8; fill: none; }
+    .gate-h { fill: #e5e9f0; font-family: 'Hiragino Sans','Yu Gothic UI',sans-serif; font-size: 14px; font-weight: 700; }
+    .gate-pc  { fill: #7be0a4; }
+    .gate-eiq { fill: #ffb454; }
+    .gate-mcu { fill: #ff7ab6; }
+    .check { fill: #8b95a7; font-family: 'JetBrains Mono',Consolas,monospace; font-size: 10.5px; }
+  </style>
+
+  <!-- Lane 1: PC training -->
+  <text class="gate-h" x="20" y="32">① PC（学習側）</text>
+  <line x1="20" y1="40" x2="800" y2="40" stroke="#7be0a4" stroke-width="0.8" stroke-dasharray="3,3"/>
+
+  <rect class="stage-pc" x="20" y="52" width="240" height="60"/>
+  <text class="ttl" x="140" y="74" text-anchor="middle">A. データ収集</text>
+  <text class="sub" x="140" y="92" text-anchor="middle">receiver.py で captures/ 群</text>
+  <text class="sub" x="140" y="106" text-anchor="middle">(WAV + labels.csv) ~1000+</text>
+
+  <path class="arrow" d="M260,82 L290,82" marker-end="url(#arrDep)"/>
+
+  <rect class="stage-pc" x="290" y="52" width="240" height="60"/>
+  <text class="ttl" x="410" y="74" text-anchor="middle">B. 訓練</text>
+  <text class="sub" x="410" y="92" text-anchor="middle">training/train.py で 1D-CNN</text>
+  <text class="sub" x="410" y="106" text-anchor="middle">best.pt + train_log.csv</text>
+
+  <path class="arrow" d="M530,82 L560,82" marker-end="url(#arrDep)"/>
+
+  <rect class="stage-pc" x="560" y="52" width="240" height="60"/>
+  <text class="ttl" x="680" y="74" text-anchor="middle">C. ONNX エクスポート</text>
+  <text class="sub" x="680" y="92" text-anchor="middle">torch.onnx.export(opset=17)</text>
+  <text class="sub" x="680" y="106" text-anchor="middle">→ best.onnx</text>
+
+  <!-- Cross-lane arrow PC -> eIQ -->
+  <path class="arrow" d="M680,112 L680,160" marker-end="url(#arrDep)"/>
+
+  <!-- Lane 2: eIQ Toolkit -->
+  <text class="gate-h" x="20" y="180">② eIQ Toolkit（量子化 + コード生成）</text>
+  <text class="check" x="20" y="196">NXP 提供。Workflow: Import → Validate → Quantize → Deploy</text>
+  <line x1="20" y1="200" x2="800" y2="200" stroke="#ffb454" stroke-width="0.8" stroke-dasharray="3,3"/>
+
+  <rect class="stage-eiq" x="20" y="212" width="200" height="70"/>
+  <text class="ttl" x="120" y="234" text-anchor="middle">D. ONNX 取り込み</text>
+  <text class="sub" x="120" y="252" text-anchor="middle">eIQ Toolkit GUI で</text>
+  <text class="sub" x="120" y="266" text-anchor="middle">best.onnx を Import</text>
+
+  <path class="arrow" d="M220,246 L250,246" marker-end="url(#arrDep)"/>
+
+  <rect class="stage-eiq" x="250" y="212" width="200" height="70"/>
+  <text class="ttl" x="350" y="234" text-anchor="middle">E. キャリブレーション</text>
+  <text class="sub" x="350" y="252" text-anchor="middle">100〜200 サンプルで</text>
+  <text class="sub" x="350" y="266" text-anchor="middle">活性化レンジを推定 (PTQ)</text>
+
+  <path class="arrow" d="M450,246 L480,246" marker-end="url(#arrDep)"/>
+
+  <rect class="stage-eiq" x="480" y="212" width="160" height="70"/>
+  <text class="ttl" x="560" y="234" text-anchor="middle">F. INT8 量子化</text>
+  <text class="sub" x="560" y="252" text-anchor="middle">eIQ Neutron NPU</text>
+  <text class="sub" x="560" y="266" text-anchor="middle">向け重み圧縮</text>
+
+  <path class="arrow" d="M640,246 L670,246" marker-end="url(#arrDep)"/>
+
+  <rect class="stage-eiq" x="670" y="212" width="130" height="70"/>
+  <text class="ttl" x="735" y="234" text-anchor="middle">G. C コード生成</text>
+  <text class="sub" x="735" y="252" text-anchor="middle">.c/.h 一式 +</text>
+  <text class="sub" x="735" y="266" text-anchor="middle">重みバイナリ</text>
+
+  <!-- Cross-lane arrow eIQ -> MCU -->
+  <path class="arrow" d="M735,282 L735,330" marker-end="url(#arrDep)"/>
+
+  <!-- Lane 3: MCU integration -->
+  <text class="gate-h" x="20" y="352">③ MCUXpresso（統合・推論）</text>
+  <line x1="20" y1="360" x2="800" y2="360" stroke="#ff7ab6" stroke-width="0.8" stroke-dasharray="3,3"/>
+
+  <rect class="stage-mcu" x="20" y="372" width="240" height="70"/>
+  <text class="ttl" x="140" y="394" text-anchor="middle">H. firmware に取り込み</text>
+  <text class="sub" x="140" y="412" text-anchor="middle">生成 .c/.h を firmware/source/</text>
+  <text class="sub" x="140" y="426" text-anchor="middle">に追加、NPU ドライバを link</text>
+
+  <path class="arrow" d="M260,406 L290,406" marker-end="url(#arrDep)"/>
+
+  <rect class="stage-mcu" x="290" y="372" width="240" height="70"/>
+  <text class="ttl" x="410" y="394" text-anchor="middle">I. 前処理 + 推論結線</text>
+  <text class="sub" x="410" y="412" text-anchor="middle">chirp → RIR → spectrum →</text>
+  <text class="sub" x="410" y="426" text-anchor="middle">NN.invoke() → 出力ヘッド</text>
+
+  <path class="arrow" d="M530,406 L560,406" marker-end="url(#arrDep)"/>
+
+  <rect class="stage-mcu" x="560" y="372" width="240" height="70"/>
+  <text class="ttl" x="680" y="394" text-anchor="middle">J. レイテンシ計測 + デモ</text>
+  <text class="sub" x="680" y="412" text-anchor="middle">SysTick で chirp→結果 &lt; 100 ms</text>
+  <text class="sub" x="680" y="426" text-anchor="middle">OLED に状態表示</text>
+
+  <text class="check" x="410" y="468" text-anchor="middle" fill="#7be0a4">→ デモ動画撮影 → ProtoPedia 登録（IP-1.0.3） → DigiKey M1 応募</text>
+</svg>

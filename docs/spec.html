@@ -1,0 +1,1506 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>C4. IchiPing — 外出先から窓の開閉を確かめる</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #181b22;
+    --panel-2: #1f242d;
+    --border: #2a313d;
+    --text: #e5e9f0;
+    --muted: #8b95a7;
+    --accent: #6ea8fe;
+    --accent-2: #7be0a4;
+    --warn: #ffb454;
+    --pink: #ff7ab6;
+    --shadow: 0 12px 40px rgba(0,0,0,.55);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Hiragino Sans", "Yu Gothic UI", "Segoe UI", "BIZ UDPGothic", sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+  }
+  header {
+    padding: 24px 32px 18px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, #181c25 0%, #11141a 100%);
+  }
+  header .crumb a { color: var(--accent); text-decoration: none; font-size: 12.5px; }
+  header .crumb a:hover { text-decoration: underline; }
+  header h1 { margin: 8px 0 4px; font-size: 23px; }
+  header .sub { color: var(--muted); font-size: 13.5px; }
+  header .meta { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 11px;
+    font-size: 11.5px;
+    font-weight: 600;
+    background: var(--panel-2);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .pill.D { color: var(--accent); border-color: rgba(110,168,254,.4); }
+  .pill.R { color: var(--pink); border-color: rgba(255,122,182,.4); }
+  .pill.primary { color: var(--accent-2); border-color: rgba(123,224,164,.4); }
+  .pill.alt { color: var(--warn); border-color: rgba(255,180,84,.4); }
+
+  main { padding: 24px 32px 80px; max-width: 980px; margin: 0 auto; }
+  section { margin-top: 32px; }
+  section h2 {
+    font-size: 18px; margin: 0 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  section h3 {
+    font-size: 15px; margin: 22px 0 8px;
+    color: var(--accent-2);
+  }
+  p { margin: 8px 0; }
+  ul, ol { padding-left: 22px; margin: 6px 0; }
+  li { margin: 3px 0; }
+  table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--panel);
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 10px 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,.25);
+  }
+  thead th {
+    text-align: left;
+    background: var(--panel-2);
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 12px;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  tbody td, tbody th {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tbody th {
+    text-align: left;
+    background: #232936;
+    color: var(--text);
+    font-weight: 600;
+    font-size: 13px;
+    width: 26%;
+  }
+  tbody tr:last-child td, tbody tr:last-child th { border-bottom: none; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+  }
+  .panel.accent { border-left: 3px solid var(--accent-2); }
+  .panel.warn { border-left: 3px solid var(--warn); }
+  .panel.muted { background: var(--panel-2); }
+
+  pre.diagram, pre.code {
+    background: #11141a;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    margin: 12px 0;
+    font-family: "JetBrains Mono", Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--text);
+    overflow-x: auto;
+  }
+  pre.diagram .acc { color: var(--accent-2); }
+  pre.diagram .warn { color: var(--warn); }
+  pre.diagram .mut { color: var(--muted); }
+
+  code {
+    background: #252b35;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: "JetBrains Mono", Consolas, monospace;
+  }
+
+  .twocol {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 760px) {
+    .twocol { grid-template-columns: 1fr; }
+  }
+
+  .pipeline {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 12px 0;
+  }
+  .stage {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 13.5px;
+  }
+  .stage b { color: var(--accent-2); }
+  .arrow {
+    color: var(--muted);
+    text-align: center;
+    font-size: 14px;
+    line-height: 1;
+  }
+
+  .footer-note {
+    margin-top: 60px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 12.5px;
+  }
+  .footer-note a { color: var(--accent); }
+
+  .callout {
+    background: var(--panel-2);
+    border-left: 3px solid var(--warn);
+    padding: 10px 14px;
+    border-radius: 6px;
+    margin: 12px 0;
+    font-size: 13.5px;
+  }
+  .callout b { color: var(--warn); }
+
+  .todo {
+    list-style: none;
+    padding-left: 0;
+  }
+  .todo li::before {
+    content: "☐ ";
+    color: var(--muted);
+    margin-right: 4px;
+  }
+</style>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../index.html">トップ</a>
+      <a href="../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="../docs/spec.html" class="current">仕様書 (spec)</a>
+      <a href="../docs/nn_design.html">NN 設計</a>
+      <a href="../docs/mcu_deployment.html">MCU デプロイ</a>
+      <a href="../docs/bringup.html">実機ブリングアップ</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="../hardware/wiring.html">配線テーブル</a>
+      <a href="../hardware/bom.html">BOM (部品表)</a>
+      <a href="../hardware/display_options.html">ディスプレイ候補</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../firmware/README.html">firmware ガイド</a>
+      <a href="../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="../docs/vscode_setup.html">VS Code セットアップ</a>
+      <a href="../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a><br>
+    <a href="https://github.com/airpocket-soundman/digikey_project">正本 digikey_project</a>
+  </div>
+</aside>
+
+<header>
+  <div class="crumb"><a href="https://github.com/airpocket-soundman/digikey_project/blob/main/ideas.html">← 一覧に戻る</a> ／ <a href="https://github.com/airpocket-soundman/digikey_project/blob/main/ideas.html#C4">C4 サマリ</a></div>
+  <h1>C4. IchiPing — <b>イチ発のピンで、家のすべての窓を聴く</b></h1>
+  <div class="sub">マイク 1 個 + NN で、窓 3 + 扉 2 + 連続音響空間トポロジを <b>同時に</b> 推定する卓上 PoC エッジ AI</div>
+  <div class="meta">
+    <span class="pill D">DigiKey M1</span>
+    <span class="pill R">ROHM EDGE HACK</span>
+    <span class="pill primary">本命: 音響+NN 法</span>
+    <span class="pill alt">補助: 気圧スパイク法</span>
+  </div>
+</header>
+
+<main>
+
+<section>
+  <h2>0. このページの位置づけ</h2>
+  <div class="panel accent">
+    <p>原案 C4 DoorBaro（[<a href="https://github.com/airpocket-soundman/digikey_project/blob/main/ideas.html#C4">一覧 §C4</a>]）は<b>気圧 1 個でドア開閉・換気・HVAC・天気を同時推定</b>するアイデアだった。物理的に成立はするが、<b>「外出先から、いま窓が開いているか確かめたい」</b>という具体ユースケースには気圧スパイク法では即応性・状態性で不足する（スパイク = イベント検出であって、状態のスナップショットを取りにくい）。本プロジェクト <b>IchiPing</b> はこの原案からピボットした名称である。</p>
+    <p>本ページでは <b>気圧法を補助として残しつつ、本命を「リファレンストーン放射 + NN による開窓状態分類」に置き換える</b>方針を整理する。</p>
+  </div>
+</section>
+
+<section>
+  <h2>1. ユースケース — 「雨が降ってきた、窓は閉めてきた？」</h2>
+
+  <p>外出中に天気が崩れたとき、ユーザーがスマホから問い合わせると、家に設置された 1 台のデバイスが <b>「いま家のどこかの窓が開いているか／全て閉まっているか」</b> をリアルタイム判定して返す。</p>
+
+  <h3>1.1 想定シナリオ</h3>
+  <ul>
+    <li>通勤中に雨予報を見て不安になる → スマホアプリで <code>窓チェック</code> をタップ</li>
+    <li>デバイスがリファレンストーンを 3〜5 秒放射 → マイクで取得 → NN 判定 → スマホに結果プッシュ</li>
+    <li>「<b>連続空間内のいずれかの窓が開いています</b>」 or 「全て閉まっています」を即返答</li>
+    <li>定期測定（30 分毎など）で状態変化検出 → プッシュ通知（"3 分前まで閉まっていた窓が開きました"）</li>
+  </ul>
+
+  <h3>1.2 なぜ既存ソリューションでは足りないか</h3>
+  <ul>
+    <li><b>窓ごとの磁気スイッチ</b>: 各窓に取り付ける必要があり、賃貸・既設窓には不向き。設置コスト大</li>
+    <li><b>カメラ監視</b>: プライバシー強で住人受けが悪い。死角もある</li>
+    <li><b>気圧スパイク（原案）</b>: 開閉<b>イベント</b>は取れるが、出先から「いま開いているか」を尋ねる用途では履歴推定に頼ることになり、起動以降のイベント漏れに弱い</li>
+  </ul>
+  <p><b>本案の強み</b>: 1 部屋に 1 個置くだけ、能動的問い合わせに即応、プライバシー完璧（音だけ）、賃貸でも使える。</p>
+</section>
+
+<section>
+  <h2>2. 検出スコープ — 「連続音響空間」</h2>
+
+  <p>本デバイスが検出できる範囲は、<b>設置部屋から開いた扉でつながっている全部屋の窓</b>。部屋間扉が閉まっていればその先は不可視。</p>
+
+  <h3>2.1 連続音響空間の概念図</h3>
+  <svg viewBox="0 0 660 360" xmlns="http://www.w3.org/2000/svg" style="width:100%; max-width:660px; display:block; margin: 14px auto; font-family: 'Hiragino Sans', 'Yu Gothic UI', 'Segoe UI', sans-serif;">
+    <!-- Case 1 -->
+    <g transform="translate(30, 30)">
+      <text x="0" y="-12" fill="#8b95a7" font-size="13">[ケース1] 全扉開放 — 家全体が連続空間</text>
+      <!-- Detectable space highlight (whole row) -->
+      <rect x="0" y="0" width="600" height="90" fill="#7be0a4" fill-opacity="0.08" stroke="#7be0a4" stroke-opacity="0.4" stroke-dasharray="4 3"/>
+      <!-- Room 1 -->
+      <rect x="0" y="0" width="200" height="90" fill="#181b22" stroke="#2a313d" stroke-width="1.5"/>
+      <text x="100" y="50" fill="#e5e9f0" font-size="15" text-anchor="middle" font-weight="600">寝室</text>
+      <line x1="50" y1="0" x2="150" y2="0" stroke="#7be0a4" stroke-width="5"/>
+      <text x="100" y="-2" fill="#7be0a4" font-size="11" text-anchor="middle">窓1（開）</text>
+      <!-- Room 2 -->
+      <rect x="200" y="0" width="200" height="90" fill="#181b22" stroke="#2a313d" stroke-width="1.5"/>
+      <text x="300" y="50" fill="#e5e9f0" font-size="15" text-anchor="middle" font-weight="600">リビング</text>
+      <line x1="250" y1="0" x2="350" y2="0" stroke="#7be0a4" stroke-width="5"/>
+      <text x="300" y="-2" fill="#7be0a4" font-size="11" text-anchor="middle">窓2（開）</text>
+      <!-- Device -->
+      <circle cx="300" cy="72" r="7" fill="#6ea8fe"/>
+      <text x="312" y="76" fill="#6ea8fe" font-size="11">dev</text>
+      <!-- Room 3 -->
+      <rect x="400" y="0" width="200" height="90" fill="#181b22" stroke="#2a313d" stroke-width="1.5"/>
+      <text x="500" y="50" fill="#e5e9f0" font-size="15" text-anchor="middle" font-weight="600">キッチン</text>
+      <line x1="450" y1="0" x2="550" y2="0" stroke="#7be0a4" stroke-width="5"/>
+      <text x="500" y="-2" fill="#7be0a4" font-size="11" text-anchor="middle">窓3（開）</text>
+      <!-- Open door 1 -->
+      <line x1="200" y1="20" x2="200" y2="40" stroke="#7be0a4" stroke-width="2"/>
+      <line x1="200" y1="60" x2="200" y2="80" stroke="#7be0a4" stroke-width="2"/>
+      <text x="200" y="108" fill="#7be0a4" font-size="11" text-anchor="middle">↕ 開扉</text>
+      <!-- Open door 2 -->
+      <line x1="400" y1="20" x2="400" y2="40" stroke="#7be0a4" stroke-width="2"/>
+      <line x1="400" y1="60" x2="400" y2="80" stroke="#7be0a4" stroke-width="2"/>
+      <text x="400" y="108" fill="#7be0a4" font-size="11" text-anchor="middle">↕ 開扉</text>
+      <!-- Conclusion -->
+      <text x="300" y="128" fill="#7be0a4" font-size="12" text-anchor="middle" font-weight="600">→ 窓1・窓2・窓3 すべて検出対象</text>
+    </g>
+
+    <!-- Case 2 -->
+    <g transform="translate(30, 210)">
+      <text x="0" y="-12" fill="#8b95a7" font-size="13">[ケース2] キッチン扉だけ閉 — キッチンが切り離される</text>
+      <!-- Detectable space (only first 2 rooms) -->
+      <rect x="0" y="0" width="400" height="90" fill="#7be0a4" fill-opacity="0.08" stroke="#7be0a4" stroke-opacity="0.4" stroke-dasharray="4 3"/>
+      <!-- Closed-off room -->
+      <rect x="400" y="0" width="200" height="90" fill="#ffb454" fill-opacity="0.06" stroke="#ffb454" stroke-opacity="0.35" stroke-dasharray="4 3"/>
+      <!-- Room 1 -->
+      <rect x="0" y="0" width="200" height="90" fill="#181b22" stroke="#2a313d" stroke-width="1.5"/>
+      <text x="100" y="50" fill="#e5e9f0" font-size="15" text-anchor="middle" font-weight="600">寝室</text>
+      <line x1="50" y1="0" x2="150" y2="0" stroke="#7be0a4" stroke-width="5"/>
+      <text x="100" y="-2" fill="#7be0a4" font-size="11" text-anchor="middle">窓1（開）</text>
+      <!-- Room 2 -->
+      <rect x="200" y="0" width="200" height="90" fill="#181b22" stroke="#2a313d" stroke-width="1.5"/>
+      <text x="300" y="50" fill="#e5e9f0" font-size="15" text-anchor="middle" font-weight="600">リビング</text>
+      <line x1="250" y1="0" x2="350" y2="0" stroke="#7be0a4" stroke-width="5"/>
+      <text x="300" y="-2" fill="#7be0a4" font-size="11" text-anchor="middle">窓2（開）</text>
+      <circle cx="300" cy="72" r="7" fill="#6ea8fe"/>
+      <text x="312" y="76" fill="#6ea8fe" font-size="11">dev</text>
+      <!-- Room 3 (closed off) -->
+      <rect x="400" y="0" width="200" height="90" fill="#181b22" stroke="#ffb454" stroke-width="1.5" stroke-opacity="0.55"/>
+      <text x="500" y="50" fill="#ffb454" font-size="15" text-anchor="middle" font-weight="600" fill-opacity="0.85">キッチン</text>
+      <line x1="450" y1="0" x2="550" y2="0" stroke="#ffb454" stroke-width="5" stroke-opacity="0.6"/>
+      <text x="500" y="-2" fill="#ffb454" font-size="11" text-anchor="middle">窓3（開）</text>
+      <!-- Open door -->
+      <line x1="200" y1="20" x2="200" y2="40" stroke="#7be0a4" stroke-width="2"/>
+      <line x1="200" y1="60" x2="200" y2="80" stroke="#7be0a4" stroke-width="2"/>
+      <text x="200" y="108" fill="#7be0a4" font-size="11" text-anchor="middle">↕ 開扉</text>
+      <!-- Closed door -->
+      <line x1="400" y1="0" x2="400" y2="90" stroke="#ffb454" stroke-width="3.5"/>
+      <text x="400" y="108" fill="#ffb454" font-size="11" text-anchor="middle">× 閉扉</text>
+      <!-- Conclusion -->
+      <text x="200" y="128" fill="#7be0a4" font-size="12" text-anchor="middle" font-weight="600">→ 窓1・窓2 検出可能</text>
+      <text x="500" y="128" fill="#ffb454" font-size="12" text-anchor="middle" font-weight="600">→ 窓3 不可視</text>
+    </g>
+  </svg>
+
+  <h3>2.2 物理的根拠</h3>
+  <ul>
+    <li>音響的に連続な空間は <b>共有された残響モード</b>を持つ。Sabine 式 T60 = 0.16·V/A で、容積 V と吸音面積 A は連続空間全体の合算</li>
+    <li><b>開窓 = 開口面で吸音率 ≈ 1.0</b> → 連続空間の総吸音 A が増加 → RT60 が短くなる</li>
+    <li>同時に <b>外部音の浸入</b>（道路ノイズ、風切り音）→ ノイズ床スペクトルが変化</li>
+    <li>低域モード（部屋共振）の <b>共鳴 Q 値が低下</b> → 周波数応答のディップ</li>
+    <li>部屋間扉が閉まっていれば、扉の透過損失（一般的に 20〜30 dB）でその先の音響変化はほぼ届かない → 検出範囲が「連続空間」に自然に限定される</li>
+  </ul>
+
+  <div class="callout">
+    <b>仕様の正直さ</b>: 「家全体の窓を 1 個で見る」ではなく <b>「設置部屋から音響的に到達できる範囲の窓を見る」</b>。ユーザーには UI 上で「外出時は寝室の扉を開けておいてください」程度のガイダンスを提示する設計にする。
+  </div>
+</section>
+
+<section>
+  <h2>3. 信号処理パイプライン</h2>
+
+  <h3>3.1 全体フロー</h3>
+  <div class="pipeline">
+    <div class="stage"><b>励振</b>: MCXN947 I²S → MAX98357A → スピーカ。リファレンストーン放射（chirp 200 Hz〜8 kHz スイープ 300 ms、または擬似乱数ノイズ 1 s）</div>
+    <div class="arrow">▼</div>
+    <div class="stage"><b>受音</b>: I²S MEMS マイク（SPH0645LM4H）で 16〜48 kHz 取得、DMA でリングバッファへ</div>
+    <div class="arrow">▼</div>
+    <div class="stage"><b>RIR 推定</b>: PowerQuad DSP で 1024 点 FFT → 励振信号で割って室内インパルス応答（RIR）抽出。約 1 秒分</div>
+    <div class="arrow">▼</div>
+    <div class="stage"><b>特徴抽出</b>: バンド別 RT60、DRR（直接波/残響比）、低域モードピーク、ノイズ床スペクトル</div>
+    <div class="arrow">▼</div>
+    <div class="stage"><b>NN 推論</b>: eIQ Neutron NPU 上の 1D CNN（〜200 K params, INT8）で <b>"連続空間内に開窓あり / 全閉"</b> の二値分類（v2 では開口面積回帰）</div>
+    <div class="arrow">▼</div>
+    <div class="stage"><b>通信</b>: WiFi/BLE モジュール（例: ESP32 を補助 MCU として）でクラウド or 直接スマホへ結果送信</div>
+  </div>
+
+  <h3>3.2 なぜ NN が不可欠か</h3>
+  <ul>
+    <li>RIR 特徴は <b>家具・人の存在・室温・湿度・時間帯（外部騒音レベル）</b>で大きく変動する</li>
+    <li>「窓が開いた瞬間にどれかの特徴量が単調に動く」というしきい値モデルは現場で破綻する</li>
+    <li>分布学習による <b>"その家での全閉時の RIR 分布"</b> からの逸脱検出（OOD）が本質</li>
+    <li>v1 は「全閉 vs それ以外」の二値分類 → autoencoder + 再構成誤差 or 一クラス分類で実装。<b>校正データの大半が「全閉」だけで済む</b>のが大きな実用利点</li>
+  </ul>
+</section>
+
+<section>
+  <h2>4. NN モデル設計</h2>
+
+  <table>
+    <tbody>
+      <tr><th>入力</th><td>RIR の最初の 0.5〜1.0 秒（500〜1000 サンプル @ 1 kHz リサンプル）or バンド別特徴ベクトル（オクターブバンド × RT60/DRR/ピーク = ~30 次元）</td></tr>
+      <tr><th>v1 出力</th><td>二値: <code>全閉</code> / <code>いずれか開</code> + 信頼度</td></tr>
+      <tr><th>v2 出力</th><td>多クラス: <code>全閉 / 1箇所小開 / 1箇所大開 / 複数開</code> + おおまかな方角分類（多マイク化）</td></tr>
+      <tr><th>アーキテクチャ v1</th><td>1D conv autoencoder（〜100 K params, INT8）。再構成誤差を OOD スコアとする</td></tr>
+      <tr><th>アーキテクチャ v2</th><td>1D CNN + 全結合分類ヘッド（〜300 K params）。マルチタスク学習で開口面積回帰も</td></tr>
+      <tr><th>学習データ</th><td><b>家ごとに校正期間が必要</b>。設置直後にユーザー操作で「全閉」を 50〜100 回（時間帯を散らして）録音 → autoencoder 訓練。任意で「窓1だけ開」「窓2だけ開」も録音すれば v2 へ拡張可</td></tr>
+      <tr><th>転移学習</th><td>image-method の室内音響シミュレータ（pyroomacoustics 等）で家ごとに合成データを生成し、現場校正は短縮する</td></tr>
+    </tbody>
+  </table>
+
+  <h3>4.1 多解像度ヘッド（マルチタイムスケール路線との接続）</h3>
+  <p><a href="https://github.com/airpocket-soundman/digikey_project/blob/main/ideas.html">ideas.html §0</a> のマルチ Fs 設計に乗せる場合の構成案:</p>
+  <table>
+    <thead><tr><th style="width: 35%">Fs / 窓 / 帯域</th><th>役割</th></tr></thead>
+    <tbody>
+      <tr><th>48 kHz / 10.7 ms / 24 kHz</th><td>初期反射の位置（壁・天井距離）</td></tr>
+      <tr><th>5 kHz / 100 ms / 2.5 kHz</th><td>バンド別残響時間 RT60</td></tr>
+      <tr><th>500 Hz / 1 s / 250 Hz</th><td>低域モード（部屋共振）</td></tr>
+      <tr><th>50 Hz / 10 s / 25 Hz</th><td>外部騒音浸入のスペクトル変化</td></tr>
+    </tbody>
+  </table>
+
+  <h3>4.2 DigiKey v1 と ROHM v2 の NN 設計思想の違い</h3>
+
+  <p>同じ実験模型・同じ学習データを使うが、<b>ターゲット MCU の制約が NN アーキテクチャを根本的に分岐させる</b>。両者は性能 vs 適応性の異なる軸を最適化する設計になる。</p>
+
+  <h4 style="margin-top: 14px; color: var(--accent-2);">DigiKey v1: 深層 NN ＋ オフライン学習</h4>
+
+  <ul>
+    <li><b>ハードウェア</b>: MCXN947 + eIQ Neutron NPU + PowerQuad DSP</li>
+    <li><b>制約</b>: モデルサイズ ~500 KB INT8 まで、隠れ層数自由</li>
+    <li><b>アーキテクチャ</b>: 多層 1D-CNN（3〜5 層）+ マルチタスク出力ヘッド ── 単一ネットワークで全タスク同時推論</li>
+    <li><b>学習</b>: PC 上で backprop + Adam による標準訓練、INT8 量子化してデプロイ</li>
+    <li><b>特徴量</b>: 生 RIR or 周波数応答を直接入力 → NN が特徴学習</li>
+    <li><b>パラメータ規模</b>: 〜30 K params, ~30 KB INT8</li>
+  </ul>
+
+  <pre class="diagram" style="background: #11141a; border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px; font-family: 'JetBrains Mono', Consolas, monospace; font-size: 12px; line-height: 1.6;">
+入力: 周波数応答スペクトル (1024 bin)
+  │
+  ├─→ Conv1D 16ch k=16 s=4 + ReLU
+  ├─→ Conv1D 32ch k=8  s=4 + ReLU
+  ├─→ Conv1D 64ch k=4  s=2 + ReLU
+  ├─→ Global Average Pool
+  │
+  ├─→ FC head_1 ─→ any_open (binary)
+  ├─→ FC head_2 ─→ door_AB (continuous)
+  ├─→ FC head_3 ─→ door_BC (3-class incl. 不可視)
+  ├─→ FC head_4 ─→ window_a (continuous)
+  ├─→ FC head_5 ─→ window_b (3-class)
+  └─→ FC head_6 ─→ window_c (3-class)
+        ↑
+   全ヘッドが <b>共有 backbone</b> を活用 ── マルチタスク学習で精度向上
+  </pre>
+
+  <h4 style="margin-top: 14px; color: var(--pink);">ROHM v2: ELM ＋ 自律オンデバイス学習</h4>
+
+  <ul>
+    <li><b>ハードウェア</b>: ML63Q2557（Cortex-M0+ @ 48 MHz）+ AxlCORE-ODL ハード AI アクセラレータ</li>
+    <li><b>制約</b>: <b>3 層 FFNN（隠れ層 1 層のみ）</b>、隠れ層重み α は<b>ランダム固定</b>、出力層 β のみ学習可</li>
+    <li><b>アーキテクチャ</b>: 専門 ELM（二値分類）×4 スロット + 階層推論 + マハラノビス距離（補完）</li>
+    <li><b>学習</b>: <b>閉形式（疑似逆行列）でデバイス上完結</b>。最小二乗で β を一発算出 ── PC 不要</li>
+    <li><b>特徴量</b>: <b>物理特徴量の人手設計が必須</b>（RT60 per band、DRR、モードピーク位置等）── ELM は特徴を学べない</li>
+    <li><b>パラメータ規模</b>: 1 スロット 〜4 KB INT8 × 4 スロット = ~16 KB</li>
+  </ul>
+
+  <pre class="diagram" style="background: #11141a; border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px; font-family: 'JetBrains Mono', Consolas, monospace; font-size: 12px; line-height: 1.6;">
+入力: 物理特徴量 (~30 次元 / RT60×8帯域 + DRR + モードピーク等)
+  │
+  │ <span style="color: var(--accent-2);">[マハラノビス層 (M0+ で実行)]</span>
+  ├─→ d²_k for k ∈ 14 状態 → argmin → 粗いトポロジ判定
+  │
+  │ <span style="color: var(--accent-2);">[ELM 専門モデル群 (AxlCORE-ODL で実行)]</span>
+  ├─→ <b>スロット 1</b> ELM-AB ── 常時 ── door_AB 二値
+  ├─→ <b>スロット 2</b> ELM-a  ── 常時 ── window_a 二値
+  ├─→ <b>スロット 3</b> ELM-BC ── AB=開時のみ ── door_BC 二値
+  └─→ <b>スロット 4</b> ELM-b/c ── 時分割切替 ── window_b/c 二値
+        ↑
+   各 ELM は <b>独立したランダム射影 + 線形読み出し</b>
+   <b>観測可能性の階層</b>でモデル起動を制御
+  </pre>
+
+  <h4 style="margin-top: 14px;">設計思想の比較表</h4>
+
+  <table>
+    <thead>
+      <tr><th>観点</th><th style="color: var(--accent-2);">DigiKey v1</th><th style="color: var(--pink);">ROHM v2</th></tr>
+    </thead>
+    <tbody>
+      <tr><th>学習場所</th><td>PC（オフライン）</td><td><b>デバイス上（オンライン）</b></td></tr>
+      <tr><th>重み更新方法</th><td>Backprop + SGD</td><td>閉形式（疑似逆行列）</td></tr>
+      <tr><th>訓練可能パラメータ</th><td>全パラメータ</td><td>出力層 β のみ</td></tr>
+      <tr><th>隠れ層数</th><td>多層（3〜5 層）</td><td>1 層固定</td></tr>
+      <tr><th>隠れ層重み</th><td>学習</td><td><b>ランダム固定</b></td></tr>
+      <tr><th>特徴量設計</th><td>NN 内で学習可</td><td><b>人手で物理特徴設計必須</b></td></tr>
+      <tr><th>多クラス戦略</th><td>単一ネットの多出力ヘッド</td><td>専門 ELM × 4 スロット + 階層推論</td></tr>
+      <tr><th>新環境適応</th><td>再学習（PC 必要）</td><td><b>自律オンデバイス再学習</b></td></tr>
+      <tr><th>メモリ予算</th><td>~30 KB INT8</td><td>~4 KB × 4 = ~16 KB INT8</td></tr>
+      <tr><th>推論精度（離散分類）</th><td>92〜95%</td><td>85〜90%（マハラノビス併用で +3〜5%）</td></tr>
+      <tr><th>推論精度（連続回帰）</th><td>±5%</td><td>±10%</td></tr>
+      <tr><th>強調する軸</th><td><b>表現力・精度</b></td><td><b>適応性・自律性</b></td></tr>
+      <tr><th>コンテストテーマ整合</th><td>NPU 加点・"高性能エッジ AI"</td><td>"クラウド非依存"・"オンデバイス学習"</td></tr>
+    </tbody>
+  </table>
+
+  <h4 style="margin-top: 14px;">本質的な違い ── 性能 vs 適応性のトレードオフ</h4>
+
+  <div class="twocol">
+    <div class="panel accent">
+      <b>DigiKey v1 = 「訓練を済ませた最強の NN を載せる」</b>
+      <ul style="font-size: 13.5px; margin-top: 6px;">
+        <li>実験模型で集めた 10,000 サンプルを backprop で深く学習</li>
+        <li>マルチタスク共有 backbone で全タスクを同時学習</li>
+        <li>NPU のフル性能を活かして高精度を狙う</li>
+        <li>環境変化への対応は PC 経由の再学習 → デプロイ</li>
+        <li>「ベンチマーク勝負」モデル</li>
+      </ul>
+    </div>
+    <div class="panel warn">
+      <b>ROHM v2 = 「制約を逆手に取り、現場で学ぶ」</b>
+      <ul style="font-size: 13.5px; margin-top: 6px;">
+        <li>ELM の閉形式学習で「いま設置した家」専用モデルをその場で訓練</li>
+        <li>新しい家・新しい家具配置に <b>30 秒で再校正</b>できる</li>
+        <li>NN の表現力は犠牲にするが、適応性で取り返す</li>
+        <li>"自律的に学ぶエッジ AI" という ROHM コンテストテーマと完全一致</li>
+        <li>「フィールド勝負」モデル</li>
+      </ul>
+    </div>
+  </div>
+
+  <h4 style="margin-top: 14px;">同じ実験データの二様の使い方</h4>
+
+  <p>§7 の実験模型で集めた 1,000〜10,000 サンプルは <b>両系統で使うが消費の仕方が異なる</b>:</p>
+
+  <table>
+    <thead><tr><th>用途</th><th style="color: var(--accent-2);">DigiKey v1</th><th style="color: var(--pink);">ROHM v2</th></tr></thead>
+    <tbody>
+      <tr><th>主タスク学習</th><td>backprop で全ヘッド同時最適化</td><td>ELM-AE: 「全閉」サンプルのみで β を最小二乗</td></tr>
+      <tr><th>補助タスク学習</th><td>同上</td><td>各 ELM 専門モデルを個別に最小二乗で訓練</td></tr>
+      <tr><th>マハラノビス用統計</th><td>使わない</td><td>14 状態クラスの μ_k, Σ_k を集計</td></tr>
+      <tr><th>検証分割</th><td>未経験状態をホールドアウト</td><td>同左 + 「家を変えた仮想シナリオ」も評価</td></tr>
+      <tr><th>転移学習</th><td>新しい家ごとに backprop で fine-tune</td><td><b>新しい家での「全閉」録音 30 秒で β 再計算</b></td></tr>
+    </tbody>
+  </table>
+
+  <p style="margin-top: 12px; font-size: 13.5px; color: var(--muted);">
+    実験データの収集設計は <b>v1 / v2 のどちらにも対応できる物理特徴抽出パイプラインを通す</b>ことで両系統に共通インフラを提供する。生 RIR と物理特徴量の両方を保存しておけば、後から DigiKey 用に深層 NN、ROHM 用に ELM の双方を学習できる。
+  </p>
+
+  <h3>4.3 DigiKey v1 NN 詳細設計</h3>
+
+  <p>マルチタスク 1D-CNN で、周波数応答スペクトルから 6 種の出力を共有 backbone から分岐させる。</p>
+
+  <svg viewBox="0 0 720 600" xmlns="http://www.w3.org/2000/svg" style="width:100%; max-width:720px; display:block; margin: 14px auto; font-family: 'Hiragino Sans', 'Yu Gothic UI', 'Segoe UI', sans-serif;">
+    <defs>
+      <marker id="arrV1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#8b95a7"/>
+      </marker>
+    </defs>
+    <text x="360" y="22" font-size="14" font-weight="600" text-anchor="middle" fill="#e5e9f0">v1 NN — 多層 1D-CNN マルチタスク (MCXN947 + eIQ Neutron NPU)</text>
+    <rect x="240" y="40" width="240" height="48" rx="6" fill="#181b22" stroke="#7be0a4" stroke-width="1.5"/>
+    <text x="360" y="60" font-size="13" font-weight="700" text-anchor="middle" fill="#7be0a4">入力: 周波数応答 (512 bin)</text>
+    <text x="360" y="76" font-size="11" text-anchor="middle" fill="#8b95a7">マイク取得 32K samples → FFT → 振幅スペクトル</text>
+    <line x1="360" y1="88" x2="360" y2="108" stroke="#8b95a7" stroke-width="1.5" marker-end="url(#arrV1)"/>
+    <rect x="240" y="112" width="240" height="46" rx="6" fill="#181b22" stroke="#2a313d" stroke-width="1.5"/>
+    <text x="360" y="131" font-size="12" font-weight="600" text-anchor="middle" fill="#e5e9f0">Conv1D + BN + ReLU</text>
+    <text x="360" y="148" font-size="11" text-anchor="middle" fill="#8b95a7">1→16 ch, k=8, s=2 → 256 ts</text>
+    <line x1="360" y1="158" x2="360" y2="178" stroke="#8b95a7" stroke-width="1.5" marker-end="url(#arrV1)"/>
+    <rect x="240" y="182" width="240" height="46" rx="6" fill="#181b22" stroke="#2a313d" stroke-width="1.5"/>
+    <text x="360" y="201" font-size="12" font-weight="600" text-anchor="middle" fill="#e5e9f0">Conv1D + BN + ReLU</text>
+    <text x="360" y="218" font-size="11" text-anchor="middle" fill="#8b95a7">16→32 ch, k=8, s=2 → 128 ts</text>
+    <line x1="360" y1="228" x2="360" y2="248" stroke="#8b95a7" stroke-width="1.5" marker-end="url(#arrV1)"/>
+    <rect x="240" y="252" width="240" height="46" rx="6" fill="#181b22" stroke="#2a313d" stroke-width="1.5"/>
+    <text x="360" y="271" font-size="12" font-weight="600" text-anchor="middle" fill="#e5e9f0">Conv1D + BN + ReLU</text>
+    <text x="360" y="288" font-size="11" text-anchor="middle" fill="#8b95a7">32→64 ch, k=4, s=2 → 64 ts</text>
+    <line x1="360" y1="298" x2="360" y2="318" stroke="#8b95a7" stroke-width="1.5" marker-end="url(#arrV1)"/>
+    <rect x="240" y="322" width="240" height="46" rx="6" fill="#181b22" stroke="#2a313d" stroke-width="1.5"/>
+    <text x="360" y="341" font-size="12" font-weight="600" text-anchor="middle" fill="#e5e9f0">Conv1D + BN + ReLU</text>
+    <text x="360" y="358" font-size="11" text-anchor="middle" fill="#8b95a7">64→64 ch, k=4, s=2 → 32 ts</text>
+    <line x1="360" y1="368" x2="360" y2="388" stroke="#8b95a7" stroke-width="1.5" marker-end="url(#arrV1)"/>
+    <rect x="240" y="392" width="240" height="42" rx="6" fill="#181b22" stroke="#6ea8fe" stroke-width="1.5"/>
+    <text x="360" y="412" font-size="12" font-weight="700" text-anchor="middle" fill="#6ea8fe">Global Average Pool → 64次元 共有埋め込み</text>
+    <text x="360" y="427" font-size="10" text-anchor="middle" fill="#8b95a7">この出力を 6 タスクで共有</text>
+    <line x1="360" y1="438" x2="360" y2="448" stroke="#8b95a7" stroke-width="1.5"/>
+    <line x1="80" y1="448" x2="640" y2="448" stroke="#8b95a7" stroke-width="1"/>
+    <line x1="105" y1="448" x2="105" y2="478" stroke="#8b95a7" stroke-width="1"/>
+    <line x1="215" y1="448" x2="215" y2="478" stroke="#8b95a7" stroke-width="1"/>
+    <line x1="325" y1="448" x2="325" y2="478" stroke="#8b95a7" stroke-width="1"/>
+    <line x1="435" y1="448" x2="435" y2="478" stroke="#8b95a7" stroke-width="1"/>
+    <line x1="545" y1="448" x2="545" y2="478" stroke="#8b95a7" stroke-width="1"/>
+    <line x1="615" y1="448" x2="615" y2="478" stroke="#8b95a7" stroke-width="1"/>
+    <g transform="translate(65, 480)">
+      <rect width="80" height="50" rx="5" fill="#181b22" stroke="#7be0a4" stroke-width="1.2"/>
+      <text x="40" y="16" font-size="10" font-weight="600" text-anchor="middle" fill="#7be0a4">any_open</text>
+      <text x="40" y="30" font-size="9" text-anchor="middle" fill="#8b95a7">FC 64→16→1</text>
+      <text x="40" y="42" font-size="9" text-anchor="middle" fill="#8b95a7">binary (sigmoid)</text>
+    </g>
+    <g transform="translate(175, 480)">
+      <rect width="80" height="50" rx="5" fill="#181b22" stroke="#ffb454" stroke-width="1.2"/>
+      <text x="40" y="16" font-size="10" font-weight="600" text-anchor="middle" fill="#ffb454">door_AB</text>
+      <text x="40" y="30" font-size="9" text-anchor="middle" fill="#8b95a7">FC 64→16→1</text>
+      <text x="40" y="42" font-size="9" text-anchor="middle" fill="#8b95a7">回帰 (sigmoid)</text>
+    </g>
+    <g transform="translate(285, 480)">
+      <rect width="80" height="50" rx="5" fill="#181b22" stroke="#ffb454" stroke-width="1.2"/>
+      <text x="40" y="16" font-size="10" font-weight="600" text-anchor="middle" fill="#ffb454">door_BC</text>
+      <text x="40" y="30" font-size="9" text-anchor="middle" fill="#8b95a7">FC 64→16→3</text>
+      <text x="40" y="42" font-size="9" text-anchor="middle" fill="#8b95a7">3-class (softmax)</text>
+    </g>
+    <g transform="translate(395, 480)">
+      <rect width="80" height="50" rx="5" fill="#181b22" stroke="#7be0a4" stroke-width="1.2"/>
+      <text x="40" y="16" font-size="10" font-weight="600" text-anchor="middle" fill="#7be0a4">window_a</text>
+      <text x="40" y="30" font-size="9" text-anchor="middle" fill="#8b95a7">FC 64→16→1</text>
+      <text x="40" y="42" font-size="9" text-anchor="middle" fill="#8b95a7">回帰 (sigmoid)</text>
+    </g>
+    <g transform="translate(505, 480)">
+      <rect width="80" height="50" rx="5" fill="#181b22" stroke="#7be0a4" stroke-width="1.2"/>
+      <text x="40" y="16" font-size="10" font-weight="600" text-anchor="middle" fill="#7be0a4">window_b</text>
+      <text x="40" y="30" font-size="9" text-anchor="middle" fill="#8b95a7">FC 64→16→3</text>
+      <text x="40" y="42" font-size="9" text-anchor="middle" fill="#8b95a7">3-class (softmax)</text>
+    </g>
+    <g transform="translate(575, 480)">
+      <rect width="80" height="50" rx="5" fill="#181b22" stroke="#7be0a4" stroke-width="1.2"/>
+      <text x="40" y="16" font-size="10" font-weight="600" text-anchor="middle" fill="#7be0a4">window_c</text>
+      <text x="40" y="30" font-size="9" text-anchor="middle" fill="#8b95a7">FC 64→16→3</text>
+      <text x="40" y="42" font-size="9" text-anchor="middle" fill="#8b95a7">3-class (softmax)</text>
+    </g>
+    <text x="360" y="558" font-size="12" font-weight="600" text-anchor="middle" fill="#e5e9f0">合計パラメータ: ~35 K</text>
+    <text x="360" y="574" font-size="11" text-anchor="middle" fill="#8b95a7">INT8 量子化: ~35 KB | NPU 推論: ~1 ms</text>
+  </svg>
+
+  <h4 style="margin-top: 14px;">レイヤースペック</h4>
+  <table>
+    <thead><tr><th>層</th><th>形状</th><th>パラメータ</th></tr></thead>
+    <tbody>
+      <tr><th>入力</th><td>512 bin 周波数応答（マイク 32K サンプル → FFT 振幅）</td><td>—</td></tr>
+      <tr><th>Conv1D-1</th><td>1→16 ch, k=8, s=2, BN, ReLU</td><td>~176</td></tr>
+      <tr><th>Conv1D-2</th><td>16→32 ch, k=8, s=2, BN, ReLU</td><td>~4,192</td></tr>
+      <tr><th>Conv1D-3</th><td>32→64 ch, k=4, s=2, BN, ReLU</td><td>~8,384</td></tr>
+      <tr><th>Conv1D-4</th><td>64→64 ch, k=4, s=2, BN, ReLU</td><td>~16,576</td></tr>
+      <tr><th>Global Average Pool</th><td>→ 64次元共有埋め込み</td><td>0</td></tr>
+      <tr><th>6 個の FC ヘッド</th><td>各 64→16→{1 or 3} + 活性</td><td>~6,400</td></tr>
+      <tr><th>合計</th><td>—</td><td><b>~35,700 params</b></td></tr>
+    </tbody>
+  </table>
+
+  <h4 style="margin-top: 12px;">訓練設定</h4>
+  <table>
+    <tbody>
+      <tr><th>損失関数</th><td>マルチタスク加重和: BCE(any_open) + MSE(door_AB, window_a) + CE(door_BC, window_b, window_c)</td></tr>
+      <tr><th>不可視クラス</th><td>3-class softmax の 1 クラスとして明示学習</td></tr>
+      <tr><th>オプティマイザ</th><td>AdamW, lr=1e-3, weight_decay=1e-4</td></tr>
+      <tr><th>バッチサイズ / エポック数</th><td>32 / 最大 50（early stopping）</td></tr>
+      <tr><th>Augmentation</th><td>ホワイト・ピンクノイズ加算、振幅 ±3 dB、時間ジッタ ±10 ms</td></tr>
+      <tr><th>量子化</th><td>PyTorch → ONNX → eIQ Toolkit で INT8 PTQ（キャリブレーション 500 サンプル）</td></tr>
+      <tr><th>デプロイ</th><td>~35 KB INT8 を MCXN947 Flash 書込、NPU 推論 ~1 ms</td></tr>
+    </tbody>
+  </table>
+
+  <h3>4.4 ROHM v2 NN 詳細設計</h3>
+
+  <p>マハラノビス距離（M0+ で実行）と専門 ELM × 4（AxlCORE-ODL で実行）の並列構成。階層推論で必要な ELM のみ起動する。</p>
+
+  <svg viewBox="0 0 740 620" xmlns="http://www.w3.org/2000/svg" style="width:100%; max-width:740px; display:block; margin: 14px auto; font-family: 'Hiragino Sans', 'Yu Gothic UI', 'Segoe UI', sans-serif;">
+    <defs>
+      <marker id="arrV2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#8b95a7"/>
+      </marker>
+    </defs>
+    <text x="370" y="22" font-size="14" font-weight="600" text-anchor="middle" fill="#e5e9f0">v2 NN — マハラノビス + 専門 ELM × 4 (Solist-AI ML63Q2557)</text>
+    <rect x="220" y="40" width="300" height="68" rx="6" fill="#181b22" stroke="#7be0a4" stroke-width="1.5"/>
+    <text x="370" y="60" font-size="13" font-weight="700" text-anchor="middle" fill="#7be0a4">入力: 物理特徴量 (~26 次元)</text>
+    <text x="370" y="78" font-size="11" text-anchor="middle" fill="#8b95a7">RT60 × 8帯 + DRR × 3 + モードピーク × 6 + 振幅 × 6 + ノイズ床 × 3</text>
+    <text x="370" y="96" font-size="10" text-anchor="middle" fill="#8b95a7">(Cortex-M0+ + 数値計算で抽出)</text>
+    <line x1="370" y1="108" x2="370" y2="124" stroke="#8b95a7" stroke-width="1.5"/>
+    <line x1="180" y1="124" x2="560" y2="124" stroke="#8b95a7" stroke-width="1.5"/>
+    <line x1="180" y1="124" x2="180" y2="146" stroke="#8b95a7" stroke-width="1.5" marker-end="url(#arrV2)"/>
+    <line x1="560" y1="124" x2="560" y2="146" stroke="#8b95a7" stroke-width="1.5" marker-end="url(#arrV2)"/>
+    <text x="180" y="166" font-size="12" font-weight="700" text-anchor="middle" fill="#7be0a4">マハラノビス層 (M0+ で実行)</text>
+    <rect x="50" y="178" width="260" height="110" rx="6" fill="#181b22" stroke="#7be0a4" stroke-width="1.2"/>
+    <text x="180" y="200" font-size="12" font-weight="600" text-anchor="middle" fill="#e5e9f0">14 状態クラス × {μ_k, Σ_k}</text>
+    <text x="180" y="218" font-size="11" text-anchor="middle" fill="#8b95a7">d²_k = (x - μ_k)ᵀ Σ_k⁻¹ (x - μ_k)</text>
+    <text x="180" y="236" font-size="11" text-anchor="middle" fill="#8b95a7">k = 1..14（連続空間 × 開閉組合せ）</text>
+    <text x="180" y="254" font-size="11" text-anchor="middle" fill="#8b95a7">argmin_k → 粗いトポロジ判定</text>
+    <text x="180" y="274" font-size="10" text-anchor="middle" fill="#8b95a7">サイズ: ~10 KB / 推論 ~0.5 ms</text>
+    <text x="560" y="166" font-size="12" font-weight="700" text-anchor="middle" fill="#ffb454">専門 ELM × 4 (AxlCORE-ODL)</text>
+    <g transform="translate(430, 178)">
+      <rect width="260" height="44" rx="5" fill="#181b22" stroke="#ffb454" stroke-width="1.2"/>
+      <text x="10" y="18" font-size="11" font-weight="600" fill="#ffb454">スロット 1: ELM-AB</text>
+      <text x="10" y="34" font-size="10" fill="#8b95a7">door_AB 二値 / 常時 / ~1.7 KB</text>
+    </g>
+    <g transform="translate(430, 230)">
+      <rect width="260" height="44" rx="5" fill="#181b22" stroke="#ffb454" stroke-width="1.2"/>
+      <text x="10" y="18" font-size="11" font-weight="600" fill="#ffb454">スロット 2: ELM-a</text>
+      <text x="10" y="34" font-size="10" fill="#8b95a7">window_a 二値 / 常時 / ~1.7 KB</text>
+    </g>
+    <g transform="translate(430, 282)">
+      <rect width="260" height="44" rx="5" fill="#181b22" stroke="#ffb454" stroke-width="1.2"/>
+      <text x="10" y="18" font-size="11" font-weight="600" fill="#ffb454">スロット 3: ELM-BC</text>
+      <text x="10" y="34" font-size="10" fill="#8b95a7">door_BC 二値 / AB=開時のみ / ~1.7 KB</text>
+    </g>
+    <g transform="translate(430, 334)">
+      <rect width="260" height="44" rx="5" fill="#181b22" stroke="#ffb454" stroke-width="1.2"/>
+      <text x="10" y="18" font-size="11" font-weight="600" fill="#ffb454">スロット 4: ELM-b / ELM-c</text>
+      <text x="10" y="34" font-size="10" fill="#8b95a7">window_b/c 二値 / 観測可能時のみ / 時分割 / ~1.8 KB</text>
+    </g>
+    <line x1="180" y1="288" x2="180" y2="436" stroke="#8b95a7" stroke-width="1.5" marker-end="url(#arrV2)"/>
+    <line x1="560" y1="378" x2="560" y2="436" stroke="#8b95a7" stroke-width="1.5" marker-end="url(#arrV2)"/>
+    <rect x="190" y="440" width="340" height="58" rx="6" fill="#181b22" stroke="#6ea8fe" stroke-width="1.5"/>
+    <text x="360" y="462" font-size="12" font-weight="700" text-anchor="middle" fill="#6ea8fe">階層推論コントローラ</text>
+    <text x="360" y="480" font-size="11" text-anchor="middle" fill="#8b95a7">door_AB 結果 → 必要な ELM のみ起動</text>
+    <text x="360" y="494" font-size="10" text-anchor="middle" fill="#8b95a7">不可視ゲートは "不可視" タグで出力</text>
+    <line x1="360" y1="498" x2="360" y2="516" stroke="#8b95a7" stroke-width="1.5" marker-end="url(#arrV2)"/>
+    <rect x="190" y="520" width="340" height="52" rx="6" fill="#181b22" stroke="#7be0a4" stroke-width="1.5"/>
+    <text x="360" y="540" font-size="12" font-weight="700" text-anchor="middle" fill="#7be0a4">出力: 各ゲート状態 + 不可視判定</text>
+    <text x="360" y="558" font-size="10" text-anchor="middle" fill="#8b95a7">{door_AB, door_BC, window_a/b/c} ∈ {開, 閉, 不可視}</text>
+    <text x="370" y="594" font-size="11" font-weight="600" text-anchor="middle" fill="#e5e9f0">合計サイズ: ~17 KB (RAM 16 + Flash 数 KB) | 推論 ~2 ms on M0+ @ 48 MHz</text>
+    <text x="370" y="610" font-size="10" text-anchor="middle" fill="#8b95a7">on-device 学習: 新環境で 30 秒の "全閉" 録音 → μ_k, Σ_k, β を Solist-AI 上で再計算</text>
+  </svg>
+
+  <h4 style="margin-top: 14px;">マハラノビス層スペック</h4>
+  <table>
+    <tbody>
+      <tr><th>入力次元</th><td>26（物理特徴量）</td></tr>
+      <tr><th>クラス数</th><td>14（観測可能性で縮約した topology × 開閉組合せ）</td></tr>
+      <tr><th>パラメータ</th><td>14 × (μ_k 26次 + Σ_k 26×26) ≈ 9.8 K（float32）</td></tr>
+      <tr><th>サイズ</th><td>~10 KB（フル QDA）／ ~3 KB（LDA で共有 Σ）／ ~4.5 KB（対角 Σ）</td></tr>
+      <tr><th>推論</th><td>14 × 26² ≈ 9.5 K mul + 14 比較 → <b>~0.5 ms on M0+ @ 48 MHz</b></td></tr>
+    </tbody>
+  </table>
+
+  <h4 style="margin-top: 12px;">ELM × 4 スロット スペック</h4>
+  <table>
+    <thead><tr><th>スロット</th><th>タスク</th><th>D / N / K</th><th>パラメータ</th><th>動作条件</th></tr></thead>
+    <tbody>
+      <tr><th>1</th><td>ELM-AB (door_AB 二値)</td><td>26 / 64 / 1</td><td>α 固定 1,664 + β 学習 64</td><td>常時動作</td></tr>
+      <tr><th>2</th><td>ELM-a (window_a 二値)</td><td>26 / 64 / 1</td><td>同上</td><td>常時動作</td></tr>
+      <tr><th>3</th><td>ELM-BC (door_BC 二値)</td><td>26 / 64 / 1</td><td>同上</td><td>AB = 開のときのみ</td></tr>
+      <tr><th>4</th><td>ELM-b/c (window_b/c 二値, 時分割)</td><td>26 / 64 / 1</td><td>α 共通 + β 2 種</td><td>観測可能時のみ</td></tr>
+      <tr><th colspan="3">合計</th><td colspan="2"><b>~7 KB INT8</b></td></tr>
+    </tbody>
+  </table>
+
+  <p style="font-size: 13.5px; color: var(--muted);">α（隠れ層重み）はランダム初期化のまま固定で Flash に保存。β（出力層重み）のみ最小二乗で学習し、RAM に保持して再校正に対応。</p>
+
+  <h4 style="margin-top: 14px;">マハラノビス統計と ELM β のデータ源</h4>
+
+  <p>μ_k, Σ_k, β はすべて <b>同じ実験模型から得た学習データ</b>（§7.4 のプロトコルで収集）から計算される。v1 と v2 はデータを共有し、消費の仕方だけ異なる。</p>
+
+  <pre class="diagram" style="background: #11141a; border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px; font-family: 'JetBrains Mono', Consolas, monospace; font-size: 12px; line-height: 1.6;">
+[共通: 学習データ収集]
+   実験模型 (§7) → 1,000〜10,000 サンプル (生音声 + サーボ角度ラベル)
+        │
+        ▼
+   PC で物理特徴抽出: 各サンプル → (生音声, 26次元特徴, ラベル) 三重組
+
+[v1 系統 (PC でオフライン学習)]
+   生音声 (or 周波数応答) → CNN backprop 訓練 → INT8 量子化 → MCXN947 デプロイ
+
+[v2 系統]
+   <span style="color: #7be0a4;">μ_k 計算</span>: 各クラス k (=1..14) に属するサンプルの特徴量平均
+   <span style="color: #7be0a4;">Σ_k 計算</span>: 各クラスの特徴共分散行列（Ledoit-Wolf 縮小推定で安定化）
+   <span style="color: #ffb454;">β-AB 計算</span>: 全サンプルから最小二乗 β = H<sup>†</sup>T
+   <span style="color: #ffb454;">β-a  計算</span>: 同上
+   <span style="color: #ffb454;">β-BC 計算</span>: AB=開のサンプルのみで最小二乗
+   <span style="color: #ffb454;">β-b, β-c 計算</span>: 観測可能サンプルのみで最小二乗
+        │
+        ▼
+   {μ_k, Σ_k, α (固定 seed), β_*} を ML63Q2557 Flash に書込
+  </pre>
+
+  <h4 style="margin-top: 14px;">オンデバイス再校正（Solist-AI のキラーデモ）</h4>
+
+  <p>v2 の固有価値は <b>新環境で 30 秒の再校正</b>ができること。デモの見せ場:</p>
+  <ol>
+    <li>制御ボックスの「再校正」モードスイッチを ON</li>
+    <li>ML63Q2557 がチャープ放射＋マイク取得 を <b>30 回連続</b>実行（≈ 30 秒）</li>
+    <li>取得した特徴量の平均を新しい <b>μ_全閉</b> として更新、Σ_全閉 も再計算</li>
+    <li>ELM の β は前のまま流用、または α 固定なので β だけ再学習も選択可</li>
+    <li>30 秒で完全自律的に校正完了 → 通常動作に復帰</li>
+  </ol>
+
+  <p style="font-size: 13.5px; color: var(--muted);">デモ動画では「センサ位置をずらして再校正ボタンを押し、30 秒待つだけで動作復帰」を実演。クラウド・PC なしで完結する <b>"自律学習エッジ AI"</b> を象徴するシーン。</p>
+</section>
+
+<section>
+  <h2>5. 気圧ヘッド（補助センサ）の役割</h2>
+
+  <div class="twocol">
+    <div class="panel">
+      <h3 style="margin-top: 0;">音響リファレンストーン法</h3>
+      <p style="font-size: 13.5px;">→ <b>状態のスナップショット</b></p>
+      <ul style="font-size: 13.5px;">
+        <li>外出先からの能動的問い合わせに即応</li>
+        <li>「いま開いているか」を直接判定</li>
+        <li>校正後は同じ環境で動作</li>
+        <li>音を出す = 在室時はうるさい（夜間は無音モード）</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h3 style="margin-top: 0;">気圧スパイク法（補助）</h3>
+      <p style="font-size: 13.5px;">→ <b>イベントの即時検出</b></p>
+      <ul style="font-size: 13.5px;">
+        <li>窓開閉・ドア開閉の瞬間に圧スパイク</li>
+        <li>無音・常時動作（電池駆動可）</li>
+        <li>HVAC・換気扇起動も検出</li>
+        <li>"いま" が分からない（履歴推定が必要）</li>
+      </ul>
+    </div>
+  </div>
+
+  <p><b>統合戦略</b>: 気圧ヘッドが「窓を開けたっぽい」イベントを検出 → 音響法を自動起動して状態確認 → ユーザーに通知。能動 + 受動の二段構え。</p>
+</section>
+
+<section>
+  <h2>6. ハードウェア BOM（DigiKey 即納部品）</h2>
+
+  <table>
+    <thead><tr><th>カテゴリ</th><th>部品</th><th>備考</th></tr></thead>
+    <tbody>
+      <tr><th>MCU</th><td>FRDM-MCXN947</td><td>NPU + PowerQuad DSP + I²S 多系統</td></tr>
+      <tr><th>スピーカ駆動</th><td>MAX98357A I²S DAC+D級アンプ</td><td>3.2 W / 8Ω、I²S 直結</td></tr>
+      <tr><th>スピーカ</th><td>8Ω 1〜3 W ミッドレンジ（28 mm 程度）</td><td>200 Hz〜10 kHz</td></tr>
+      <tr><th>マイク</th><td>SPH0645LM4H or INMP441（I²S MEMS）</td><td>50 Hz〜15 kHz フラット</td></tr>
+      <tr><th>気圧センサ（補助）</th><td>BMP585</td><td>分解能 0.1 Pa</td></tr>
+      <tr><th>無線</th><td>ESP32-WROOM（UART 接続）or NXP IW416 モジュール</td><td>v1 は ESP32 のほうがアプリ実装が楽</td></tr>
+      <tr><th><b>ストレージ</b></th><td><b>microSD ソケット（SPI 接続）+ microSD 64 GB</b></td><td>学習データ収集用。MCU の SPI に 4 線直結（SCK/MOSI/MISO/CS）、FatFs で運用</td></tr>
+      <tr><th>機械</th><td>3D プリント筐体、防振フォーム</td><td>スピーカ→マイクの機械的クロストーク抑制</td></tr>
+    </tbody>
+  </table>
+
+  <h3 style="margin-top: 18px;">6.1 ストレージの選定理由</h3>
+
+  <p>学習データ収集（§7.4）で生音声を保存する手段として、Ethernet + サーバ転送ではなく <b>microSD（SPI）+ 装置内ローカル保存</b>を選択する理由:</p>
+
+  <table>
+    <thead><tr><th>選択肢</th><th>メリット</th><th>デメリット</th><th>判定</th></tr></thead>
+    <tbody>
+      <tr>
+        <th>microSD（SPI）</th>
+        <td>配線 4 本、FatFs 標準ライブラリ、64-256 GB 容量、$10 で完了</td>
+        <td>後でカード抜き差し必要</td>
+        <td><b>◎ 採用</b></td>
+      </tr>
+      <tr>
+        <th>Ethernet（PHY + RJ45）</th>
+        <td>リアルタイム転送、複数装置の集約</td>
+        <td><b>ネットワーク認証・設定が煩雑</b>、PHY + 50MHz xtal + RJ45 で部品増、lwIP 実装重い</td>
+        <td>✗</td>
+      </tr>
+      <tr>
+        <th>Wi-Fi（ESP32 経由）</th>
+        <td>無線でフレキシブル</td>
+        <td>SSID/パスワード設定の UX が必要</td>
+        <td>△（無線本来の用途で別用）</td>
+      </tr>
+      <tr>
+        <th>USB-C CDC（PC 直結）</th>
+        <td>追加ハードゼロ</td>
+        <td>PC 必須、模型と物理的に近接必要</td>
+        <td>○（v1 PoC では併用）</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p><b>結論</b>: <b>ネットワーク認証の手間を避け、microSD を SPI 接続で内蔵</b>。1.5 s/サンプル × 10,000 = 4 時間連続収集で 650 MB、64 GB カードなら<b>100 回分の収集セッション</b>に対応。データ転送は PC に挿し直して読む方式で十分速い（USB 3.0 リーダで 1 GB/分以上）。</p>
+</section>
+
+<section>
+  <h2>7. 実験模型と学習データ収集計画</h2>
+
+  <p>サーボで駆動する 3 部屋模型を作り、扉と窓をランダムに動かしながら音響計測することで、<b>大量の学習データを自動・自己ラベル付き</b>で取得する。本案の最大の弱点である「家ごとの校正コスト」をシミュレータで解決する設計でもある。</p>
+
+  <h3>7.1 模型の構成</h3>
+
+  <svg viewBox="0 0 580 540" xmlns="http://www.w3.org/2000/svg" style="width:100%; max-width:580px; display:block; margin: 14px auto; font-family: 'Hiragino Sans', 'Yu Gothic UI', 'Segoe UI', sans-serif;">
+    <defs>
+      <marker id="dimMk" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#8b95a7"/>
+      </marker>
+    </defs>
+
+    <!-- Title -->
+    <text x="290" y="22" font-size="14" font-weight="600" text-anchor="middle" fill="#e5e9f0">実験装置 上方図 — 単位 mm（縮尺 1:1）</text>
+
+    <!-- Width dim 150 (top) -->
+    <g stroke="#8b95a7" stroke-width="0.8" fill="none">
+      <line x1="150" y1="80" x2="150" y2="48"/>
+      <line x1="300" y1="80" x2="300" y2="48"/>
+      <line x1="150" y1="58" x2="300" y2="58" marker-start="url(#dimMk)" marker-end="url(#dimMk)"/>
+    </g>
+    <text x="225" y="53" font-size="13" font-weight="700" text-anchor="middle" fill="#e5e9f0">150</text>
+
+    <!-- Three rooms -->
+    <rect x="150" y="80" width="150" height="100" fill="#181b22" stroke="#2a313d" stroke-width="1.5"/>
+    <rect x="150" y="180" width="150" height="100" fill="#181b22" stroke="#2a313d" stroke-width="1.5"/>
+    <rect x="150" y="280" width="150" height="100" fill="#181b22" stroke="#2a313d" stroke-width="1.5"/>
+
+    <!-- Room labels (centered) -->
+    <text x="225" y="138" font-size="18" font-weight="700" text-anchor="middle" fill="#e5e9f0">Room A</text>
+    <text x="225" y="238" font-size="18" font-weight="700" text-anchor="middle" fill="#e5e9f0">Room B</text>
+    <text x="225" y="338" font-size="18" font-weight="700" text-anchor="middle" fill="#e5e9f0">Room C</text>
+
+    <!-- Per-room height dims 100 on right -->
+    <g stroke="#8b95a7" stroke-width="0.8" fill="none">
+      <line x1="300" y1="80" x2="328" y2="80"/>
+      <line x1="300" y1="180" x2="328" y2="180"/>
+      <line x1="300" y1="280" x2="328" y2="280"/>
+      <line x1="300" y1="380" x2="328" y2="380"/>
+      <line x1="320" y1="80" x2="320" y2="180" marker-start="url(#dimMk)" marker-end="url(#dimMk)"/>
+      <line x1="320" y1="180" x2="320" y2="280" marker-start="url(#dimMk)" marker-end="url(#dimMk)"/>
+      <line x1="320" y1="280" x2="320" y2="380" marker-start="url(#dimMk)" marker-end="url(#dimMk)"/>
+    </g>
+    <text x="334" y="134" font-size="11" fill="#8b95a7">100</text>
+    <text x="334" y="234" font-size="11" fill="#8b95a7">100</text>
+    <text x="334" y="334" font-size="11" fill="#8b95a7">100</text>
+
+    <!-- Total height dim 300 (far right) -->
+    <g stroke="#8b95a7" stroke-width="0.8" fill="none">
+      <line x1="300" y1="80" x2="370" y2="80"/>
+      <line x1="300" y1="380" x2="370" y2="380"/>
+      <line x1="362" y1="80" x2="362" y2="380" marker-start="url(#dimMk)" marker-end="url(#dimMk)"/>
+    </g>
+    <text x="378" y="234" font-size="13" font-weight="700" fill="#e5e9f0">300</text>
+
+    <!-- Windows on left walls (x=150), centered vertically in each room -->
+    <line x1="150" y1="105" x2="150" y2="155" stroke="#7be0a4" stroke-width="5"/>
+    <line x1="150" y1="205" x2="150" y2="255" stroke="#7be0a4" stroke-width="5"/>
+    <line x1="150" y1="305" x2="150" y2="355" stroke="#7be0a4" stroke-width="5"/>
+
+    <!-- Window labels (left of apparatus, with leader lines) -->
+    <g stroke="#7be0a4" stroke-width="0.6" fill="none">
+      <line x1="100" y1="130" x2="145" y2="130" stroke-dasharray="2 2"/>
+      <line x1="100" y1="230" x2="145" y2="230" stroke-dasharray="2 2"/>
+      <line x1="100" y1="330" x2="145" y2="330" stroke-dasharray="2 2"/>
+    </g>
+    <text x="92" y="126" font-size="12" font-weight="600" text-anchor="end" fill="#7be0a4">窓 a</text>
+    <text x="92" y="140" font-size="10" text-anchor="end" fill="#8b95a7">50×50</text>
+    <text x="92" y="226" font-size="12" font-weight="600" text-anchor="end" fill="#7be0a4">窓 b</text>
+    <text x="92" y="240" font-size="10" text-anchor="end" fill="#8b95a7">50×50</text>
+    <text x="92" y="326" font-size="12" font-weight="600" text-anchor="end" fill="#7be0a4">窓 c</text>
+    <text x="92" y="340" font-size="10" text-anchor="end" fill="#8b95a7">50×50</text>
+
+    <!-- Speaker in Room A near right wall (opposite window a) -->
+    <polygon points="296,108 296,112 285,124 285,96" fill="#6ea8fe"/>
+    <path d="M 282 92 Q 277 110 282 124" fill="none" stroke="#6ea8fe" stroke-width="1.2"/>
+
+    <!-- Mic in Room A near right wall (also opposite window a) -->
+    <circle cx="290" cy="160" r="6" fill="#181b22" stroke="#6ea8fe" stroke-width="1.5"/>
+    <circle cx="290" cy="160" r="1.7" fill="#6ea8fe"/>
+
+    <!-- SP/MIC labels with leader lines (to the right, avoiding dimensions) -->
+    <g stroke="#6ea8fe" stroke-width="0.6" fill="none">
+      <line x1="298" y1="110" x2="430" y2="105" stroke-dasharray="2 2"/>
+      <line x1="298" y1="160" x2="430" y2="158" stroke-dasharray="2 2"/>
+    </g>
+    <text x="435" y="102" font-size="12" font-weight="600" fill="#6ea8fe">SP（スピーカ）</text>
+    <text x="435" y="116" font-size="10" fill="#8b95a7">28-40 mm</text>
+    <text x="435" y="155" font-size="12" font-weight="600" fill="#6ea8fe">MIC（マイク）</text>
+    <text x="435" y="169" font-size="10" fill="#8b95a7">I²S MEMS</text>
+
+    <!-- Door AB: LEFT corner of wall y=180 (between A and B) -->
+    <!-- Erase door section in inter-room wall -->
+    <line x1="150" y1="180" x2="200" y2="180" stroke="#0f1115" stroke-width="3.5"/>
+    <!-- Door panel showing 30° open into Room B, hinge at (200, 180) -->
+    <line x1="200" y1="180" x2="157" y2="205" stroke="#ffb454" stroke-width="2.5" stroke-linecap="round"/>
+    <!-- Swing arc -->
+    <path d="M 150 180 A 50 50 0 0 0 200 230" fill="none" stroke="#ffb454" stroke-opacity="0.35" stroke-width="0.8" stroke-dasharray="3 2"/>
+
+    <!-- Door BC: RIGHT corner of wall y=280 (diagonally offset from AB) -->
+    <line x1="250" y1="280" x2="300" y2="280" stroke="#0f1115" stroke-width="3.5"/>
+    <!-- Door panel showing 30° open into Room C, hinge at (250, 280) -->
+    <line x1="250" y1="280" x2="293" y2="305" stroke="#ffb454" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M 300 280 A 50 50 0 0 1 250 330" fill="none" stroke="#ffb454" stroke-opacity="0.35" stroke-width="0.8" stroke-dasharray="3 2"/>
+
+    <!-- Door labels with leader lines to the right -->
+    <g stroke="#ffb454" stroke-width="0.6" fill="none">
+      <line x1="180" y1="180" x2="430" y2="205" stroke-dasharray="2 2"/>
+      <line x1="270" y1="280" x2="430" y2="305" stroke-dasharray="2 2"/>
+    </g>
+    <text x="435" y="202" font-size="12" font-weight="600" fill="#ffb454">扉 AB（左隅）</text>
+    <text x="435" y="216" font-size="10" fill="#8b95a7">100×50（高×幅）</text>
+    <text x="435" y="302" font-size="12" font-weight="600" fill="#ffb454">扉 BC（右隅）</text>
+    <text x="435" y="316" font-size="10" fill="#8b95a7">100×50（高×幅）</text>
+
+    <!-- Layout note -->
+    <text x="290" y="408" font-size="11" text-anchor="middle" fill="#8b95a7">扉 AB と扉 BC は対角オフセット配置（音響経路がジグザグになる）</text>
+    <text x="290" y="424" font-size="11" text-anchor="middle" fill="#8b95a7">窓 a/b/c は短辺 100 mm 壁の中央、SP/MIC は Room A の窓 a 対面</text>
+
+    <!-- Legend -->
+    <g transform="translate(60, 460)">
+      <line x1="0" y1="0" x2="20" y2="0" stroke="#7be0a4" stroke-width="5"/>
+      <text x="28" y="4" font-size="11" fill="#e5e9f0">窓 50×50 mm（サーボ駆動）</text>
+
+      <line x1="200" y1="-4" x2="215" y2="6" stroke="#ffb454" stroke-width="2.5"/>
+      <text x="225" y="4" font-size="11" fill="#e5e9f0">扉 100×50 mm（30°開放表示, サーボ駆動）</text>
+
+      <polygon points="430,-4 430,4 419,10 419,-10" fill="#6ea8fe"/>
+      <text x="440" y="4" font-size="11" fill="#e5e9f0">スピーカ</text>
+
+      <circle cx="495" cy="0" r="6" fill="#181b22" stroke="#6ea8fe" stroke-width="1.5"/>
+      <circle cx="495" cy="0" r="1.7" fill="#6ea8fe"/>
+      <text x="507" y="4" font-size="11" fill="#e5e9f0">マイク</text>
+    </g>
+
+    <!-- Bottom notes -->
+    <text x="290" y="500" font-size="11" text-anchor="middle" fill="#8b95a7">高さ 100 mm（本図では省略）／ 単室容積 1.5 L ／ ABC 連結時 4.5 L</text>
+    <text x="290" y="516" font-size="11" text-anchor="middle" fill="#8b95a7">壁: 透明アクリル 5 mm（家具なし）／ サーボ 5 個（窓 a/b/c, 扉 AB/BC）外部マウント</text>
+  </svg>
+
+  <p style="font-size: 13px; color: var(--muted); margin-top: 10px;">
+    <b>配置ポイント</b>:
+  </p>
+  <ul style="font-size: 13.5px;">
+    <li><b>扉 AB</b>: Room A と Room B を仕切る 150 mm 壁の <b>左隅</b>に設置（100×50 mm, 高さ×幅）</li>
+    <li><b>扉 BC</b>: Room B と Room C を仕切る 150 mm 壁の <b>右隅</b>に設置 — AB とは対角配置</li>
+    <li><b>窓 a, b, c</b>: 各部屋の<b>左短辺 100×100 mm 壁の中央</b>に設置（50×50 mm）</li>
+    <li><b>SP/MIC</b>: Room A の <b>右短辺壁</b>（窓 a の対面）に設置</li>
+    <li>扉のジグザグ配置により、ABC 連結時の音響経路が直線でなく曲がりを持ち、モード構造がより豊かになる</li>
+  </ul>
+
+  <h3>7.2 5 個のサーボと観測可能性</h3>
+  <p>扉 AB / BC の開閉により、Room A から見た連続音響空間は <b>3 つのトポロジ状態</b>に縮約される。それぞれの状態で <b>どのサーボの状態が音響から推論できるか（観測可能か）</b> は次の通り。扉自体の状態も観測可能性が変動する点に注意:</p>
+  <table>
+    <thead><tr><th>扉 AB</th><th>扉 BC</th><th>A から見える連続空間</th><th>観測可能（推論できる）</th><th>観測不可（推論できない）</th></tr></thead>
+    <tbody>
+      <tr><th>閉</th><th>—</th><td>{ A }</td><td>a, <b>AB</b></td><td>b, c, <b>BC</b></td></tr>
+      <tr><th>開</th><th>閉</th><td>{ A, B }</td><td>a, b, <b>AB, BC</b></td><td>c</td></tr>
+      <tr><th>開</th><th>開</th><td>{ A, B, C }</td><td>a, b, c, <b>AB, BC</b></td><td>—</td></tr>
+    </tbody>
+  </table>
+  <p><b>観測不可性は窓だけでなく扉自体にも及ぶ</b>:</p>
+  <ul>
+    <li><b>AB が閉</b> → B 側の世界全体（窓 b, 窓 c, 扉 BC のいずれの状態も）A の音響では一切区別できない</li>
+    <li><b>BC が閉</b>（AB は開） → 窓 c の状態は A から推論できない</li>
+    <li>これは情報理論的な限界であり NN の表現力では超えられない。<b>ラベル設計で明示的に「不可視」を教える</b>のが鍵</li>
+  </ul>
+
+  <h3>7.3 ラベル設計 — マルチタスク + 不可視クラス</h3>
+  <p>サーボ角度から自動で取れる教師信号を主タスク・補助タスクとして並べる。<b>観測不可なゲート（窓 b, c および扉 BC）には「不可視」という第三クラス</b>を明示的に教えることで、NN が物理的に推定できないものを推測しようとして混乱するのを防ぐ。</p>
+  <table>
+    <thead><tr><th>ラベル</th><th>種類</th><th>タスク役割</th></tr></thead>
+    <tbody>
+      <tr><th><code>any_open_in_connected_space</code></th><td>二値</td><td><b>主タスク</b>（外出時通知の判定そのもの）</td></tr>
+      <tr><th><code>door_AB</code></th><td>連続 [0, 1]（常に可視）</td><td>補助・トポロジ復元の根幹</td></tr>
+      <tr><th><code>door_BC</code></th><td>三値（開 / 閉 / <b>不可視</b>）</td><td>補助・AB 閉時は不可視</td></tr>
+      <tr><th><code>window_a</code></th><td>連続 [0, 1]（常に可視）</td><td>補助・回帰</td></tr>
+      <tr><th><code>window_b</code></th><td>三値（開 / 閉 / <b>不可視</b>）</td><td>補助・AB 閉時は不可視</td></tr>
+      <tr><th><code>window_c</code></th><td>三値（開 / 閉 / <b>不可視</b>）</td><td>補助・AB 閉 or BC 閉時は不可視</td></tr>
+      <tr><th><code>n_open_visible</code></th><td>整数 0〜3</td><td>補助・回帰</td></tr>
+      <tr><th><code>total_open_aperture_cm²</code></th><td>連続（可視部分のみ合算）</td><td>補助・物理的に最も意味あり</td></tr>
+      <tr><th><code>connected_volume_L</code></th><td>連続</td><td>補助・Sabine 式の検証用</td></tr>
+    </tbody>
+  </table>
+  <p>マルチタスクで学習すると、限られたデータでも <b>共有表現</b> が物理的に意味ある特徴に収束しやすい。主タスク単独学習より汎化が良くなる典型例。</p>
+
+  <h3>7.4 データ収集プロトコル</h3>
+
+  <p><b>1 サンプル ≈ 3〜5 秒</b>:</p>
+  <ol>
+    <li>サーボにランダム角度コマンド送信</li>
+    <li>動作完了 + 気流安定で <b>2〜3 秒待機</b></li>
+    <li>chirp（200 Hz〜8 kHz スイープ）を 1 秒放射</li>
+    <li>残響を含めて 1 秒取得</li>
+    <li>サーボ角度を読み出し、音響データと一緒に CSV / npz で保存</li>
+  </ol>
+
+  <p><b>サンプリング戦略</b>:</p>
+  <ul>
+    <li><b>層化サンプリング</b>: 32 状態（2 扉 × 3 窓のオンオフ）が均等に出るよう乱数生成。ナイーブな uniform は確率分布が偏る</li>
+    <li><b>連続角度の組み込み</b>: 中間角（半開）も入れて回帰タスクを学習可能に</li>
+    <li><b>時間帯散らし</b>: 1 日連続稼働で朝・昼・夜の周囲ノイズ分布を学習</li>
+    <li><b>外部ノイズ多様化</b>: 完全防音だと実家屋への転移性が落ちる。実験中に意図的に音楽／会話を流す、または augmentation でホワイト・ピンクノイズを加算</li>
+  </ul>
+
+  <p><b>総サンプル数目安</b>: 1,000〜3,000。3 秒/サンプルなら <b>1.5〜4 時間連続稼働</b>で揃う。一晩動かせば 1 万サンプル超。</p>
+
+  <h3>7.5 模型の機構と部品</h3>
+
+  <p>装置は <b>模型本体</b>（サーボと音響系を内包）と <b>制御ボックス</b>（電子部品と UI）の 2 体構成。両者はサーボケーブル・SP/MIC ケーブルで接続する。</p>
+
+  <h4 style="margin-top: 12px;">模型の構造</h4>
+  <ul>
+    <li><b>透明アクリル 5 mm</b> をレーザーカット → アクリル接着剤で組立</li>
+    <li>3 部屋（150 × 100 × 100 mm 各）を縦に連結、全外形 <b>150 × 300 × 100 mm</b></li>
+    <li>扉 100 × 50 mm（高さ × 幅）を 150 mm 隔壁の <b>左隅／右隅に対角配置</b>（§7.1 図参照）</li>
+    <li>窓 50 × 50 mm を各部屋の <b>短辺 100 mm 壁中央</b>に配置</li>
+    <li>扉・窓は<b>外側ヒンジで開閉</b>、ヒンジ軸にサーボのホーンをリンケージで連結</li>
+    <li>全閉時のシーリングは <b>ゴムパッキン + フェルト</b>、音響的気密 20 dB+ を目標</li>
+    <li>家具などの内部障害物は <b>一切なし</b>（PoC のため）</li>
+  </ul>
+
+  <h4 style="margin-top: 12px;">サーボ駆動機構</h4>
+  <table>
+    <thead><tr><th>部位</th><th>部品</th><th>数量</th><th>備考</th></tr></thead>
+    <tbody>
+      <tr><th>サーボ本体</th><td>SG90 マイクロサーボ</td><td>5</td><td>9 g、トルク 1.8 kg·cm、PWM 制御、<b>模型外部にマウント</b></td></tr>
+      <tr><th>リンケージ</th><td>ピアノ線 φ0.8 + Z 字曲げ</td><td>5 セット</td><td>サーボホーン ↔ 扉／窓ヒンジ</td></tr>
+      <tr><th>ヒンジ</th><td>ミニチュア蝶番 or 自作アクリル蝶番</td><td>5</td><td>扉・窓パネル取付</td></tr>
+      <tr><th>シーリング</th><td>厚 2 mm ゴムパッキン + フェルト</td><td>各扉・窓周</td><td>"閉" 時の遮音性確保</td></tr>
+      <tr><th>サーボケーブル</th><td>3 線（V+, GND, PWM）× 5 + 結束</td><td>1 束</td><td>制御ボックスへ接続</td></tr>
+    </tbody>
+  </table>
+
+  <h4 style="margin-top: 12px;">音響系（Room A 内蔵）</h4>
+  <table>
+    <thead><tr><th>部位</th><th>部品</th><th>備考</th></tr></thead>
+    <tbody>
+      <tr><th>スピーカ</th><td>28 mm 小型フルレンジ 8Ω 1 W</td><td>Room A 右短辺壁に <b>外部マウント</b>、ø10 mm 穴経由で内部放射</td></tr>
+      <tr><th>マイク</th><td>SPH0645LM4H I²S MEMS</td><td>Room A 右短辺壁、SP と縦に 40 mm 離して面実装</td></tr>
+      <tr><th>機械絶縁</th><td>フォームパッド + ネオプレンガスケット</td><td>SP → MIC の構造伝搬を抑制</td></tr>
+      <tr><th>SP/MIC ケーブル</th><td>I²S 4 線 + 電源 2 線 のシールド線</td><td>制御ボックスへ接続</td></tr>
+    </tbody>
+  </table>
+
+  <h3>7.6 制御ボックスの仕様</h3>
+
+  <p>模型と分離した <b>樹脂エンクロージャ 150 × 80 × 50 mm 程度</b>に電子部品と UI を集約。展示時は模型と並べて卓上に置く。</p>
+
+  <svg viewBox="0 0 560 420" xmlns="http://www.w3.org/2000/svg" style="width:100%; max-width:560px; display:block; margin: 14px auto; font-family: 'Hiragino Sans', 'Yu Gothic UI', 'Segoe UI', sans-serif;">
+    <!-- Title -->
+    <text x="280" y="22" font-size="14" font-weight="600" text-anchor="middle" fill="#e5e9f0">制御ボックス 操作パネル（上面）</text>
+
+    <!-- Box outline -->
+    <rect x="50" y="40" width="460" height="320" rx="14" fill="#181b22" stroke="#2a313d" stroke-width="2"/>
+
+    <!-- Section labels -->
+    <text x="170" y="72" font-size="12" font-weight="600" text-anchor="middle" fill="#7be0a4">手動制御スイッチ（窓）</text>
+    <text x="395" y="72" font-size="12" font-weight="600" text-anchor="middle" fill="#ffb454">手動制御スイッチ（扉）</text>
+
+    <!-- Window toggle a -->
+    <g transform="translate(90, 84)">
+      <rect width="42" height="68" rx="5" fill="#0f1115" stroke="#7be0a4" stroke-width="1.3"/>
+      <text x="21" y="14" font-size="11" font-weight="700" text-anchor="middle" fill="#7be0a4">a</text>
+      <line x1="21" y1="22" x2="21" y2="56" stroke="#8b95a7" stroke-width="2"/>
+      <circle cx="21" cy="32" r="7" fill="#7be0a4"/>
+      <text x="21" y="64" font-size="9" text-anchor="middle" fill="#7be0a4">開</text>
+    </g>
+
+    <!-- Window toggle b -->
+    <g transform="translate(150, 84)">
+      <rect width="42" height="68" rx="5" fill="#0f1115" stroke="#7be0a4" stroke-width="1.3"/>
+      <text x="21" y="14" font-size="11" font-weight="700" text-anchor="middle" fill="#7be0a4">b</text>
+      <line x1="21" y1="22" x2="21" y2="56" stroke="#8b95a7" stroke-width="2"/>
+      <circle cx="21" cy="48" r="7" fill="#8b95a7"/>
+      <text x="21" y="64" font-size="9" text-anchor="middle" fill="#8b95a7">閉</text>
+    </g>
+
+    <!-- Window toggle c -->
+    <g transform="translate(210, 84)">
+      <rect width="42" height="68" rx="5" fill="#0f1115" stroke="#7be0a4" stroke-width="1.3"/>
+      <text x="21" y="14" font-size="11" font-weight="700" text-anchor="middle" fill="#7be0a4">c</text>
+      <line x1="21" y1="22" x2="21" y2="56" stroke="#8b95a7" stroke-width="2"/>
+      <circle cx="21" cy="32" r="7" fill="#7be0a4"/>
+      <text x="21" y="64" font-size="9" text-anchor="middle" fill="#7be0a4">開</text>
+    </g>
+
+    <!-- Divider -->
+    <line x1="285" y1="85" x2="285" y2="155" stroke="#2a313d" stroke-width="1"/>
+
+    <!-- Door toggle AB -->
+    <g transform="translate(330, 84)">
+      <rect width="42" height="68" rx="5" fill="#0f1115" stroke="#ffb454" stroke-width="1.3"/>
+      <text x="21" y="14" font-size="11" font-weight="700" text-anchor="middle" fill="#ffb454">AB</text>
+      <line x1="21" y1="22" x2="21" y2="56" stroke="#8b95a7" stroke-width="2"/>
+      <circle cx="21" cy="48" r="7" fill="#8b95a7"/>
+      <text x="21" y="64" font-size="9" text-anchor="middle" fill="#8b95a7">閉</text>
+    </g>
+
+    <!-- Door toggle BC -->
+    <g transform="translate(390, 84)">
+      <rect width="42" height="68" rx="5" fill="#0f1115" stroke="#ffb454" stroke-width="1.3"/>
+      <text x="21" y="14" font-size="11" font-weight="700" text-anchor="middle" fill="#ffb454">BC</text>
+      <line x1="21" y1="22" x2="21" y2="56" stroke="#8b95a7" stroke-width="2"/>
+      <circle cx="21" cy="32" r="7" fill="#ffb454"/>
+      <text x="21" y="64" font-size="9" text-anchor="middle" fill="#ffb454">開</text>
+    </g>
+
+    <!-- OLED -->
+    <g transform="translate(140, 175)">
+      <rect width="280" height="80" rx="4" fill="#000" stroke="#6ea8fe" stroke-width="1.5"/>
+      <text x="140" y="20" font-size="10" font-weight="600" text-anchor="middle" fill="#6ea8fe">OLED 128 × 64</text>
+      <text x="14" y="40" font-size="11" fill="#7be0a4">▸ 連続空間: { A, B, C }</text>
+      <text x="14" y="55" font-size="11" fill="#7be0a4">▸ any_open: YES (信頼度 0.93)</text>
+      <text x="14" y="70" font-size="11" fill="#7be0a4">▸ 開窓: a=OFF, b=ON, c=OFF</text>
+    </g>
+
+    <!-- LEDs -->
+    <g transform="translate(80, 290)">
+      <circle cx="0" cy="0" r="6" fill="#7be0a4"/>
+      <text x="13" y="4" font-size="11" fill="#e5e9f0">PWR</text>
+    </g>
+    <g transform="translate(80, 320)">
+      <circle cx="0" cy="0" r="6" fill="#ffb454"/>
+      <text x="13" y="4" font-size="11" fill="#e5e9f0">推論中</text>
+    </g>
+
+    <!-- Execute button -->
+    <g transform="translate(330, 285)">
+      <circle cx="40" cy="30" r="32" fill="#e64545" stroke="#9a2828" stroke-width="3"/>
+      <circle cx="40" cy="30" r="26" fill="#ff5e5e" stroke="#aa3030" stroke-width="1"/>
+      <text x="40" y="35" font-size="14" font-weight="700" text-anchor="middle" fill="#fff">EXEC</text>
+    </g>
+    <text x="370" y="345" font-size="11" font-weight="600" text-anchor="middle" fill="#e5e9f0">実行ボタン</text>
+
+    <!-- Pipeline description -->
+    <text x="280" y="380" font-size="10.5" text-anchor="middle" fill="#8b95a7">EXEC 押下 → サーボ位置取得 → 0.5 s 待機 → リファレンストーン放射 (chirp 300 ms) → マイク取得 (1.5 s) → NN 推論 → OLED 表示</text>
+
+    <!-- Side connectors -->
+    <g transform="translate(60, 390)">
+      <rect width="44" height="14" rx="2" fill="#1f242d" stroke="#8b95a7" stroke-width="0.6"/>
+      <text x="22" y="10" font-size="9" text-anchor="middle" fill="#8b95a7">USB-C</text>
+    </g>
+    <g transform="translate(170, 390)">
+      <rect width="74" height="14" rx="2" fill="#1f242d" stroke="#8b95a7" stroke-width="0.6"/>
+      <text x="37" y="10" font-size="9" text-anchor="middle" fill="#8b95a7">サーボ ×5</text>
+    </g>
+    <g transform="translate(310, 390)">
+      <rect width="74" height="14" rx="2" fill="#1f242d" stroke="#8b95a7" stroke-width="0.6"/>
+      <text x="37" y="10" font-size="9" text-anchor="middle" fill="#8b95a7">SP / MIC</text>
+    </g>
+    <g transform="translate(450, 390)">
+      <rect width="44" height="14" rx="2" fill="#1f242d" stroke="#8b95a7" stroke-width="0.6"/>
+      <text x="22" y="10" font-size="9" text-anchor="middle" fill="#8b95a7">DC IN</text>
+    </g>
+  </svg>
+
+  <h4 style="margin-top: 14px;">操作と機能</h4>
+  <ul>
+    <li><b>5 個のトグルスイッチ</b>で窓 a/b/c・扉 AB/BC を手動制御（デモ時は来場者が任意に開閉）</li>
+    <li><b>EXEC（実行）ボタン</b>を押すと: サーボ位置反映 → 待機 → リファレンストーン放射 → マイク取得 → NN 推論 → OLED 結果表示の <b>1 サイクル</b>を自動実行</li>
+    <li><b>OLED</b> で連続空間状態・any_open 判定・各ゲート開閉推定・信頼度を表示</li>
+    <li><b>PWR LED</b>（緑）= 電源 ON、<b>推論中 LED</b>（橙）= 推論サイクル実行中</li>
+  </ul>
+
+  <h4 style="margin-top: 12px;">内蔵電子部品</h4>
+  <table>
+    <thead><tr><th>カテゴリ</th><th>部品</th><th>備考</th></tr></thead>
+    <tbody>
+      <tr><th>メインボード</th><td>FRDM-MCXN947</td><td>v1 推論本体。NPU + PowerQuad + I²S 多系統</td></tr>
+      <tr><th>サーボドライバ</th><td>PCA9685（16ch I²C PWM）</td><td>5 個の SG90 へ PWM 供給、MCU の PWM チャネル節約</td></tr>
+      <tr><th>音声出力</th><td>MAX98357A I²S DAC + Class-D アンプ</td><td>3.2 W / 8Ω、MCU から I²S 直結</td></tr>
+      <tr><th>表示</th><td>OLED 128 × 64 SSD1306（I²C）</td><td>状態・推論結果表示</td></tr>
+      <tr><th>UI 入力</th><td>SPDT トグルスイッチ × 5 + 押しボタン × 1</td><td>MCU GPIO で読み取り、プルアップ内蔵</td></tr>
+      <tr><th>表示 LED</th><td>緑 LED ×1（PWR）+ 橙 LED ×1（推論中）</td><td>GPIO 駆動、330Ω 直列</td></tr>
+      <tr><th>電源</th><td>LiPo 2,000 mAh + USB-C 充電 IC（TP4056 等）+ 5V/3.3V LDO</td><td>携帯デモ可、AC 電源にも対応</td></tr>
+      <tr><th>外部接続</th><td>USB-C（充電/プログラム/PC データ収集）／サーボ × 5（JST-XH）／SP・MIC ペア</td><td>模型側へケーブル接続</td></tr>
+      <tr><th>v2 用拡張</th><td>ML63Q2557 + AxlCORE-ODL モジュール（差替えコネクタ）</td><td>ROHM 実証時に MCXN947 と差し替え可能</td></tr>
+    </tbody>
+  </table>
+
+  <h4 style="margin-top: 12px;">動作モード</h4>
+  <table>
+    <thead><tr><th>モード</th><th>動作</th></tr></thead>
+    <tbody>
+      <tr><th>手動デモ</th><td>トグルスイッチで状態設定 → EXEC ボタン → 推論 → 表示。展示・2 分動画撮影用</td></tr>
+      <tr><th>データ収集</th><td>PC オーケストレータが USB-C 経由でサーボ角度を指示、トグル状態は無視。学習データ自動取得</td></tr>
+      <tr><th>自動デモ（オプション）</th><td>定期的にランダム状態 → 推論 → 結果表示の無人ループ。長時間展示用</td></tr>
+      <tr><th>v2 実証モード</th><td>メインボードを ML63Q2557 に差替え、Solist-AI（ELM + マハラノビス）で同じパイプラインを実行</td></tr>
+    </tbody>
+  </table>
+
+  <h3>7.7 検証分割</h3>
+  <p>ランダム split は精度を過大評価する（隣接状態が train / test に分散するため）。推奨:</p>
+  <ul>
+    <li><b>未経験組み合わせを完全ホールドアウト</b>: 例えば「AB=70°, BC=30°, a=open, b=closed, c=open」のような特定状態を学習から除外して評価</li>
+    <li><b>時間ホールドアウト</b>: 後半の時間帯（=異なるノイズ条件）を test に回す</li>
+    <li><b>形状摂動</b>: 別ロットの実験で窓の形状（正方形 vs 円形 / 開口面積を変える）を変更し、学習した特徴が物理本質か模型固有かを切り分ける</li>
+  </ul>
+
+  <h3>7.8 実験模型固有の落とし穴</h3>
+  <ul>
+    <li><b>気密性不足</b>: 段ボール扉の閉じ込めがゆるいと "閉" 状態でも空気漏れがあり信号が歪む。シール材で実家屋に近い気密性を確保</li>
+    <li><b>スケール効果</b>: 30 cm 部屋では音響モード周波数が実家屋の ~10 倍にシフト → chirp 帯域を 1〜20 kHz に上げて等価な現象を引き出す</li>
+    <li><b>サーボ動作音の混入</b>: chirp 放射前にサーボ動作を完了 + 十分待機。サーボノイズ自体を別ヘッドで識別させて除外する手も</li>
+    <li><b>過学習による模型記憶</b>: NN が "この模型固有の部屋音響" を記憶してしまう → 形状摂動セッションで切り分け、必要なら augmentation 強化</li>
+    <li><b>不可視ラベルのバランス</b>: AB 閉のとき <b>窓 b, c に加えて扉 BC も不可視</b>になり（AB 閉サンプル ≈ 半数）、補助タスク 3 つが同時に "不可視" タグを抱える。BC 閉のときはさらに窓 c も不可視。クラス重みづけ＋カリキュラム学習（全開→中間→全閉の順）で平準化</li>
+  </ul>
+
+  <h3>7.9 データ採取の容量と転送設計</h3>
+
+  <h4>サンプルあたりのデータ量</h4>
+  <table>
+    <thead><tr><th>項目</th><th>仕様</th><th>サイズ</th></tr></thead>
+    <tbody>
+      <tr><th>生音声</th><td>16 kHz × 16-bit × 1ch × 2 s</td><td><b>64 KB</b></td></tr>
+      <tr><th>ラベル（サーボ角度）</th><td>5 サーボ × float32</td><td>20 B</td></tr>
+      <tr><th>メタデータ</th><td>タイムスタンプ・温湿度・乱数 seed 等</td><td>~32 B</td></tr>
+      <tr><th>合計</th><td>—</td><td><b>~64 KB / sample</b></td></tr>
+    </tbody>
+  </table>
+
+  <h4 style="margin-top: 12px;">サンプル数とストレージ規模</h4>
+  <table>
+    <thead><tr><th>サンプル数</th><th>合計サイズ</th><th>収集所要時間（~1.5 s/サンプル）</th></tr></thead>
+    <tbody>
+      <tr><th>1,000</th><td>~65 MB</td><td>~25 分</td></tr>
+      <tr><th>10,000</th><td>~650 MB</td><td>~4 時間</td></tr>
+      <tr><th>100,000</th><td>~6.5 GB</td><td>~42 時間（一晩半）</td></tr>
+    </tbody>
+  </table>
+
+  <p>本プロジェクトでは <b>10,000 サンプル（~650 MB）</b>を目標とする。PC の SSD・HDD ストレージで余裕で扱える規模。</p>
+
+  <h4 style="margin-top: 12px;">帯域所要</h4>
+
+  <p>64 KB / 1.5 s = <b>約 350 kbps</b>（連続平均）。安価通信規格で十分:</p>
+  <table>
+    <tbody>
+      <tr><th>USB FS (CDC)</th><td>12 Mbps</td><td>~34 倍の余裕</td></tr>
+      <tr><th>USB HS</th><td>480 Mbps</td><td>~1,300 倍の余裕</td></tr>
+      <tr><th>Wi-Fi 802.11n</th><td>~50 Mbps 実効</td><td>~140 倍の余裕</td></tr>
+      <tr><th>Ethernet 100Base-T</th><td>100 Mbps</td><td>~280 倍の余裕</td></tr>
+      <tr><th>microSD (SPI 駆動)</th><td>~10 Mbps</td><td>~28 倍の余裕</td></tr>
+    </tbody>
+  </table>
+
+  <h4 style="margin-top: 12px;">転送・保存オプション</h4>
+  <table>
+    <thead><tr><th>方式</th><th>長所</th><th>短所</th></tr></thead>
+    <tbody>
+      <tr><th>A. USB-C CDC + PC（推奨）</th><td>シンプル、低レイテンシ、PC でリアルタイム可視化可能</td><td>PC を物理的に 1 m 以内に置く必要</td></tr>
+      <tr><th>B. USB Mass Storage</th><td>制御ボックスが USB ドライブとして見える、設定不要</td><td>制御プロトコルが複雑化、リアルタイム性低</td></tr>
+      <tr><th>C. Wi-Fi (ESP32 拡張)</th><td>物理距離自由、複数模型を 1 サーバに集約可能</td><td>ハード追加、Wi-Fi 設定の煩雑さ</td></tr>
+      <tr><th>D. Ethernet (LAN, PHY 追加)</th><td>安定、低レイテンシ、複数集約可</td><td>RJ45 + PHY が筐体を圧迫、ケーブル拘束</td></tr>
+      <tr><th>E. microSD カード</th><td>追加配線不要、長期蓄積</td><td>後でカード抜き差し必要、ライブ可視化不可</td></tr>
+    </tbody>
+  </table>
+
+  <p><b>PoC 段階の推奨</b>: <b>A. USB-C CDC + PC</b>。模型と PC を近接配置する制約はあるが、設定が最も単純で確実。</p>
+
+  <p><b>LAN/サーバ転送を採用する場合</b>: 制御ボックスに ESP32-WROOM（ESP32 SoM の I/O 拡張モジュール）を追加し、MCXN947 から UART or SPI で連携。サーバ側は Python aiohttp などで HTTP POST 受信、または MQTT broker（Mosquitto）でストリーミング購読。複数実験模型を同時稼働するなら有意義だが、PoC 1 体ならオーバーキル。</p>
+
+  <h4 style="margin-top: 12px;">サーバ側ストレージフォーマット</h4>
+  <table>
+    <thead><tr><th>形式</th><th>用途</th></tr></thead>
+    <tbody>
+      <tr><th>HDF5（生音声＋ラベル）</th><td>1 ファイルに全サンプル＋メタデータ、効率的 I/O、Python h5py で扱いやすい。<b>本案の主保存形式</b></td></tr>
+      <tr><th>Parquet（抽出済み特徴量）</th><td>大量データ向き、列指向で 26 次元特徴だけ高速読み込み可。<b>NN 訓練の入力形式</b></td></tr>
+      <tr><th>NPZ ディレクトリ</th><td>1 サンプル 1 ファイル、シンプル、並列処理向き（補助）</td></tr>
+      <tr><th>WAV + CSV</th><td>音声と特徴量を分離、波形編集ソフトで音声単体を扱える（デバッグ用）</td></tr>
+    </tbody>
+  </table>
+
+  <p>推奨は <b>HDF5（生音声）+ Parquet（特徴量）</b>の 2 段保存。両方とも PC オーケストレータが自動生成。</p>
+
+  <h4 style="margin-top: 12px;">PC オーケストレータ プロトコル設計</h4>
+
+  <pre class="diagram" style="background: #11141a; border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px; font-family: 'JetBrains Mono', Consolas, monospace; font-size: 12px; line-height: 1.6;">
+[PC] → MCU: <span style="color: #7be0a4;">CMD_SET_SERVO</span> 角度配列 [5 × float32]   (24 byte)
+[PC] → MCU: <span style="color: #7be0a4;">CMD_TRIGGER</span>                              (4 byte)
+                ↓
+[MCU] サーボ反映 → 500 ms 待機 → chirp 放射 (300 ms) → 録音 (1.5 s)
+                ↓
+[MCU] → PC: <span style="color: #ffb454;">RSP_AUDIO</span> [音声 64 KB + サーボ実測 + タイムスタンプ]
+[PC] → HDF5 に追記、抽出した特徴量を Parquet に追加
+[PC] → MCU: <span style="color: #7be0a4;">CMD_NEXT</span> (次サンプルへ)
+  </pre>
+
+  <p style="font-size: 13.5px; color: var(--muted);">
+    プロトコルはシンプルなバイナリ TLV (Type-Length-Value) で実装。Python 側は <code>pyserial</code> で USB-C CDC 接続、MCU 側は USB CDC ライブラリで bridge。1,000 サンプル収集中はディスプレイに進捗バーを表示。
+  </p>
+
+  <h4 style="margin-top: 12px;">データ収集セッション設計</h4>
+  <ul>
+    <li><b>セッション単位</b>: 100〜200 サンプル / セッション（一気に PC に保存、HDF5 ファイル 1 個）</li>
+    <li><b>連続セッション</b>: 10〜50 セッションを <b>無人で連続稼働</b>（夜通し OK）</li>
+    <li><b>サンプリング多様性</b>: セッション間で時間帯・室温（必要なら）・外部ノイズ条件を変える</li>
+    <li><b>セッションメタデータ</b>: 開始/終了時刻、室温、収集モード（層化／ランダム）等を HDF5 attributes として記録</li>
+    <li><b>検証用サンプル</b>: 各セッションの最後の 10% は <b>"未経験組み合わせ"</b> を意図的に踏む（§7.7 検証分割用）</li>
+  </ul>
+</section>
+
+<section>
+  <h2>8. デモ計画 — 模型でのプレゼン</h2>
+
+  <h3>8.1 デモ用の模型</h3>
+  <p>§7 で構築した実験模型をそのままデモに転用する。データ収集モード（自動サーボ駆動）に加えて、<b>デモ用には「手動／リモコン操作モード」</b>を実装する:</p>
+  <ul>
+    <li>来場者やプレゼンターが扉・窓を手で操作する（演劇性が高い）</li>
+    <li>あるいは無線リモコンでサーボを個別操作（再現性が高い）</li>
+    <li>大型ディスプレイにデバイスの判定結果をリアルタイム表示</li>
+  </ul>
+
+  <h3>8.2 2 分動画の絵コンテ</h3>
+  <ol>
+    <li>(0:00–0:15) 「外出中、雨が降ってきました。窓は閉めましたか？」キャプション。スマホ画面で <code>窓チェック</code> をタップ</li>
+    <li>(0:15–0:30) 模型の家にカメラズーム。デバイスがピロン♪と音を出す（リファレンストーン）。画面に「全閉」表示</li>
+    <li>(0:30–0:45) 模型のいずれかの窓を手で開ける → 再度問い合わせ → 「<b>開窓を検出</b>」表示</li>
+    <li>(0:45–1:10) 部屋間の扉を閉める → 閉まった部屋の窓を開けても <b>「全閉」と表示</b>（連続空間の境界を実演）</li>
+    <li>(1:10–1:35) 扉を開けると同じ窓が「開窓」に切り替わる演出</li>
+    <li>(1:35–2:00) 「<b>イチ個のセンサで、複数のモノの状態を把握する</b>」キャプションで締め（センサ 1 個から窓 3 + 扉 2 + 連続空間を同時推定している事実を画面に列挙）</li>
+  </ol>
+
+  <div class="callout">
+    模型でのデモはスケール則的に成立する: 部屋容積を 1/100 にすると音響モード周波数は約 10 倍にシフトするため、リファレンストーン帯域を 1〜20 kHz に上げれば実家屋と同様の現象が観測できる。
+  </div>
+</section>
+
+<section>
+  <h2>9. 「イチ」物語化（DigiKey 応募軸）</h2>
+  <p style="font-size: 13.5px; color: var(--muted);">DigiKey の "イチ" は <b>センサ数 vs 監視対象数の比率</b>に振る。1 個のセンサが複数の対象を同時把握するという <b>「1 対多」の劇的さ</b> が、応募ページ・2 分動画・SNS で最も伝わる軸。</p>
+
+  <p style="font-size: 17px; padding: 14px 18px; background: var(--panel-2); border-radius: 6px; border-left: 3px solid var(--accent-2); margin: 14px 0;">
+    <b>「イチ個のセンサで、複数のモノの状態を把握する」</b>
+  </p>
+
+  <ul>
+    <li><b>定量</b>: 「マイク <b>1 個</b> から、<b>窓 3 + 扉 2 + 連続空間トポロジ</b> = 計 <b>6 種類の対象</b>を同時推定」</li>
+    <li><b>比率</b>: 「センサ <b>1</b> ÷ 監視対象 <b>6</b> = <b>1 / 6</b> — エッジ AI の "最小化" を最も先鋭化した形」</li>
+    <li><b>体験</b>: 「外出先からも、家の<b>イチ瞬</b>を確かめる」</li>
+    <li><b>製品</b>: 「<b>イチ台</b>に集約された "外気接触" 検知デバイス」</li>
+  </ul>
+
+  <p style="font-size: 13.5px; color: var(--muted); margin-top: 12px;">
+    "1 対多" を強調することで <b>NN の存在理由</b>も自然に立つ: 単純な信号処理では 1 対 1 の検出しかできない（マイク 1 個では音量しか分からない）が、NN によって 1 つの入力ストリームから複数の状態を分離できる。これは <b>NN 必然性</b>そのもののストーリー化でもある。
+  </p>
+</section>
+
+<section>
+  <h2>10. Solist-AI 移植時の特殊課題（ROHM v2 実証スコープ）</h2>
+  <p style="font-size: 13.5px; color: var(--muted);">v2 は<b>「Solist-AI の厳しい制約下でも v1 の自由な NN に近い結果が出せること」の技術実証</b>に絞る。実家屋デプロイは本プロジェクトのスコープ外。下記は v2 デモで検証すべき課題:</p>
+  <ul>
+    <li><b>ELM 1 隠れ層の表現力限界</b> → 専門 ELM ×4 アンサンブル + マハラノビス併用で多クラス分類精度を v1 の 5% 差以内に詰められるかを実証</li>
+    <li><b>α 固定（ランダム）のばらつき</b> → α の乱数 seed を変えて 10 回学習し精度分散を測定。ブートストラップアンサンブルで吸収できるかを検証</li>
+    <li><b>4 スロット制約での時分割切替レイテンシ</b> → window_b と window_c を時分割で切替えるとき、推論あたりの追加遅延を計測（数 ms 想定、UX 上問題ないか）</li>
+    <li><b>不可視ラベルのクラス不均衡</b> → AB 閉時のサンプルが多くなり β の最小二乗解が偏る。クラス重み付き擬似逆行列の効果を実証</li>
+    <li><b>マハラノビス距離計算の M0+ 上での実装コスト</b> → 14 クラス × D=30 次元の d²_k を 1 ms 以内に計算できるか確認</li>
+    <li><b>オンデバイス学習のデモシナリオ</b> → 実験模型上で「センサを物理的に移動 → 30 秒で再校正 → 動作復帰」を示す。Solist-AI の自律学習機能のアピール</li>
+  </ul>
+</section>
+
+<section>
+  <h2>11. v1 と v2 の関係 — 同じ問題を 2 つの NN 制約で解く</h2>
+
+  <p>v1 → v2 は機能拡張ではなく <b>同じ問題（同じ実験模型、同じ訓練データ、同じ推論ターゲット）を、ハード制約の異なる 2 つの NN プラットフォームで解く</b>並列実装。両者の精度差・コード差・アプローチ差そのものが作品の成果。</p>
+
+  <table>
+    <thead><tr><th>段階</th><th>NN プラットフォーム</th><th>推論ターゲット</th><th>主張</th></tr></thead>
+    <tbody>
+      <tr>
+        <th>v1（DigiKey, 〜6/22）</th>
+        <td>MCXN947 + eIQ Neutron NPU<br>多層 1D-CNN（自由設計）</td>
+        <td>主タスク二値 + 補助マルチタスク（door/window 状態 + 角度回帰）</td>
+        <td><b>自由な NN で何がどこまでできるか</b>のリファレンス精度を確立</td>
+      </tr>
+      <tr>
+        <th>v2（ROHM, 〜9/28）</th>
+        <td>ML63Q2557 + AxlCORE-ODL<br>ELM（1 隠れ層・α 固定）×4 + マハラノビス</td>
+        <td>同上（同じ推論ターゲット）</td>
+        <td><b>強い制約下でも v1 に近い精度が出せる</b>ことを実証</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p style="margin-top: 12px;">実家屋デプロイ・雨センサ連携・侵入検知などの拡張は <b>本プロジェクトのスコープ外</b>。両系統とも実験模型（§7）上でのみ評価する。</p>
+</section>
+
+<section>
+  <h2>12. 次にやること</h2>
+
+  <p style="color: var(--muted); font-size: 13px;">v1（DigiKey 締切 6/22）と v2（ROHM 締切 9/28）の 2 フェーズに分けて整理。実家屋デプロイはスコープ外。</p>
+
+  <h3 style="color: var(--accent-2);">Phase 1: 実験模型と v1（DigiKey 締切まで）</h3>
+  <ul class="todo">
+    <li>透明アクリル 5 mm の 3 部屋模型（150×100×100 mm 各室）試作、扉対角・窓中央のサーボ駆動機構（§7.1 図）の組み立て</li>
+    <li>PCA9685 + SG90 × 5 の PC 制御テスト（USB シリアル → I²C 経由で 5ch PWM）</li>
+    <li>PC オーケストレータ Python スクリプト: ランダム角度生成 → サーボ駆動 → 待機 → MCXN947 への計測トリガ → データ保存（CSV / npz）</li>
+    <li>層化サンプリング実装（観測可能性で縮約した 14 状態 + 中間角を均等に踏むスケジューラ）</li>
+    <li>pyroomacoustics で組合せ RIR シミュレーション、物理特徴量（RT60, DRR, モードピーク）の分離度確認</li>
+    <li>MAX98357A + SPH0645LM4H + MCXN947 の I²S 結線テスト、PowerQuad での FFT・周波数応答抽出ベンチマーク</li>
+    <li>v1 マルチタスク 1D-CNN（主二値 + 補助 6 出力）の PC 上での backprop 学習、INT8 量子化 → MCXN947 デプロイ</li>
+    <li>1,000 サンプル収集 → v1 学習 → 評価のループを 1 サイクル完走</li>
+    <li>2 分デモ動画撮影、ProtoPedia ページ作成、myLists 部品表登録</li>
+  </ul>
+
+  <h3 style="color: var(--pink);">Phase 2: Solist-AI 移植実証（ROHM 締切まで）</h3>
+  <ul class="todo">
+    <li>Phase 1 で収集した実験データを Solist-AI 用に再構成（生 RIR → 物理特徴量 30 次元へ）</li>
+    <li>専門 ELM × 4（ELM-AB / ELM-a / ELM-BC / ELM-b・c 時分割）の β を Solist-AI 上で<b>閉形式学習</b>、AxlCORE-ODL の動作確認</li>
+    <li>マハラノビス距離（14 クラス分の μ_k, Σ_k）の Cortex-M0+ 上での実装、推論 1 ms 以内を確認</li>
+    <li>階層推論パイプライン: ELM-AB → トポロジ判定 → 関連 ELM 起動の制御コード</li>
+    <li>v1（自由 NN）と v2（ELM）の精度比較: 同じ評価データで離散分類・連続回帰の精度差を測定</li>
+    <li><b>自律学習デモ</b>: センサ位置を変えて 30 秒で β 再計算 → 動作復帰を実機実演</li>
+    <li>「Solist-AI 制約下でも v1 から 5% 以内」を達成できるかの検証 → 達成できなければアーキ調整</li>
+  </ul>
+</section>
+
+<div class="footer-note">
+  原典: <a href="https://github.com/airpocket-soundman/digikey_project/blob/main/ideas.html#C4">ideas.html §C4</a> ／ <a href="https://github.com/airpocket-soundman/digikey_project/blob/main/ideas.md">ideas.md</a>（詳細ブレスト）／ <a href="https://github.com/airpocket-soundman/digikey_project/blob/main/digikey_plan.md">digikey_plan.md</a>（採用方針）／ <a href="https://github.com/airpocket-soundman/digikey_project/blob/main/contests.md">contests.md</a>（応募条件）
+</div>
+
+</main>
+</body>
+</html>

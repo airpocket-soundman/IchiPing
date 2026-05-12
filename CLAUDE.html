@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLAUDE.html — IchiPing 作業ガイド</title>
+<link rel="stylesheet" href="docs/style.css">
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="index.html">トップ</a>
+      <a href="tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="docs/spec.html">仕様書 (spec)</a>
+      <a href="docs/nn_design.html">NN 設計</a>
+      <a href="docs/mcu_deployment.html">MCU デプロイ</a>
+      <a href="docs/bringup.html">実機ブリングアップ</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="hardware/wiring.html">配線テーブル</a>
+      <a href="hardware/bom.html">BOM (部品表)</a>
+      <a href="hardware/display_options.html">ディスプレイ候補</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="firmware/README.html">firmware ガイド</a>
+      <a href="pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="docs/vscode_setup.html">VS Code セットアップ</a>
+      <a href="CLAUDE.html" class="current">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a><br>
+    <a href="https://github.com/airpocket-soundman/digikey_project">正本 digikey_project</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="index.html">← IchiPing トップ</a>
+    ／ <a href="tasks.html">タスクボード</a>
+    ／ <a href="docs/spec.html">仕様書</a>
+  </div>
+  <h1>CLAUDE.html — IchiPing 作業ガイド</h1>
+  <div class="sub">
+    このリポは <a href="https://github.com/airpocket-soundman/digikey_project">digikey_project</a>
+    <b>§C4 の派生実装リポ</b>。アイデア・仕様の正本は digikey_project 側にあり、本リポはそこから生まれた実装専用のサブプロジェクト。
+  </div>
+</header>
+
+<main>
+
+<div class="callout warn">
+  <strong>🟡 タスクを始める前に必ず実行</strong><br>
+  ユーザーから何か依頼を受けたら、<b>最初に必ず</b>以下を確認すること。これは省略しない。
+</div>
+
+<h2>1. 正本（digikey_project）に変更が入っていないか調べる</h2>
+<pre><code>d:/GitHub/digikey_project/details/C4-IchiPing.html   ← IchiPing 仕様の正本
+d:/GitHub/digikey_project/ideas.md                   §C4 セクション
+d:/GitHub/digikey_project/ideas_brief.md             C4 行
+d:/GitHub/digikey_project/digikey_plan.md            採用ボード方針</code></pre>
+
+<p>推奨コマンド:</p>
+<pre><code>git -C d:/GitHub/digikey_project log --oneline -20 -- details/C4-IchiPing.html ideas.md ideas_brief.md</code></pre>
+
+<h2>2. 本リポの複製版と差分があるか調べる</h2>
+<pre><code>diff d:/GitHub/digikey_project/details/C4-IchiPing.html d:/GitHub/IchiPing/docs/spec.html</code></pre>
+<p>差分があった場合、それは正本側で更新が入ったまま IchiPing に伝播していない状態。</p>
+
+<h2>3. 差分があれば伝播してから本来のタスクに入る</h2>
+<ul>
+  <li><b>必ず先にユーザーに「正本側で X が変わっています。先に同期しますか？」と確認</b>。勝手に上書きしないこと。</li>
+  <li>同期が承認されたら、§「同期手順」に従って関連ファイルを更新。</li>
+  <li>同期後、当初のタスクに進む。</li>
+</ul>
+
+<h2>🔄 正本 → IchiPing 同期手順</h2>
+<p>正本側で変更があった場合の影響範囲は次の通り。<b>変更内容に応じて該当箇所だけ更新</b>すること。</p>
+<table>
+  <thead>
+    <tr><th>正本の変更箇所</th><th>IchiPing 側で更新するもの</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>details/C4-IchiPing.html</code> 全般</td>
+      <td><code>docs/spec.html</code> を上書きコピー（<b>例外 1</b>: 本文中の <code>../ideas.html</code> など正本リポ内兄弟ファイルへの相対リンクは IchiPing 側では <code>https://github.com/airpocket-soundman/digikey_project/blob/main/...</code> の絶対 URL に置換。<b>例外 2</b>: <code>&lt;head&gt;</code> 内、<code>&lt;/style&gt;</code> の<b>後</b>に <code>&lt;link rel="stylesheet" href="style.css"&gt;</code> を追記して共通サイドバー CSS を読み込ませる。<b>本文・図・コードブロック・<code>&lt;style&gt;</code> の中身は完全一致を維持</b>）</td>
+    </tr>
+    <tr>
+      <td>§6 ハードウェア BOM の部品変更</td>
+      <td><code>hardware/wiring.svg</code>、<code>hardware/wiring.md</code>、<code>hardware/netlist.csv</code>、<code>README.md</code> の BOM 表</td>
+    </tr>
+    <tr>
+      <td>§3 信号処理パイプラインの変更</td>
+      <td><code>firmware/source/main.c</code> の <code>ICHP_SAMPLE_RATE</code>、<code>ICHP_SAMPLE_COUNT</code>、<code>firmware/source/dummy_audio.c</code>、<code>pc/receiver.py</code></td>
+    </tr>
+    <tr>
+      <td>フレーム形式の変更（サンプル形・ラベル種類）</td>
+      <td><code>firmware/include/ichiping_frame.h</code>（正本）+ <code>pc/ichp_frame.py</code> の <code>HEADER_FMT</code> を同時更新。<code>pc/test_frame_format.py</code> を実行して通すこと</td>
+    </tr>
+    <tr>
+      <td>§7 実験模型・サーボ数の変更</td>
+      <td><code>hardware/wiring.svg</code>、<code>hardware/wiring.md</code> のサーボ列、<code>firmware</code> のサーボ角配列サイズ</td>
+    </tr>
+    <tr>
+      <td>プロジェクト名・コンセプトの変更</td>
+      <td><code>README.md</code>、<code>index.html</code>、<code>CLAUDE.md</code>、<code>CLAUDE.html</code>、各ドキュメントのタイトル</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>同期コミットのメッセージ例:</p>
+<pre><code>sync: digikey_project C4 §6 から MIC を INMP441 → ICS-43434 に変更
+
+正本側で TDK 後継品への置き換えが反映された (digikey_project commit abc1234)。
+hardware/wiring.{svg,md,csv} と firmware/README.md を更新。</code></pre>
+
+<h2>🔁 逆方向（IchiPing → 正本）の更新</h2>
+<p>実装中に判明した知見が<b>アイデア記述レベル</b>の更新を要する場合、digikey_project も同期更新する。</p>
+<ul>
+  <li>部品選定が現場の都合で変わった → <code>digikey_project/details/C4-IchiPing.html</code> §6 を更新</li>
+  <li>検出スコープ・手法が変わった → 同 §1〜§4 を更新</li>
+  <li>一行説明が変わった → <code>digikey_project/{ideas.md, ideas.html, ideas_brief.md}</code> の C4 行を更新</li>
+</ul>
+
+<div class="callout">
+  <strong>両リポを 1 セットの commit でまとめず</strong>、それぞれ独立に commit する（digikey_project は別の GitHub リポ、IchiPing も別リポ）。コミットメッセージに「対応する変更: &lt;相手リポの commit hash&gt;」を書いておくと追跡しやすい。
+</div>
+
+<h2>📁 正本との対応関係（早見表）</h2>
+<table>
+  <thead>
+    <tr><th>本リポ</th><th>正本（digikey_project）</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>docs/spec.html</code></td><td><code>details/C4-IchiPing.html</code>（<b>完全コピー</b> — 単純な複製管理）</td></tr>
+    <tr><td><code>README.md</code> のロードマップ</td><td><code>ideas.md</code> §C4 + <code>digikey_plan.md</code></td></tr>
+    <tr><td><code>hardware/wiring.svg</code> 配線図</td><td>正本にはなし（IchiPing 側で発生・維持）</td></tr>
+    <tr><td><code>firmware/*</code> ファーム</td><td>正本にはなし</td></tr>
+    <tr><td><code>pc/receiver.py</code> PC スクリプト</td><td>正本にはなし</td></tr>
+  </tbody>
+</table>
+<p>
+  つまり <code>docs/spec.html</code> 以外は <b>IchiPing 側で独立して育てるもの</b>で、正本変更があっても<b>自動的には影響しない</b>。ただし正本の仕様変更が部品や信号処理を変えれば、それに合わせて配線図・ファームを更新する必要があるという形で間接的に波及する。
+</p>
+
+<h2>📝 プロジェクト名の経緯</h2>
+<ul>
+  <li>原案: <b>DoorBaro</b>（高分解能気圧センサで家全体イベントを推定）</li>
+  <li>中間: <b>WindowGuard</b>（仮称）</li>
+  <li>現名: <b>IchiPing</b>（能動 chirp + マイク 1 個 + 1D CNN — 「イチ」哲学）</li>
+</ul>
+<p>旧名で書かれた参照を見つけたら IchiPing に統一する。詳細経緯は <a href="docs/spec.html">docs/spec.html</a> §0「このページの位置づけ」。</p>
+
+<h2>🔧 主要な技術的前提</h2>
+<p>これらは正本の C4 spec §6 から確定済で、変えるならユーザー確認が必要:</p>
+<ul>
+  <li><b>MCU</b>: FRDM-MCXN947</li>
+  <li><b>マイク</b>: INMP441（I²S MEMS, 24-bit、DC オフセット問題なしで chirp/RIR 用途に好適）</li>
+  <li><b>DAC</b>: MAX98357A</li>
+  <li><b>サーボ駆動</b>: PCA9685（I²C, 16ch PWM）→ SG90 ×5</li>
+  <li><b>データ経路 v0.1</b>: <b>OpenSDA UART 921600 bps</b>（実装難易度最小の選択）。後で USB CDC に置換予定</li>
+  <li><b>PC 側環境</b>: conda（<code>pc/environment.yml</code>）を主、venv（<code>pc/requirements.txt</code>）を副</li>
+</ul>
+
+<h2>📋 HTML と MD のペアは同期させる</h2>
+
+<p>本リポは GitHub 上で読む人（<code>.md</code>）と、ローカルで開く HTML サイトとして読む人（<code>.html</code>）の両方を想定するため、以下のペアは <b>内容を一致させて運用する</b>。片方だけ更新するのは禁止。</p>
+
+<table>
+  <thead>
+    <tr><th>HTML</th><th>Markdown</th><th>役割</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>index.html</code></td><td><code>README.md</code></td><td>トップページ</td></tr>
+    <tr><td><code>CLAUDE.html</code></td><td><code>CLAUDE.md</code></td><td>このガイド</td></tr>
+    <tr><td><code>firmware/README.html</code></td><td><code>firmware/README.md</code></td><td>firmware セットアップ</td></tr>
+    <tr><td><code>pc/README.html</code></td><td><code>pc/README.md</code></td><td>PC スクリプト</td></tr>
+    <tr><td><code>hardware/wiring.html</code></td><td><code>hardware/wiring.md</code></td><td>配線テーブル</td></tr>
+  </tbody>
+</table>
+
+<h3>更新時の手順</h3>
+<ol>
+  <li><b>片方を編集したら、必ずもう片方も同じ意味の変更を反映する</b>。リポ構成ツリー、BOM 表、コマンド例、ファイル名一覧、テストカバレッジ件数のような「事実データ」は片方だけ古いまま残さない。</li>
+  <li>構造表現の差（HTML 側で H2 を 3 つに分けて MD 側で H2 一つ＋本文番号、等）は許容してよい。<b>揃えるべきは情報・指示・コマンド例・データ</b>であって、見出しの粒度ではない。</li>
+  <li>図は SVG として <code>docs/img/</code> に置き、HTML からは <code>&lt;img src="..."&gt;</code>、MD からは <code>![alt](...)</code> の <b>同じファイル</b>を参照する（ASCII 図禁止ルールと併用）。</li>
+</ol>
+
+<h3>毎タスク完了前のチェック</h3>
+<p>ペアの片方を編集した直後（あるいは PR を投げる前）に、見出し構造の差分を確認する。手っ取り早い手段:</p>
+
+<pre><code>python - &lt;&lt;'PY'
+import re
+from pathlib import Path
+pairs = [
+    ('index.html', 'README.md'), ('CLAUDE.html', 'CLAUDE.md'),
+    ('firmware/README.html', 'firmware/README.md'),
+    ('pc/README.html', 'pc/README.md'),
+    ('hardware/wiring.html', 'hardware/wiring.md'),
+]
+def html_h(t):
+    t = re.sub(r'&lt;(pre|code)[^&gt;]*&gt;.*?&lt;/\1&gt;', '', t, flags=re.DOTALL)
+    return [re.sub(r'&lt;[^&gt;]+&gt;', '', m.group(2)).strip()
+            for m in re.finditer(r'&lt;h([1-3])[^&gt;]*&gt;(.*?)&lt;/h\1&gt;', t, re.DOTALL)]
+def md_h(t):
+    fence, out = False, []
+    for ln in t.splitlines():
+        if re.match(r'^\s*```', ln): fence = not fence; continue
+        if fence: continue
+        m = re.match(r'^(#{1,3})\s+(.+)$', ln)
+        if m: out.append(m.group(2).strip())
+    return out
+for h, m in pairs:
+    H = html_h(Path(h).read_text(encoding='utf-8'))
+    M = md_h(Path(m).read_text(encoding='utf-8'))
+    print(f'{h}: {len(H)} headings | {m}: {len(M)} headings')
+PY</code></pre>
+
+<p>完全な heading 一致は不要。ただし「片方にしかないトピック」が出たら <b>意図的な構造差か内容欠落かを判断</b>して対応する。</p>
+
+<h3>ペアになっていないファイル</h3>
+<p>以下は現時点では HTML のみ／MD のみで運用しており、ペア化義務は無い。必要になったタイミングで両形式に展開すれば良い:</p>
+<ul>
+  <li>HTML のみ: <code>tasks.html</code>, <code>docs/spec.html</code>, <code>docs/nn_design.html</code>, <code>docs/mcu_deployment.html</code>, <code>docs/bringup.html</code>, <code>docs/vscode_setup.html</code>, <code>hardware/bom.html</code>, <code>hardware/display_options.html</code></li>
+  <li>MD のみ: <code>firmware/host_build/README.md</code>, <code>pc/training/README.md</code></li>
+</ul>
+
+<h2>🖼️ ドキュメント内の図は SVG で書く</h2>
+
+<p><b>ASCII アート／罫線図／コードブロック内の擬似図はすべて禁止</b>。図示が必要な場面では必ず SVG を使う:</p>
+<ul>
+  <li>信号フロー、データフロー、状態遷移、シーケンス図 → <code>&lt;svg&gt;</code> で構造化</li>
+  <li>寸法図、配線図、配置図 → 同様</li>
+  <li>markdown ドキュメントでも <code>&lt;svg&gt;</code> インラインで埋め込む（GitHub は markdown 内の SVG をレンダリングする）</li>
+  <li>HTML ドキュメントでは外部 <code>.svg</code> 参照 or インライン <code>&lt;svg&gt;</code> どちらでも OK</li>
+  <li>既存ドキュメントを編集する際、ASCII 図を見つけたら <b>その編集ついでに SVG に置換</b>する</li>
+</ul>
+<div class="callout">
+  <strong>理由:</strong> ASCII 図は文字数で構造を表現するため画面幅／フォント幅で容易に崩れる。仕様書（正本 <code>details/C4-IchiPing.html</code>）が全面 SVG で書かれているため、本リポも同じ表現規約に揃える。
+  <code>docs/style.css</code> の色変数（<code>--accent</code>, <code>--accent-2</code>, <code>--warn</code>, <code>--pink</code>）を SVG 内でも使うとテーマ統一できる。
+</div>
+
+<h2 style="color: var(--blocked);">🚫 やらないこと</h2>
+<div class="callout danger">
+  <ul style="margin: 0;">
+    <li><code>docs/spec.html</code> を IchiPing 側だけで編集する（→ 正本 <code>details/C4-IchiPing.html</code> 側で編集して同期させる）</li>
+    <li>正本変更の確認を省略していきなり実装に入る</li>
+    <li>「最近正本見たから今回はスキップ」と判断する（<b>毎タスク開始時に必ず確認</b>。前回の確認はキャッシュではない）</li>
+    <li><b>ドキュメント内に ASCII アート／罫線図を書く</b>（→ SVG にする）</li>
+  </ul>
+</div>
+
+<div class="footer-note">
+  関連ページ:
+  <a href="index.html">index.html</a> ／
+  <a href="tasks.html">tasks.html</a> ／
+  <a href="docs/spec.html">docs/spec.html</a> ／
+  <a href="hardware/wiring.html">hardware/wiring.html</a> ／
+  <a href="firmware/README.html">firmware/README.html</a> ／
+  <a href="pc/README.html">pc/README.html</a>
+  <br><br>
+  この HTML は <a href="CLAUDE.md">CLAUDE.md</a> の人間可読版。<b>Claude エージェントが実際に読むのは CLAUDE.md 側</b>（こちらは可読性目的）。両者の内容に乖離が出ないよう、CLAUDE.md を変更したら同時にこの HTML も更新すること。
+</div>
+
+</main>
+</body>
+</html>

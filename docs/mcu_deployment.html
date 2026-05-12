@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MCXN947 デプロイ手順 — IchiPing v1</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../index.html">トップ</a>
+      <a href="../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="../docs/spec.html">仕様書 (spec)</a>
+      <a href="../docs/nn_design.html">NN 設計</a>
+      <a href="../docs/mcu_deployment.html" class="current">MCU デプロイ</a>
+      <a href="../docs/bringup.html">実機ブリングアップ</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="../hardware/wiring.html">配線テーブル</a>
+      <a href="../hardware/bom.html">BOM (部品表)</a>
+      <a href="../hardware/display_options.html">ディスプレイ候補</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../firmware/README.html">firmware ガイド</a>
+      <a href="../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="../docs/vscode_setup.html">VS Code セットアップ</a>
+      <a href="../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a><br>
+    <a href="https://github.com/airpocket-soundman/digikey_project">正本 digikey_project</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../index.html">← IchiPing トップ</a>
+    ／ <a href="../tasks.html">タスクボード</a>
+    ／ <a href="nn_design.html">NN 設計</a>
+    ／ <a href="spec.html">仕様書</a>
+  </div>
+  <h1>MCXN947 デプロイ手順 — IchiPing v1</h1>
+  <div class="sub">
+    PyTorch で訓練した 1D-CNN を <b>eIQ Toolkit で INT8 量子化</b>し、
+    FRDM-MCXN947 の eIQ Neutron NPU で動かすまでのフロー。
+    各ステップで「何をするか」「何を確認するか」「ツール導入方法」をひとまとめに。
+  </div>
+  <div class="meta">
+    <span class="meta-stat"><span class="num">eIQ Toolkit</span> 必須</span>
+    <span class="meta-stat"><span class="num">MCUXpresso SDK 11.9+</span></span>
+    <span class="meta-stat"><span class="num">NPU 1 ms 推論</span> 目標</span>
+  </div>
+</header>
+
+<main>
+
+<h2>全体フロー</h2>
+<img src="img/deploy_flow.svg" alt="MCXN947 デプロイフロー: PC で訓練 + ONNX エクスポート → eIQ Toolkit で INT8 量子化と C コード生成 → MCUXpresso で firmware に統合 → 推論結線とレイテンシ計測" style="width: 100%; max-width: 820px; display: block; margin: 16px 0;">
+
+<p>3 レーンに分かれる: <span style="color: var(--accent-2);">PC（訓練・エクスポート）</span> →
+<span style="color: var(--warn);">eIQ Toolkit（量子化・コード生成）</span> →
+<span style="color: var(--pink);">MCUXpresso（統合・推論）</span>。
+各レーンはツールチェインが違うので、レーン間の引き渡しファイルが <b>レーン同士のインターフェース</b>になる。</p>
+
+<h2>0. ツール導入方法</h2>
+
+<table>
+  <thead><tr><th>ツール</th><th>入手先</th><th>用途</th><th>導入確認コマンド</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><b>PyTorch / ONNX</b></td>
+      <td><code>conda env create -f pc/environment.yml</code></td>
+      <td>訓練 + ONNX エクスポート</td>
+      <td><code>python -c "import torch, onnx; print(torch.__version__, onnx.__version__)"</code></td>
+    </tr>
+    <tr>
+      <td><b>eIQ Toolkit</b></td>
+      <td>NXP <a href="https://www.nxp.com/design/design-center/software/eiq-ml-development-environment/eiq-toolkit-for-end-to-end-model-development-and-deployment:EIQ-TOOLKIT">公式</a>（無償、要 NXP アカウント）</td>
+      <td>INT8 量子化 + Neutron NPU 用 C コード生成</td>
+      <td>インストール後 <code>eIQ Toolkit</code> アプリ起動でバージョン確認</td>
+    </tr>
+    <tr>
+      <td><b>MCUXpresso IDE</b></td>
+      <td>NXP <a href="https://www.nxp.com/design/design-center/software/development-software/mcuxpresso-software-and-tools-/mcuxpresso-integrated-development-environment-ide:MCUXpresso-IDE">公式</a>（無償）</td>
+      <td>MCXN947 ファーム開発・書込</td>
+      <td><code>Help &gt; About</code> で IDE バージョン（11.9 以降推奨）</td>
+    </tr>
+    <tr>
+      <td><b>MCUXpresso SDK</b></td>
+      <td>IDE 内 <code>SDK Builder</code> で <code>frdmmcxn947</code> 選択</td>
+      <td>SAI / NPU / PowerQuad ドライバ</td>
+      <td>IDE Installed SDKs にツリーが現れる</td>
+    </tr>
+    <tr>
+      <td><b>onnxruntime</b></td>
+      <td><code>environment.yml</code> 内</td>
+      <td>量子化前後の精度比較（PC 上）</td>
+      <td><code>python -c "import onnxruntime; print(onnxruntime.__version__)"</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout warn">
+  <strong>eIQ Toolkit のバージョン:</strong> Neutron NPU 対応は <b>1.8 以降</b>。古いバージョンでは MCXN947 用 C コード生成のターゲットが選べない。インストール後最初に <code>Help → Check for Updates</code>。
+</div>
+
+<h2>1. PC レーン — 学習 + ONNX エクスポート</h2>
+
+<h3>1.1 訓練</h3>
+<pre><code>cd pc
+conda activate ichiping
+# captures/ は receiver.py / emulator.py で作ったディレクトリ
+python -m training.train --captures ../captures --out ../runs/v1_pilot --epochs 50
+</code></pre>
+
+<p>出力:</p>
+<table>
+  <tbody>
+    <tr><th><code>runs/v1_pilot/best.pt</code></th><td>PyTorch チェックポイント（state_dict + cfg）</td></tr>
+    <tr><th><code>runs/v1_pilot/best.onnx</code></th><td>ONNX opset 17 — eIQ Toolkit への入力</td></tr>
+    <tr><th><code>runs/v1_pilot/train_log.csv</code></th><td>per-epoch loss / val_acc(any_open)</td></tr>
+    <tr><th><code>runs/v1_pilot/config.json</code></th><td>再現用メタ（CLI 引数 + モデル構成）</td></tr>
+  </tbody>
+</table>
+
+<h3>1.2 ONNX 検証（量子化前）</h3>
+<pre><code>python -c "
+import onnxruntime as ort
+import numpy as np
+sess = ort.InferenceSession('runs/v1_pilot/best.onnx')
+x = np.random.randn(1, 1024).astype(np.float32)
+out = sess.run(None, {'spectrum': x})
+for name, v in zip([o.name for o in sess.get_outputs()], out):
+    print(name, v.shape, v.dtype)
+"</code></pre>
+<p>6 つの出力（any_open / door_AB / door_BC / window_a/b/c）が想定形で返れば OK。</p>
+
+<h2>2. eIQ Toolkit レーン — 量子化 + コード生成</h2>
+
+<h3>2.1 プロジェクト作成</h3>
+<ol>
+  <li>eIQ Toolkit GUI を起動 → <code>New Project</code></li>
+  <li>Target を <code>MCXN947 (Neutron NPU)</code> に設定</li>
+  <li><code>Import Model</code> で <code>runs/v1_pilot/best.onnx</code> を選択</li>
+</ol>
+
+<h3>2.2 キャリブレーションデータの用意</h3>
+<p>PTQ（Post-Training Quantisation）には活性化レンジを推定するための代表サンプルが必要。<b>訓練データから 100〜200 個</b>を選んで NumPy 配列に保存:</p>
+<pre><code># pc/training/export_calibration.py（参考スニペット）
+import numpy as np
+from torch.utils.data import DataLoader
+from training.dataset import IchiPingDataset, collate_targets
+
+ds = IchiPingDataset("../captures")
+loader = DataLoader(ds, batch_size=200, shuffle=True, collate_fn=collate_targets)
+x, _ = next(iter(loader))
+np.save("../runs/v1_pilot/calib.npy", x.numpy())
+</code></pre>
+
+<p>eIQ Toolkit GUI で <code>Calibration Dataset</code> として <code>calib.npy</code> を指定。</p>
+
+<h3>2.3 量子化と精度確認</h3>
+<ol>
+  <li><code>Quantize</code> ボタン → INT8 / per-channel weights / per-tensor activations を選択</li>
+  <li><b>量子化前後の各ヘッド出力</b>を eIQ Toolkit の Validation タブで比較。<code>any_open</code> の精度が 2% 以内に収まることが <b>採用条件</b></li>
+  <li>収まらなければ:
+    <ul>
+      <li>キャリブレーションサンプルを増やす（200 → 500）</li>
+      <li>QAT（Quantisation-Aware Training）に切り替え（PC レーンの train.py に <code>torch.ao.quantization.prepare_qat</code> を追加）</li>
+    </ul>
+  </li>
+</ol>
+
+<h3>2.4 C コード生成</h3>
+<p><code>Deploy</code> ボタン → <code>Neutron NPU C Code</code> を選択。生成物:</p>
+<table>
+  <tbody>
+    <tr><th><code>ichiping_v1_model.c / .h</code></th><td>ネットワーク構造 + invoke 関数</td></tr>
+    <tr><th><code>ichiping_v1_weights.c</code></th><td>INT8 量子化重みのバイナリ埋め込み</td></tr>
+    <tr><th><code>ichiping_v1_inference.c</code></th><td>前処理・後処理ヘルパ（テンソルの S/H スケール変換含む）</td></tr>
+  </tbody>
+</table>
+
+<h2>3. MCU レーン — firmware への統合</h2>
+
+<h3>3.1 ソース追加</h3>
+<pre><code>firmware/source/
+├── ichiping_v1_model.c       ← eIQ から
+├── ichiping_v1_weights.c     ← eIQ から
+├── ichiping_v1_inference.c   ← eIQ から
+├── ichiping_v1.h             ← eIQ から（include/ に置く）
+├── feature_extract.c         ← ★ 新規: PowerQuad-FFT で 1024-bin spectrum
+└── main_v1.c                 ← ★ 新規: chirp 放射 + 録音 + 推論 + 表示
+</code></pre>
+
+<h3>3.2 リンカ設定</h3>
+<p>NXP eIQ Neutron NPU ランタイムをリンク（MCUXpresso SDK 11.9+ に同梱）:</p>
+<pre><code># Properties → C/C++ Build → Settings → MCU Linker → Libraries
+-leiq_neutron
+-leiq_runtime
+</code></pre>
+
+<h3>3.3 推論結線コード骨子</h3>
+<pre><code>#include "ichiping_v1.h"
+#include "feature_extract.h"
+
+static int16_t audio_buf[ICHP_SAMPLE_COUNT];
+static float spectrum[1024];
+static float nn_out[ICHP_V1_OUTPUT_SIZE];
+
+void inference_cycle(void) {
+    // 1. chirp 放射 + 録音（v0.2 でできる）
+    sai_emit_chirp_and_record(audio_buf);
+
+    // 2. 特徴抽出: 整合フィルタ + RIR 窓 + rFFT + log-mag
+    feature_extract(audio_buf, ICHP_SAMPLE_COUNT, spectrum);
+
+    // 3. NN 推論（NPU）
+    eiq_status_t st = ichiping_v1_invoke(spectrum, nn_out);
+    if (st != EIQ_OK) { /* fallback */ }
+
+    // 4. 結果デコード
+    float p_any_open = sigmoid(nn_out[OUT_ANY_OPEN]);
+    int door_BC = argmax3(&nn_out[OUT_DOOR_BC]);
+    // ... OLED 表示 / UART 送信
+}
+</code></pre>
+
+<h3>3.4 レイテンシ計測</h3>
+<pre><code>uint32_t t0 = SysTick-&gt;VAL;
+ichiping_v1_invoke(spectrum, nn_out);
+uint32_t t1 = SysTick-&gt;VAL;
+uint32_t cycles = t0 - t1;     // SysTick はカウントダウン
+printf("invoke: %u cycles (~%.2f ms)\\n",
+       cycles, cycles * 1000.0f / SystemCoreClock);
+</code></pre>
+
+<div class="callout">
+  <strong>目標:</strong> 1 ms 以内。特徴抽出（PowerQuad FFT）+ NN invoke + 後処理で 50 ms 程度。
+  chirp 放射 + 録音 (2 秒) が支配的なので、全体は <b>~3 秒/推論</b>（model のせいではない）。
+</div>
+
+<h2>4. 失敗パターンとリカバリ</h2>
+
+<table>
+  <thead><tr><th>症状</th><th>原因の候補</th><th>確認 / 対処</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>INT8 量子化後に <code>any_open</code> の acc が 10%+ 低下</td>
+      <td>活性化レンジが狭すぎる / キャリブレーションデータが偏る</td>
+      <td>キャリブレを 500 サンプルに増やす → ダメなら QAT</td>
+    </tr>
+    <tr>
+      <td>eIQ Toolkit が ONNX を import できない</td>
+      <td>opset 不一致 / 未対応オペ（GroupNorm 等）</td>
+      <td>train.py の <code>opset_version=17</code> 確認、未対応オペ使わない</td>
+    </tr>
+    <tr>
+      <td>MCU 側で <code>ichiping_v1_invoke</code> が <code>EIQ_OOM</code></td>
+      <td>テンソル領域がスタックに置かれ overflow</td>
+      <td>静的グローバル領域に移す。リンカで <code>.bss.eiq</code> セクション確保</td>
+    </tr>
+    <tr>
+      <td>PowerQuad FFT 結果が numpy と異なる</td>
+      <td>窓関数違い / endian / スケーリング差</td>
+      <td>features.py に合わせて窓無し、log10 + 同じ正規化、テストベクタで突合</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>5. 関連タスク</h2>
+<table>
+  <thead><tr><th>タスク</th><th>ステータス</th></tr></thead>
+  <tbody>
+    <tr><td><a href="../tasks.html">IP-0.5.1</a> PyTorch 訓練（足場あり）</td><td><span class="status-badge in_progress">足場完成</span></td></tr>
+    <tr><td>IP-0.5.2 ONNX → eIQ → INT8 → C コード生成</td><td><span class="status-badge pending">本ページ §2</span></td></tr>
+    <tr><td>IP-0.5.3 MCU 統合 + レイテンシ計測</td><td><span class="status-badge pending">本ページ §3</span></td></tr>
+    <tr><td>IP-0.3.2 PowerQuad FFT ラッパ</td><td><span class="status-badge pending">推論前に必要</span></td></tr>
+  </tbody>
+</table>
+
+<div class="footer-note">
+  関連ページ:
+  <a href="../index.html">index.html</a> ／
+  <a href="nn_design.html">nn_design.html</a> ／
+  <a href="spec.html">spec.html</a> ／
+  <a href="../pc/training/README.md">pc/training/README</a> ／
+  <a href="../tasks.html">tasks.html</a>
+</div>
+
+</main>
+</body>
+</html>
