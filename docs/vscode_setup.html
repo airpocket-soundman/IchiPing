@@ -164,9 +164,9 @@ pip freeze &gt; pc/env-pip.txt</code></pre>
   <li>左サイドバーの <b>MCUXpresso</b> アイコンをクリック</li>
   <li><b>Import Repository</b> → <code>frdmmcxn947</code> SDK を選択</li>
   <li><b>Import Example</b> → <code>driver_examples/lpuart/polling_transfer</code> をベースに <code>ichiping_dummy</code> プロジェクト作成</li>
-  <li>生成された <code>main.c</code> を <a href="../firmware/source/main.c">firmware/source/main.c</a> で置き換え</li>
-  <li><a href="../firmware/source/ichiping_frame.c">ichiping_frame.c</a> と <a href="../firmware/source/dummy_audio.c">dummy_audio.c</a> を <code>source/</code> に追加</li>
-  <li>Include path に <code>${workspaceFolder}/firmware/include</code> を追加</li>
+  <li>生成された <code>main.c</code> を <a href="../firmware/projects/01_dummy_emitter/main.c">firmware/projects/01_dummy_emitter/main.c</a> で置き換え</li>
+  <li><a href="../firmware/shared/source/ichiping_frame.c">ichiping_frame.c</a> と <a href="../firmware/shared/source/dummy_audio.c">dummy_audio.c</a> を <code>source/</code> に追加</li>
+  <li>Include path に <code>${workspaceFolder}/firmware/shared/include</code> を追加</li>
   <li><b>Build</b> ボタン（または <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd>）</li>
   <li>USB ケーブル接続後、<b>Debug</b> アイコン → OpenSDA で書込</li>
 </ol>

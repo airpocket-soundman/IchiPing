@@ -168,7 +168,7 @@
 <h3>1. ファーム側</h3>
 <ol>
   <li>MCUXpresso IDE で <code>frdmmcxn947</code> SDK から LPUART ベースのテンプレートを作成</li>
-  <li><code>source/main.c</code> を <a href="firmware/source/main.c">firmware/source/main.c</a> で置き換え、<code>ichiping_frame.c</code> + <code>dummy_audio.c</code> を追加、Include パスに <code>firmware/include</code> を追加</li>
+  <li><code>source/main.c</code> を <a href="firmware/projects/01_dummy_emitter/main.c">firmware/projects/01_dummy_emitter/main.c</a> で置き換え、<code>ichiping_frame.c</code> + <code>dummy_audio.c</code> を追加、Include パスに <code>firmware/shared/include</code> を追加</li>
   <li>ビルド → OpenSDA で書き込み</li>
 </ol>
 <p>詳細は <a href="firmware/README.html">firmware/README.html</a>。</p>

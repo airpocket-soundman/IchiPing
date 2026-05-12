@@ -71,50 +71,90 @@
 <main>
 
 <h2>構成</h2>
+<p>各 MCUXpresso プロジェクトは <code>projects/XX_*/</code> ディレクトリに分かれ、共通ドライバ・ヘッダは <code>shared/</code> に集約。プロジェクト側は <code>shared/include</code> を Include パスに、必要な <code>shared/source/*.c</code> をビルドに含める形で構成する。</p>
+
 <pre><code>firmware/
-├── include/
-│   ├── ichiping_frame.h   フレーム形式定義（PC 側と共有する単一の真実）
-│   ├── dummy_audio.h
-│   ├── servo_driver.h     共通サーボ API（PCA9685 / LU9685 をビルド時切替）
-│   ├── pca9685.h          PCA9685 ネイティブ API（16ch, NXP）
-│   └── lu9685.h           LU9685 ネイティブ API（20ch, 中国製互換品）
-├── source/
-│   ├── main.c             [Dummy emitter] SysTick + LPUART + フレーム送信ループ
-│   ├── main_servo_test.c  [Servo test] servo_driver.h 経由でどちらでも動く
-│   ├── ichiping_frame.c   ヘッダ + CRC-16/CCITT パッカー
-│   ├── dummy_audio.c      合成 chirp 200→8 kHz + xorshift32 残響
-│   ├── pca9685.c          PCA9685 ドライバ実装（PWM tick burst write）
-│   └── lu9685.c           LU9685 ドライバ実装（角度バイト + bulk update）
-├── host_build/            gcc/MinGW でホストビルドする足場
-│   ├── Makefile           .so/.dll を作って ctypes 突合テストに使う
+├── shared/                              プロジェクト共通の C コード
+│   ├── include/
+│   │   ├── ichiping_frame.h              フレーム形式（PC 側と共有する単一の真実）
+│   │   ├── dummy_audio.h                 合成 chirp + 残響ジェネレータ
+│   │   ├── servo_driver.h                共通サーボ API（PCA9685 / LU9685 切替）
+│   │   ├── pca9685.h                     PCA9685 ネイティブ API（16ch, NXP）
+│   │   ├── lu9685.h                      LU9685 ネイティブ API（20ch, 互換品）
+│   │   ├── ili9341.h                     ILI9341 240×320 RGB565 TFT API
+│   │   └── lv_port.h                     LVGL ポート公開関数
+│   └── source/
+│       ├── ichiping_frame.c              ヘッダ + CRC-16/CCITT パッカー
+│       ├── dummy_audio.c                 合成 chirp 200→8 kHz + 残響
+│       ├── pca9685.c                     PCA9685 ドライバ（PWM tick burst write）
+│       ├── lu9685.c                      LU9685 ドライバ（角度バイト + bulk update）
+│       ├── ili9341.c                     ILI9341 ドライバ（SPI + 5x7 ASCII フォント）
+│       └── lv_port_disp.c                LVGL ↔ ILI9341 glue（partial render）
+├── projects/                            MCUXpresso プロジェクトを 1 つずつ独立に
+│   ├── 01_dummy_emitter/
+│   │   ├── main.c                        SysTick + LPUART + 3 秒周期フレーム送信
+│   │   └── README.md                     MCUXpresso インポート手順
+│   ├── 02_servo_test/
+│   │   ├── main.c                        servo_driver.h 経由で PCA9685/LU9685 両対応
+│   │   └── README.md
+│   ├── 03_ili9341_test/
+│   │   ├── main.c                        ILI9341 単体の 5 フェーズ描画デモ
+│   │   └── README.md
+│   ├── 04_lvgl_test/
+│   │   ├── main.c                        LVGL v9 統合 + IchiPing 状態 UI モック
+│   │   └── README.md
+│   └── 05_usb_cdc_emitter/
+│       ├── main.c                        USB CDC ACM 経由で ICHP フレーム送信
+│       └── README.md
+├── host_build/                          ホスト (gcc/MinGW) でビルドする足場
+│   ├── Makefile                          .so/.dll を作って ctypes 突合テストに使う
 │   └── README.md
 └── README.md / README.html</code></pre>
 
-<p>本リポは <b>2 つの独立ファーム</b>を提供する:</p>
+<p>本リポは <b>5 つの独立ファーム</b>を提供する。それぞれ別 MCUXpresso プロジェクト:</p>
 <table>
   <thead>
-    <tr><th>ファーム</th><th>main</th><th>用途</th><th>SDK ベース</th></tr>
+    <tr><th>#</th><th>ディレクトリ</th><th>用途</th><th>SDK ベース</th></tr>
   </thead>
   <tbody>
     <tr>
-      <td><b>Dummy emitter</b></td>
-      <td><a href="source/main.c"><code>main.c</code></a></td>
-      <td>シリアル疎通とフレーム形式の確立（v0.1）</td>
+      <td>1</td>
+      <td><a href="projects/01_dummy_emitter/"><code>projects/01_dummy_emitter</code></a></td>
+      <td>シリアル疎通とフレーム形式の確立（v0.1 本番）</td>
       <td><code>lpuart/polling_transfer</code></td>
     </tr>
     <tr>
-      <td><b>Servo test</b></td>
-      <td><a href="source/main_servo_test.c"><code>main_servo_test.c</code></a></td>
+      <td>2</td>
+      <td><a href="projects/02_servo_test/"><code>projects/02_servo_test</code></a></td>
       <td>PCA9685 <b>または</b> LU9685 + SG90 ×5 の動作確認（v0.4 準備）</td>
       <td><code>lpi2c/polling_master</code></td>
     </tr>
+    <tr>
+      <td>3</td>
+      <td><a href="projects/03_ili9341_test/"><code>projects/03_ili9341_test</code></a></td>
+      <td>TFT 配線確認 + 5 フェーズ最小描画デモ（v1.0 準備）</td>
+      <td><code>lpspi/polling_b2b</code></td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td><a href="projects/04_lvgl_test/"><code>projects/04_lvgl_test</code></a></td>
+      <td>LVGL v9 のポート確立 + IchiPing 状態 UI モック</td>
+      <td><code>lpspi/polling_b2b</code> + middleware/lvgl</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td><a href="projects/05_usb_cdc_emitter/"><code>projects/05_usb_cdc_emitter</code></a></td>
+      <td>USB CDC ACM で 1 フレーム ~50 ms（v0.3 高速化）</td>
+      <td><code>usb_examples/usb_device_cdc_vcom</code></td>
+    </tr>
   </tbody>
 </table>
+<p>詳細なインポート手順は <b>各プロジェクトの README.md</b> を参照。</p>
 
 <h3>サーボドライバの選択</h3>
 <p>
   Servo test は <b>PCA9685（NXP, 16 ch）</b>と <b>LU9685-20CU（中国製, 20 ch）</b>のどちらでも
-  <b>同じコードでビルドできる</b>。<a href="include/servo_driver.h"><code>firmware/include/servo_driver.h</code></a>
+  <b>同じコードでビルドできる</b>。<a href="shared/include/servo_driver.h"><code>firmware/shared/include/servo_driver.h</code></a>
   がビルド時シンボルでバックエンドを切り替える:
 </p>
 <table>
@@ -135,7 +175,7 @@
       <td>16</td>
       <td>0x40（A0..A5 で 0x40..0x7F）</td>
       <td>パルス幅を MIN/MAX_TICK で校正</td>
-      <td><a href="source/pca9685.c"><code>pca9685.c</code></a></td>
+      <td><a href="shared/source/pca9685.c"><code>pca9685.c</code></a></td>
     </tr>
     <tr>
       <td><code>SERVO_BACKEND_LU9685_I2C</code></td>
@@ -143,7 +183,7 @@
       <td>20</td>
       <td>0x00（ジャンパで 0x00..0x1F）</td>
       <td>チップが角度→パルス変換するので不要</td>
-      <td><a href="source/lu9685.c"><code>lu9685.c</code></a></td>
+      <td><a href="shared/source/lu9685.c"><code>lu9685.c</code></a></td>
     </tr>
   </tbody>
 </table>
@@ -155,52 +195,33 @@
 
 <h2>ビルド手順（MCUXpresso IDE / MCUXpresso for VS Code）</h2>
 
-<h3>A. Dummy emitter プロジェクト</h3>
+<p>各プロジェクトのインポート手順は <b>対応する <code>projects/XX_*/README.md</code></b> に詳細を書いた。共通の前提は:</p>
 <ol>
-  <li><b>MCUXpresso SDK for FRDM-MCXN947</b> をインストール（11.9 以降）</li>
-  <li><code>File &gt; New &gt; Create a new C/C++ Project</code> → <code>frdmmcxn947</code> → 例として <code>driver_examples &gt; lpuart &gt; polling_transfer</code> をベースに作成</li>
-  <li>プロジェクト名を <code>ichiping_dummy</code> などに変更</li>
-  <li>デフォルトの <code>main.c</code> を <a href="source/main.c">source/main.c</a> で置き換え</li>
-  <li>プロジェクトに以下のソースを追加:
-    <ul>
-      <li><a href="source/ichiping_frame.c">source/ichiping_frame.c</a></li>
-      <li><a href="source/dummy_audio.c">source/dummy_audio.c</a></li>
-    </ul>
-  </li>
-  <li><code>Properties &gt; C/C++ Build &gt; Settings &gt; Includes</code> に <code>${ProjDirPath}/../firmware/include</code> を追加</li>
-  <li>ビルドして OpenSDA で書き込み</li>
+  <li><b>MCUXpresso SDK for FRDM-MCXN947</b> 11.9 以降を <code>frdmmcxn947</code> 用にダウンロード</li>
+  <li>SDK Wizard でベース例を選び（各 README の §1〜2 参照）、新規プロジェクトを作成</li>
+  <li>プロジェクトの <code>main.c</code> を <code>firmware/projects/XX_*/main.c</code> で置換</li>
+  <li>必要な共通ソース（<code>firmware/shared/source/*.c</code>）をプロジェクトに追加</li>
+  <li>Include パスに <code>${ProjDirPath}/../firmware/shared/include</code> を追加</li>
+  <li>プロジェクトごとの Preprocessor / Pin Mux / 外部依存（LVGL や USB stack）を README 通りに設定</li>
+  <li>ビルド → 書込</li>
 </ol>
 
-<h3>B. Servo test プロジェクト</h3>
-<ol>
-  <li>同 SDK から、こんどは <code>driver_examples &gt; lpi2c &gt; polling_master</code> をベースに新規プロジェクトを作成</li>
-  <li>プロジェクト名を <code>ichiping_servo_test</code> などに変更</li>
-  <li>デフォルトの <code>main.c</code> を <a href="source/main_servo_test.c">source/main_servo_test.c</a> で置き換え</li>
-  <li><b>使うドライバに応じて 1 つだけ</b>ソースを追加:
-    <ul>
-      <li>PCA9685 の場合: <a href="source/pca9685.c">source/pca9685.c</a></li>
-      <li>LU9685 の場合: <a href="source/lu9685.c">source/lu9685.c</a></li>
-    </ul>
-  </li>
-  <li>Include パスに <code>${ProjDirPath}/../firmware/include</code> を追加</li>
-  <li><b>LU9685 を使う場合のみ</b>、<code>Project &gt; Properties &gt; C/C++ Build &gt; Settings &gt; Preprocessor &gt; Defined symbols</code> に <code>SERVO_BACKEND_LU9685_I2C</code> を追加（PCA9685 は既定なのでシンボル追加不要）</li>
-  <li><b>Config Tools の Pins ツール</b>で D14/D15 (Arduino) を <code>LPI2C4_SDA</code> / <code>LPI2C4_SCL</code> に割り当て、<code>pin_mux.c</code> に反映</li>
-  <li>ビルドして書き込み</li>
-</ol>
+<table>
+  <thead>
+    <tr><th>プロジェクト</th><th>詳細 README</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>01_dummy_emitter</td><td><a href="projects/01_dummy_emitter/README.md">projects/01_dummy_emitter/README.md</a></td></tr>
+    <tr><td>02_servo_test</td><td><a href="projects/02_servo_test/README.md">projects/02_servo_test/README.md</a></td></tr>
+    <tr><td>03_ili9341_test</td><td><a href="projects/03_ili9341_test/README.md">projects/03_ili9341_test/README.md</a></td></tr>
+    <tr><td>04_lvgl_test</td><td><a href="projects/04_lvgl_test/README.md">projects/04_lvgl_test/README.md</a></td></tr>
+    <tr><td>05_usb_cdc_emitter</td><td><a href="projects/05_usb_cdc_emitter/README.md">projects/05_usb_cdc_emitter/README.md</a></td></tr>
+  </tbody>
+</table>
 
 <div class="callout warn">
-  <strong>配線必須:</strong> 試験前に <a href="../hardware/wiring.html">hardware/wiring.html §2.5</a> を確認。
-  特に <b>V+ は外部 5V レール</b>（FRDM 3.3V では駆動電流が足りない）、
-  V+ ↔ GND 間に 1000 µF 電解、サーボ GND は MCU GND と共通バーに集約。
-</div>
-
-<div class="callout">
-  <strong>LU9685 で動かない場合の確認順:</strong>
-  <ol style="margin: 6px 0;">
-    <li>基板上のジャンパで設定された I²C アドレス（0x00..0x1F のどれか）を、現物の説明書 or テスターで確認 → <code>SERVO_DEFAULT_ADDR</code> を override する場合は <code>main_servo_test.c</code> の <code>servo_init</code> 呼び出し引数を編集</li>
-    <li>0x00 はリザーブドアドレスなので、ジャンパで 0x01 以上にずらしておくのが安全</li>
-    <li>それでも応答が無ければボーレートを 100 kHz から 50 kHz に下げる（LU9685 はクロックストレッチが緩い個体がある）</li>
-  </ol>
+  <strong>配線必須:</strong> ハードを繋ぐ前に <a href="../hardware/wiring.html">hardware/wiring.html §2</a> を一通り確認。
+  サーボ V+ は <b>外部 5V レール</b>、ILI9341 は SPI を microSD と共有、I²C プルアップは 1 セットのみ。
 </div>
 
 <h2>シリアル設定</h2>
@@ -210,16 +231,34 @@
   </thead>
   <tbody>
     <tr>
-      <td>Dummy emitter</td>
+      <td>01_dummy_emitter</td>
       <td><b>921600 bps</b></td>
       <td>バイナリ ICHP フレーム、8N1</td>
       <td><a href="../pc/README.html">pc/receiver.py</a> で受ける（端末ソフトでは開かない）</td>
     </tr>
     <tr>
-      <td>Servo test</td>
+      <td>02_servo_test</td>
       <td><b>115200 bps</b></td>
       <td>テキスト（PRINTF ステータス）、8N1</td>
       <td>TeraTerm / PuTTY / VS Code <i>Serial Monitor</i> で OK</td>
+    </tr>
+    <tr>
+      <td>03_ili9341_test</td>
+      <td><b>115200 bps</b></td>
+      <td>テキスト（PRINTF）、8N1</td>
+      <td>同上</td>
+    </tr>
+    <tr>
+      <td>04_lvgl_test</td>
+      <td><b>115200 bps</b></td>
+      <td>テキスト + LVGL 内蔵パフォーマンスモニタ</td>
+      <td>同上</td>
+    </tr>
+    <tr>
+      <td>05_usb_cdc_emitter</td>
+      <td><b>N/A</b> (USB CDC、baud 無視)</td>
+      <td>バイナリ ICHP フレーム</td>
+      <td><a href="../pc/README.html">pc/receiver.py</a> で受ける</td>
     </tr>
   </tbody>
 </table>
@@ -244,7 +283,7 @@
 
 <h2>フレーム形式</h2>
 <p>
-  <a href="include/ichiping_frame.h">ichiping_frame.h</a> が単一の真実（single source of truth）。PC 側は
+  <a href="shared/include/ichiping_frame.h">ichiping_frame.h</a> が単一の真実（single source of truth）。PC 側は
   <a href="../pc/ichp_frame.py">pc/ichp_frame.py</a> の <code>HEADER_FMT</code> を同期させる。
   ドリフトすると CRC が通らず無音状態になるため、<b>ヘッダ変更時は必ず両方を更新</b>し
   <code>python -m unittest pc.test_frame_format -v</code> で 9 テスト全パスを確認。

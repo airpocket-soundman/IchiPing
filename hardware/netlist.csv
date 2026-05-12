@@ -55,11 +55,16 @@ Servo_DoorAB,GND,PWR,-,GND,JST-XH 3p,GND,0V,
 Servo_DoorBC,Signal,IN,PWM,PCA9685 PWM4,JST-XH 3p,SIG,3.3V,
 Servo_DoorBC,V+,PWR,-,5V (servo rail),JST-XH 3p,V+,5V,
 Servo_DoorBC,GND,PWR,-,GND,JST-XH 3p,GND,0V,
-# === SSD1306 OLED (I2C 0x3C) ===
-SSD1306,VDD,PWR,-,3V3,-,-,3.3V,128x64 OLED
-SSD1306,GND,PWR,-,GND,-,-,0V,
-SSD1306,SDA,BIDIR,I2C,I2CBus_FC4 SDA,-,-,3.3V,
-SSD1306,SCL,IN,I2C,I2CBus_FC4 SCL,-,-,3.3V,
+# === ILI9341 240x320 RGB565 TFT (SPI FC3, shared bus with microSD) ===
+ILI9341,VCC,PWR,-,3V3,-,-,3.3V,2.4-2.8 inch TFT module
+ILI9341,GND,PWR,-,GND,-,-,0V,
+ILI9341,CS,IN,GPIO,GPIO (TFT chip select),J1 (Arduino),A2,3.3V,Active low; separate from microSD CS
+ILI9341,RESET,IN,GPIO,GPIO (hard reset),J1 (Arduino),A3,3.3V,Low pulse on init
+ILI9341,DC,IN,GPIO,GPIO (data/cmd),J1 (Arduino),A4,3.3V,Low=command, high=data
+ILI9341,SDI/MOSI,IN,SPI,FC3_SPI_MOSI,J4 (Arduino),D11,3.3V,Shared with microSD
+ILI9341,SCK,IN,SPI,FC3_SPI_SCK,J4 (Arduino),D13,3.3V,Shared with microSD
+ILI9341,SDO/MISO,OUT,SPI,-,J4 (Arduino),D12,3.3V,Not connected (write-only driver)
+ILI9341,LED/BL,IN,GPIO,GPIO (or PWM),J1 (Arduino),A5,3.3V,Backlight: tie to 3V3 or GPIO control
 # === BMP585 (I2C 0x47, auxiliary pressure sensor) ===
 BMP585,VDD,PWR,-,3V3,-,-,3.3V,
 BMP585,VDDIO,PWR,-,3V3,-,-,3.3V,

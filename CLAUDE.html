@@ -105,11 +105,11 @@ d:/GitHub/digikey_project/digikey_plan.md            採用ボード方針</code
     </tr>
     <tr>
       <td>§3 信号処理パイプラインの変更</td>
-      <td><code>firmware/source/main.c</code> の <code>ICHP_SAMPLE_RATE</code>、<code>ICHP_SAMPLE_COUNT</code>、<code>firmware/source/dummy_audio.c</code>、<code>pc/receiver.py</code></td>
+      <td><code>firmware/projects/01_dummy_emitter/main.c</code> の <code>ICHP_SAMPLE_RATE</code>、<code>ICHP_SAMPLE_COUNT</code>、<code>firmware/shared/source/dummy_audio.c</code>、<code>pc/receiver.py</code></td>
     </tr>
     <tr>
       <td>フレーム形式の変更（サンプル形・ラベル種類）</td>
-      <td><code>firmware/include/ichiping_frame.h</code>（正本）+ <code>pc/ichp_frame.py</code> の <code>HEADER_FMT</code> を同時更新。<code>pc/test_frame_format.py</code> を実行して通すこと</td>
+      <td><code>firmware/shared/include/ichiping_frame.h</code>（正本）+ <code>pc/ichp_frame.py</code> の <code>HEADER_FMT</code> を同時更新。<code>pc/test_frame_format.py</code> を実行して通すこと</td>
     </tr>
     <tr>
       <td>§7 実験模型・サーボ数の変更</td>

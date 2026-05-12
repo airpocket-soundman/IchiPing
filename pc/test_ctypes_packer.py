@@ -1,6 +1,6 @@
 """C ↔ Python frame packer cross-check via ctypes.
 
-Compiles firmware/source/ichiping_frame.c as a host shared library
+Compiles firmware/shared/source/ichiping_frame.c as a host shared library
 (see firmware/host_build/Makefile) and verifies that ichp_pack_frame
 emits byte-for-byte the same bytes as pc/ichp_frame.pack_frame for the
 same inputs.

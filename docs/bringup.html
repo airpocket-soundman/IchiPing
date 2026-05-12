@@ -71,7 +71,7 @@
 <h2>事前準備（実機を待つ間にやっておくこと）</h2>
 <ol>
   <li><b>MCUXpresso IDE 11.9+ を導入</b>し、<code>frdmmcxn947</code> SDK をダウンロード</li>
-  <li>本リポを clone、<code>firmware/source/main.c</code> を含む空プロジェクトをビルドできることを確認</li>
+  <li>本リポを clone、<code>firmware/projects/01_dummy_emitter/main.c</code> を含む空プロジェクトをビルドできることを確認</li>
   <li>PC 側で <code>python -m unittest test_frame_format test_loopback -v</code> が全 PASS することを確認（実機なしで実証可能なソフト品質はここまで担保）</li>
   <li>OpenSDA J17 用 micro-USB ケーブル（<b>充電専用は不可</b>、データ通信対応）を確保</li>
   <li>余裕があれば MinGW-w64 を入れて <code>firmware/host_build && make</code> を実行 → <code>test_ctypes_packer</code> も走るようになる</li>
@@ -85,9 +85,9 @@
 <h3>① ファーム書込</h3>
 <pre><code># MCUXpresso IDE で:
 #   1) New Project → frdmmcxn947 → driver_examples/lpuart/polling_transfer をベース
-#   2) main.c を firmware/source/main.c で置き換え
-#   3) firmware/source/ichiping_frame.c, dummy_audio.c を追加
-#   4) Includes に firmware/include を追加
+#   2) main.c を firmware/projects/01_dummy_emitter/main.c で置き換え
+#   3) firmware/shared/source/ichiping_frame.c, dummy_audio.c を追加
+#   4) Includes に firmware/shared/include を追加
 #   5) Build → Debug As → OpenSDA で Flash
 </code></pre>
 

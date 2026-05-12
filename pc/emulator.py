@@ -1,7 +1,7 @@
 """IchiPing loopback emulator.
 
 Acts as a virtual MCU: generates the same synthetic chirp + decaying-noise
-tail that firmware/source/dummy_audio.c produces, packs it into ICHP frames
+tail that firmware/shared/source/dummy_audio.c produces, packs it into ICHP frames
 via the shared pc/ichp_frame.py packer, and streams the bytes to one of:
 
   * stdout  (default; pipe into another tool)
@@ -40,7 +40,7 @@ from ichp_frame import pack_frame
 # ---- dummy_audio.c port (kept numerically equivalent on purpose) ----------
 
 class _Xorshift32:
-    """Same xorshift32 generator as firmware/source/dummy_audio.c."""
+    """Same xorshift32 generator as firmware/shared/source/dummy_audio.c."""
 
     def __init__(self, seed: int = 0xA5A5A5A5):
         self.state = seed & 0xFFFFFFFF or 0xA5A5A5A5
@@ -79,7 +79,7 @@ def synth_audio(n_samples: int, rate_hz: int, rng: _Xorshift32) -> List[int]:
 
 
 def random_servo_angles(seq: int) -> List[float]:
-    """Mirrors random_servo_angles() in firmware/source/main.c."""
+    """Mirrors random_servo_angles() in firmware/projects/01_dummy_emitter/main.c."""
     angles = []
     for i in range(5):
         x = (seq * 2654435761 + i * 0x9E3779B1) & 0xFFFFFFFF

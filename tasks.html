@@ -62,10 +62,10 @@
   </div>
   <div class="meta">
     <span class="meta-stat done"><span class="num">16</span> 完了</span>
-    <span class="meta-stat active"><span class="num">2</span> 足場あり</span>
+    <span class="meta-stat active"><span class="num">5</span> 足場あり</span>
     <span class="meta-stat pending"><span class="num">20</span> 未着手</span>
     <span class="meta-stat"><span class="num">1</span> ブロック</span>
-    <span class="meta-stat"><span class="num">39</span> 全体</span>
+    <span class="meta-stat"><span class="num">42</span> 全体</span>
   </div>
 </header>
 
@@ -91,7 +91,7 @@
       <div class="task-id">IP-0.1.1</div>
       <div class="task-body">
         <h3 class="task-title">フレーム形式定義（C ヘッダ）</h3>
-        <p class="task-desc"><code>firmware/include/ichiping_frame.h</code> — magic / type / seq / ts / n_samples / rate / servo[5] + CRC-16/CCITT</p>
+        <p class="task-desc"><code>firmware/shared/include/ichiping_frame.h</code> — magic / type / seq / ts / n_samples / rate / servo[5] + CRC-16/CCITT</p>
         <div class="task-meta"><span>担当: <b>MCU</b></span><span>ヘッダサイズ: 36 B</span></div>
       </div>
       <div class="task-status"><span class="status-badge completed">完了</span></div>
@@ -101,7 +101,7 @@
       <div class="task-id">IP-0.1.2</div>
       <div class="task-body">
         <h3 class="task-title">MCU 側ダミー送信ループ</h3>
-        <p class="task-desc"><code>firmware/source/main.c</code> + <code>dummy_audio.c</code>。SysTick + LPUART + 3 秒周期で chirp+残響 32000 サンプルを送出</p>
+        <p class="task-desc"><code>firmware/projects/01_dummy_emitter/main.c</code> + <code>dummy_audio.c</code>。SysTick + LPUART + 3 秒周期で chirp+残響 32000 サンプルを送出</p>
         <div class="task-meta"><span>担当: <b>MCU</b></span><span>言語: C</span></div>
       </div>
       <div class="task-status"><span class="status-badge completed">完了</span></div>
@@ -297,6 +297,25 @@
       <div class="task-status"><span class="status-badge pending">未着手</span></div>
     </div>
 
+    <div class="task" data-status="in_progress">
+      <div class="task-id">IP-0.3.4</div>
+      <div class="task-body">
+        <h3 class="task-title">USB CDC エミッタファーム（足場完成）</h3>
+        <p class="task-desc">
+          <code>firmware/projects/05_usb_cdc_emitter/main.c</code> — OpenSDA UART 921600 bps から USB Full-Speed (12 Mbps) CDC ACM に切替。
+          1 フレーム転送 ~560 ms → <b>~50 ms</b>、最大 ~10 fps 想定。SDK の <code>usb_examples/usb_device_cdc_vcom</code> をベースに、
+          <code>USB_DeviceCdcAcmSend()</code> で ICHP フレームを送出する skeleton。PC 側は <code>receiver.py</code> / <code>verify.py</code> ともに変更不要
+          （pyserial が COM ポートを開くだけ、baud パラメータは CDC で無視される）
+        </p>
+        <div class="task-meta">
+          <span>担当: <b>MCU</b></span>
+          <span>ファーム: 足場完成</span>
+          <span>外部依存: SDK USB stack (virtual_com.c, usb_device_descriptor.c 等)</span>
+        </div>
+      </div>
+      <div class="task-status"><span class="status-badge in_progress">足場完成</span></div>
+    </div>
+
   </div>
 </section>
 
@@ -317,7 +336,7 @@
       <div class="task-body">
         <h3 class="task-title">サーボドライバ + 5 ch スイープテストファーム（PCA9685 / LU9685 両対応、足場完成）</h3>
         <p class="task-desc">
-          <code>firmware/include/servo_driver.h</code> がビルド時シンボルでバックエンドを切り替える共通 API:
+          <code>firmware/shared/include/servo_driver.h</code> がビルド時シンボルでバックエンドを切り替える共通 API:
           <code>SERVO_BACKEND_PCA9685</code>（16 ch, NXP, 既定）/ <code>SERVO_BACKEND_LU9685_I2C</code>（20 ch, 中国製互換）。
           <code>pca9685.c</code> は PWM tick + SG90 校正、<code>lu9685.c</code> は ESPEasy 由来プロトコル（reg 0xFC=freq, 0xFD=20ch bulk, reg=pin で個別）。
           <code>main_servo_test.c</code> は共通 API のみ呼び、ハード差し替え時のコード変更ゼロ（Preprocessor シンボルを変えるだけ）。同期ウェイポイント (0/90/180°) → 5 ch ソロスイープのループ
@@ -326,6 +345,47 @@
           <span>担当: <b>MCU + ハード</b></span>
           <span>ファーム: 足場完成</span>
           <span>未着手: 実機キャリブ + LU9685 I²C アドレス確認</span>
+        </div>
+      </div>
+      <div class="task-status"><span class="status-badge in_progress">足場完成</span></div>
+    </div>
+
+    <div class="task" data-status="in_progress">
+      <div class="task-id">IP-0.4.5</div>
+      <div class="task-body">
+        <h3 class="task-title">ILI9341 単体テストファーム（テスト 1、足場完成）</h3>
+        <p class="task-desc">
+          <code>firmware/shared/include/ili9341.h</code> + <code>firmware/shared/source/ili9341.c</code> — FC3 LPSPI に
+          ILI9341 240×320 RGB565 TFT を接続する write-only ドライバ。
+          init / set_window / blit / fill_rect / draw_pixel / 5x7 ASCII フォント描画 / バックライト ON/OFF。
+          <code>main_ili9341_test.c</code> は 5 フェーズ（全画面塗→入れ子矩形→テキスト+BL パルス→5 部屋タイル モック→ピクセル スイープ）で
+          配線・MADCTL 回転・RGB565 バイト順を一発検証。
+          ピン: CS=A2 / RESET=A3 / DC=A4 / BL=A5、MOSI と SCK は microSD と共有
+        </p>
+        <div class="task-meta">
+          <span>担当: <b>MCU + ハード</b></span>
+          <span>ファーム: 足場完成</span>
+          <span>SDK ベース: <code>lpspi/polling_b2b</code></span>
+        </div>
+      </div>
+      <div class="task-status"><span class="status-badge in_progress">足場完成</span></div>
+    </div>
+
+    <div class="task" data-status="in_progress">
+      <div class="task-id">IP-0.4.6</div>
+      <div class="task-body">
+        <h3 class="task-title">LVGL 統合テストファーム（テスト 2、足場完成）</h3>
+        <p class="task-desc">
+          <code>firmware/shared/include/lv_port.h</code> + <code>firmware/shared/source/lv_port_disp.c</code> — LVGL v9 と ILI9341 を結ぶ
+          glue（partial render、40 行ダブルバッファ ~25 KB、flush_cb 内で <code>ili9341_set_window</code> + <code>ili9341_blit</code>）。
+          <code>main_lvgl_test.c</code> は IchiPing 状態 UI モック（タイトル / 5 部屋タイル / 信頼度バー / phase ラベル）を
+          1.5 秒ステップでアニメ。SysTick → <code>lv_tick_inc(1)</code>、main ループ → <code>lv_timer_handler()</code>。
+          LVGL 本体はリポにバンドルせず、MCUXpresso SDK middleware/lvgl から取り込む手順を README に明記
+        </p>
+        <div class="task-meta">
+          <span>担当: <b>MCU</b></span>
+          <span>ファーム: 足場完成</span>
+          <span>外部依存: LVGL v9 + lv_conf.h（LV_COLOR_DEPTH=16）</span>
         </div>
       </div>
       <div class="task-status"><span class="status-badge in_progress">足場完成</span></div>

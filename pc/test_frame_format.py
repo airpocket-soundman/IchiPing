@@ -1,6 +1,6 @@
 """Round-trip tests for the IchiPing wire format.
 
-The frame layout is defined twice — once in firmware/include/ichiping_frame.h
+The frame layout is defined twice — once in firmware/shared/include/ichiping_frame.h
 (C struct, packed by ichiping_frame.c) and once in pc/ichp_frame.py (Python
 struct format string). These tests catch drift between the two before it
 shows up as silent CRC failures on the live serial path.

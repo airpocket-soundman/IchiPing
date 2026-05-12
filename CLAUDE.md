@@ -42,8 +42,8 @@
 |---|---|
 | `details/C4-IchiPing.html` 全般 | `docs/spec.html` を上書きコピー（**例外 1**: 本文中の `../ideas.html` 等、正本リポ内兄弟ファイルへの相対リンクは、IchiPing 側では絶対 URL `https://github.com/airpocket-soundman/digikey_project/blob/main/...` に置換する。**例外 2**: `<head>` 内に `<link rel="stylesheet" href="style.css">` を `</style>` の後に追記して共通サイドバー CSS を読み込ませる。**本文・図・コードブロック・`<style>` の中身は完全一致を維持**） |
 | §6 ハードウェア BOM の部品変更 | `hardware/wiring.svg`、`hardware/wiring.md`、`hardware/netlist.csv`、`README.md` の BOM 表 |
-| §3 信号処理パイプラインの変更 | `firmware/source/main.c` の `ICHP_SAMPLE_RATE`、`ICHP_SAMPLE_COUNT`、`firmware/source/dummy_audio.c`、`pc/receiver.py` |
-| フレーム形式の変更（サンプル形・ラベル種類） | `firmware/include/ichiping_frame.h`（正本）+ `pc/receiver.py` の `HEADER_FMT` を同時更新 |
+| §3 信号処理パイプラインの変更 | `firmware/projects/01_dummy_emitter/main.c` の `ICHP_SAMPLE_RATE`、`ICHP_SAMPLE_COUNT`、`firmware/shared/source/dummy_audio.c`、`pc/receiver.py` |
+| フレーム形式の変更（サンプル形・ラベル種類） | `firmware/shared/include/ichiping_frame.h`（正本）+ `pc/receiver.py` の `HEADER_FMT` を同時更新 |
 | §7 実験模型・サーボ数の変更 | `hardware/wiring.svg`、`hardware/wiring.md` のサーボ列、`firmware` のサーボ角配列サイズ |
 | プロジェクト名・コンセプトの変更 | `README.md`、`CLAUDE.md`（このファイル）、各ドキュメントのタイトル |
 

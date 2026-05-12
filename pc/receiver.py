@@ -2,12 +2,12 @@
 """IchiPing frame receiver.
 
 Reads framed audio data emitted by the MCU firmware skeleton
-(firmware/source/main.c) and saves each frame as:
+(firmware/projects/01_dummy_emitter/main.c) and saves each frame as:
 
   - WAV  : <out>/frame_<seq>.wav     (16-bit mono PCM at frame's sample_rate)
   - CSV  : <out>/labels.csv          (one row per frame; servo angles + meta)
 
-Frame format is defined in firmware/include/ichiping_frame.h and
+Frame format is defined in firmware/shared/include/ichiping_frame.h and
 pc/ichp_frame.py (PC-side mirror). Keep them in sync — the unittest in
 pc/test_frame_format.py guards against drift.
 

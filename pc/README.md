@@ -111,7 +111,7 @@ captures/
 
 ## テスト（実機なし）
 
-フレーム形式は MCU 側 [../firmware/include/ichiping_frame.h](../firmware/include/ichiping_frame.h) と PC 側 [ichp_frame.py](ichp_frame.py) で二重定義される。両者がドリフトすると CRC が通らず実機通信が全滅するため、PC 側だけは自動テストで守る:
+フレーム形式は MCU 側 [../firmware/shared/include/ichiping_frame.h](../firmware/shared/include/ichiping_frame.h) と PC 側 [ichp_frame.py](ichp_frame.py) で二重定義される。両者がドリフトすると CRC が通らず実機通信が全滅するため、PC 側だけは自動テストで守る:
 
 ```powershell
 cd pc
@@ -143,6 +143,6 @@ gcc/MinGW があれば `test_ctypes_packer.py` も走り、C 側 `ichp_pack_fram
 
 ## フレームフォーマット
 
-[../firmware/include/ichiping_frame.h](../firmware/include/ichiping_frame.h) が正本。Python 側は [ichp_frame.py](ichp_frame.py) の `HEADER_FMT` を同期させる。
+[../firmware/shared/include/ichiping_frame.h](../firmware/shared/include/ichiping_frame.h) が正本。Python 側は [ichp_frame.py](ichp_frame.py) の `HEADER_FMT` を同期させる。
 
 ![ICHP フレーム形式](../docs/img/frame_format.svg)

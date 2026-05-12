@@ -21,7 +21,7 @@ from dataclasses import dataclass
 import numpy as np
 
 # Constants tied to the firmware defaults — keep these in sync if you
-# change firmware/source/main.c or dummy_audio.c.
+# change firmware/projects/01_dummy_emitter/main.c or dummy_audio.c.
 RATE_HZ = 16000
 CHIRP_F0 = 200.0
 CHIRP_F1 = 8000.0

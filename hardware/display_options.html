@@ -60,12 +60,12 @@
   <div class="sub">
     spec.html §6 の <b>SSD1306 0.96"</b> から進化版を選び直す。
     用途は「5 部屋の窓・扉状態 + 推論結果 + 信頼度 + EXEC モード表示」。
-    視認性・配線本数・I²C 共有・MCU 負荷の 4 軸で比較し、本リポでの推奨候補を決める。
+    視認性・配線本数・MCU 負荷・デモ映えの 4 軸で比較し、本リポで採用する 1 つを決める。
   </div>
   <div class="meta">
     <span class="meta-stat done"><span class="num">5</span> 候補比較</span>
-    <span class="meta-stat active"><span class="num">SH1106 1.3"</span> 第一推奨</span>
-    <span class="meta-stat"><span class="num">I²C</span> バス維持</span>
+    <span class="meta-stat active"><span class="num">ILI9341 2.4"</span> 採用決定</span>
+    <span class="meta-stat"><span class="num">SPI</span> microSD と共有</span>
   </div>
 </header>
 
@@ -114,14 +114,14 @@
       <td><span class="status-badge pending">spec 既定値</span></td>
     </tr>
     <tr>
-      <td><b>SH1106 ★第一推奨</b></td>
-      <td><b>1.3" / 128×64</b></td>
+      <td>SH1106</td>
+      <td>1.3" / 128×64</td>
       <td>OLED 白</td>
       <td>I²C (0x3C/0x3D)</td>
       <td>2</td>
       <td>~$10</td>
-      <td>★★★★☆ 同解像度で画面 1.4 倍</td>
-      <td><span class="status-badge in_progress">採用候補</span></td>
+      <td>★★★☆☆ モノクロ</td>
+      <td><span class="status-badge pending">非採用</span></td>
     </tr>
     <tr>
       <td>SSD1327</td>
@@ -130,61 +130,84 @@
       <td>I²C (0x3C)</td>
       <td>2</td>
       <td>~$22</td>
-      <td>★★★★☆ 解像度 +、アイコン化が映える</td>
-      <td><span class="status-badge pending">候補</span></td>
+      <td>★★★★☆ 解像度 +</td>
+      <td><span class="status-badge pending">非採用（カラー不可）</span></td>
     </tr>
     <tr>
-      <td>SSD1351</td>
-      <td>1.5" / 128×128 RGB</td>
-      <td>OLED フルカラー</td>
-      <td>SPI</td>
-      <td>5 (CS/DC/RST/MOSI/SCK)</td>
-      <td>~$30</td>
-      <td>★★★★★ デモ映え</td>
-      <td><span class="status-badge blocked">SPI 圧迫 / FC3 microSD と競合</span></td>
+      <td><b>ILI9341 ★採用</b></td>
+      <td><b>2.4–2.8" / 240×320</b></td>
+      <td>TFT RGB565 フルカラー</td>
+      <td>SPI（microSD と共有）</td>
+      <td>4 共有 + CS/DC/RES/BL = 4 専用</td>
+      <td>~$13</td>
+      <td>★★★★★ デモ映え圧倒的</td>
+      <td><span class="status-badge completed">採用決定</span></td>
     </tr>
     <tr>
       <td>ST7789</td>
       <td>1.14"〜1.69" / 240×135〜240×280</td>
       <td>IPS LCD カラー</td>
       <td>SPI</td>
-      <td>5</td>
+      <td>同上</td>
       <td>~$8〜$15</td>
       <td>★★★★★ 安いのに高解像度</td>
-      <td><span class="status-badge blocked">SPI 圧迫、バックライトが消費電力 +</span></td>
+      <td><span class="status-badge pending">候補（ILI9341 と同 SPI 系列、置換可能）</span></td>
     </tr>
   </tbody>
 </table>
 
-<h2>選定理由 — なぜ SH1106 1.3"</h2>
+<h2>採用決定 — なぜ ILI9341 2.4"</h2>
 
 <table>
-  <thead><tr><th>判定軸</th><th>SH1106 採用根拠</th></tr></thead>
+  <thead><tr><th>判定軸</th><th>ILI9341 採用根拠</th></tr></thead>
   <tbody>
     <tr>
-      <td><b>I²C 維持</b></td>
-      <td>既に FC4 I²C が走っているので 2 ピン追加で済む。SPI 系は <b>FC3 SPI を microSD と取り合う</b>ことになり配線が増える</td>
+      <td><b>デモ動画映え</b></td>
+      <td>
+        <b>フルカラー RGB565 240×320</b> で部屋状態を「緑=閉 / 橙=半開 / 赤=全開」と色分け可能。
+        DigiKey M1 / ROHM EDGE HACK の応募審査で訴求力が段違い。
+        ProtoPedia ページの 2 分動画にも耐える解像度（OLED 128×64 では 5 タイルが画面いっぱいで限界）
+      </td>
     </tr>
     <tr>
-      <td><b>視認性</b></td>
-      <td>0.96" → 1.3" で画面面積 1.4 倍。<b>デモ動画（2 m 撮影）で状態アイコンが明確に読める</b></td>
+      <td><b>解像度</b></td>
+      <td>240×320 = 76,800 px（SH1106 1.3" の <b>9.4 倍</b>）。
+        スペクトログラム表示、推論信頼度メーター、複数情報の同時表示が現実的になる</td>
     </tr>
     <tr>
-      <td><b>ライブラリ互換</b></td>
-      <td>SH1106 は SSD1306 互換ドライバ（u8g2, adafruit_sh110x）で大体動く。差分はオフセット 2px のみ</td>
+      <td><b>ライブラリエコシステム</b></td>
+      <td>LVGL v9 公式ドライバ、Adafruit_ILI9341、MCUXpresso SDK の elcdif サンプル — 選択肢が豊富。
+        SH1106 より圧倒的に「動かしやすい」</td>
     </tr>
     <tr>
-      <td><b>消費電力</b></td>
-      <td>OLED でバックライト無し、点灯ピクセルだけ電流 → 状態表示用途では ~10 mA。LCD バックライトが ~30 mA</td>
+      <td><b>SPI 共存性</b></td>
+      <td>FC3 SPI を microSD と <b>同一バスで共有</b>（CS のみ分離）。同時アクセス不可だが、本プロジェクトでは
+        推論／表示と SD 書込は別フェーズなので問題なし</td>
     </tr>
     <tr>
       <td><b>価格</b></td>
-      <td>$10 — 解像度同じだが視認性が劇的に良いので妥当な premium</td>
+      <td>$13 — SH1106 1.3" ($10) より +$3 だけ。応募審査効果からすれば誤差</td>
     </tr>
-    <tr>
-      <td><b>I²C アドレス</b></td>
-      <td>0x3C — PCA9685 0x40, BMP585 0x47 と被らない</td>
-    </tr>
+  </tbody>
+</table>
+
+<h3>採用に伴うトレードオフ</h3>
+<table>
+  <thead><tr><th>項目</th><th>ILI9341 で増えるコスト</th></tr></thead>
+  <tbody>
+    <tr><td>使用 GPIO</td>
+      <td>2 → <b>6 ピン</b>（CS=A2, RESET=A3, DC=A4, BL=A5, MOSI 共有, SCK 共有）。
+        Arduino ヘッダ A0..A5 を全消費</td></tr>
+    <tr><td>消費電流</td>
+      <td>~10 mA → <b>~100 mA</b>（バックライト常時点灯）。
+        電池駆動では BL を PWM 減光してマージン確保</td></tr>
+    <tr><td>ファーム実装</td>
+      <td>テスト 1 (<a href="../firmware/projects/03_ili9341_test/main.c">main_ili9341_test.c</a>)
+        とテスト 2 (<a href="../firmware/projects/04_lvgl_test/main.c">main_lvgl_test.c</a>) を別プロジェクトで作成。
+        最低構成のドライバ（<a href="../firmware/shared/source/ili9341.c">ili9341.c</a>）は本リポ同梱、
+        LVGL は MCUXpresso SDK middleware/lvgl からプロジェクトに追加する</td></tr>
+    <tr><td>筐体寸法</td>
+      <td>2.4" は 60×40mm 程度 → 3 部屋模型（150×100mm/室）の前面パネルにマウントすれば違和感なし</td></tr>
   </tbody>
 </table>
 

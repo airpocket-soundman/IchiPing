@@ -37,18 +37,26 @@ INMP441 の `L/R` ピンは **GND に接続**（左チャネル選択）。MAX98
 
 | Arduino | MCU 機能 | I²C アドレス | デバイス | 役割 |
 |---|---|---|---|---|
-| D14 | `FC4_I2C_SDA` | 0x40 | PCA9685 | サーボ PWM ドライバ |
-| D15 | `FC4_I2C_SCL` | 0x3C | SSD1306 | OLED 128×64 |
+| D14 | `FC4_I2C_SDA` | 0x40 | PCA9685 | サーボ PWM ドライバ（[firmware/shared/source/pca9685.c](../firmware/shared/source/pca9685.c)） |
+| D15 | `FC4_I2C_SCL` | 0x00–0x1F | LU9685（代替） | 同上、20 ch 中華製互換品（[firmware/shared/source/lu9685.c](../firmware/shared/source/lu9685.c)） |
 |  |  | 0x47 | BMP585 | 気圧センサ（補助） |
 
-### 2.3 SPI（microSD, FC3）
+> ディスプレイは I²C ではなく **SPI 接続の ILI9341 240×320 カラー TFT** を採用（[display_options.html](display_options.html) §選定理由 参照）。OLED 候補は v1 では非採用。
 
-| Arduino | MCU 機能 | microSD ピン |
-|---|---|---|
-| D10 | `FC3_SPI_CS` | CS |
-| D11 | `FC3_SPI_MOSI` | MOSI（DI） |
-| D12 | `FC3_SPI_MISO` | MISO（DO） |
-| D13 | `FC3_SPI_SCK` | SCK |
+### 2.3 SPI（microSD + ILI9341, FC3 共有）
+
+| Arduino | MCU 機能 | デバイス端子 | 備考 |
+|---|---|---|---|
+| D10 | `FC3_SPI_CS` | microSD CS | microSD 専用 CS |
+| D11 | `FC3_SPI_MOSI` | microSD MOSI / ILI9341 SDI | バス共有 |
+| D12 | `FC3_SPI_MISO` | microSD MISO | ILI9341 SDO は未接続（書込のみ） |
+| D13 | `FC3_SPI_SCK` | microSD SCK / ILI9341 SCK | バス共有 |
+| **A2** | GPIO 出力 | **ILI9341 CS** | 別 CS（microSD と排他選択） |
+| **A3** | GPIO 出力 | **ILI9341 RESET** | Hard reset (init 時のみ low パルス) |
+| **A4** | GPIO 出力 | **ILI9341 DC** | Data/Command 切替 |
+| **A5** | GPIO 出力 (任意 PWM) | **ILI9341 LED/BL** | バックライト制御 |
+
+ILI9341 と microSD を **同一 SPI バス**に乗せ、CS で排他選択。同時アクセスは出来ないが、本プロジェクトでは推論／表示と SD への書込は別フェーズで行うため問題なし。
 
 ### 2.4 UART（ESP32, FC2）
 
@@ -84,10 +92,14 @@ INMP441 の `L/R` ピンは **GND に接続**（左チャネル選択）。MAX98
 
 ### 2.7 GPIO 出力（330Ω 直列、アノードコモン）
 
-| Arduino | 用途 | LED |
+| Arduino | 用途 | デバイス |
 |---|---|---|
-| A0 | PWR LED | 緑、電源 ON で常時点灯 |
-| A1 | 推論中 LED | 橙、推論サイクル実行中点灯 |
+| A0 | PWR LED | 緑 LED、電源 ON で常時点灯 |
+| A1 | 推論中 LED | 橙 LED、推論サイクル実行中点灯 |
+| **A2** | **ILI9341 CS** | TFT chip select（GPIO 直駆動、330Ω 不要） |
+| **A3** | **ILI9341 RESET** | TFT hard reset 線（GPIO 直駆動） |
+| **A4** | **ILI9341 DC** | TFT data/command 切替（GPIO 直駆動） |
+| **A5** | **ILI9341 BL** | バックライト制御（GPIO ON/OFF か PWM 減光） |
 
 ### 2.8 USB（PC データ転送）
 
@@ -112,10 +124,11 @@ LiPo（3.7V, 2000 mAh） + TP4056 充電 IC で携帯動作可能。USB-C 接続
 |---|---|---|
 | I²S（SAI 占有） | 6 ピン | SAI0/1 専有なので干渉なし |
 | I²C（共有） | 2 ピン | 4 デバイス目以上追加可 |
-| SPI | 4 ピン | CS を増やせばデバイス追加可 |
+| SPI（microSD + ILI9341 共有） | 4 ピン + 別 CS 1 | CS を増やせばさらに追加可 |
 | UART | 2 ピン | 別 FC で増設可 |
-| GPIO | 9 ピン | FRDM 拡張ヘッダで多数余り |
-| **合計** | **23 ピン** | Arduino ヘッダ 36 本中 |
+| GPIO IN（トグル/EXEC/INT） | 8 ピン | FRDM 拡張ヘッダで余り |
+| GPIO OUT（LED + ILI9341 制御線） | 2 + 4 = 6 ピン | A0..A5 を全消費 |
+| **合計** | **27 ピン** | Arduino ヘッダ 36 本中 |
 
 ## 5. 配線手順の推奨順序
 

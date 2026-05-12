@@ -1,6 +1,6 @@
 # firmware/host_build — C 側 frame packer のホストビルド
 
-`firmware/source/ichiping_frame.c` を MCUXpresso SDK なしで（普通の gcc で）共有ライブラリ化するための足場。
+`firmware/shared/source/ichiping_frame.c` を MCUXpresso SDK なしで（普通の gcc で）共有ライブラリ化するための足場。
 
 ## 目的
 

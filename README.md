@@ -90,7 +90,7 @@ IchiPing/
 [firmware/README.md](firmware/README.md) を参照。要点:
 
 1. MCUXpresso IDE で `frdmmcxn947` SDK から LPUART ベースのテンプレートを作成
-2. `source/main.c` を本リポの [firmware/source/main.c](firmware/source/main.c) で置き換え、`ichiping_frame.c` + `dummy_audio.c` を追加、Include パスに `firmware/include` を追加
+2. `source/main.c` を本リポの [firmware/projects/01_dummy_emitter/main.c](firmware/projects/01_dummy_emitter/main.c) で置き換え、`ichiping_frame.c` + `dummy_audio.c` を追加、Include パスに `firmware/shared/include` を追加
 3. ビルド → OpenSDA で書き込み
 
 ### 2. PC 側（conda 推奨）

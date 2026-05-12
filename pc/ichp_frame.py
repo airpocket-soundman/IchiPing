@@ -1,6 +1,6 @@
 """IchiPing frame format — single source of truth on the PC side.
 
-Mirrors firmware/include/ichiping_frame.h. Both the live serial receiver
+Mirrors firmware/shared/include/ichiping_frame.h. Both the live serial receiver
 (receiver.py) and host-side tests pull the wire format from here so the
 C struct / Python struct-string pair only has to be defined once on the
 Python side.

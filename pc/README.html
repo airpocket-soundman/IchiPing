@@ -151,7 +151,7 @@ waiting for frames... (Ctrl+C to stop)
 
 <h2>テスト（実機なし）</h2>
 <p>
-  フレーム形式は MCU 側 <a href="../firmware/include/ichiping_frame.h">ichiping_frame.h</a> と
+  フレーム形式は MCU 側 <a href="../firmware/shared/include/ichiping_frame.h">ichiping_frame.h</a> と
   PC 側 <a href="ichp_frame.py">ichp_frame.py</a> で二重定義される。
   両者がドリフトすると CRC が通らないので、PC 側だけは自動テストで守る:
 </p>
@@ -191,7 +191,7 @@ python -m unittest test_frame_format -v</code></pre>
 
 <h2>フレームフォーマット</h2>
 <p>
-  <a href="../firmware/include/ichiping_frame.h">firmware/include/ichiping_frame.h</a> が正本。
+  <a href="../firmware/shared/include/ichiping_frame.h">firmware/shared/include/ichiping_frame.h</a> が正本。
   Python 側は <a href="ichp_frame.py">ichp_frame.py</a> の <code>HEADER_FMT</code> を同期させる。
 </p>
 <img src="../docs/img/frame_format.svg" alt="ICHP フレーム形式: 36 B ヘッダ + N×2 B の int16 PCM ペイロード + 2 B CRC-16/CCITT-FALSE" style="width: 100%; max-width: 760px; display: block; margin: 14px 0;">

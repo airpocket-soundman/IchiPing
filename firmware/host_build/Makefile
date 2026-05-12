@@ -15,9 +15,9 @@
 #     cd ../../pc && python -m unittest test_ctypes_packer -v
 
 CC ?= gcc
-CFLAGS = -O2 -Wall -Wextra -I../include -fPIC
+CFLAGS = -O2 -Wall -Wextra -I../shared/include -fPIC
 
-SRC = ../source/ichiping_frame.c
+SRC = ../shared/source/ichiping_frame.c
 
 # Auto-detect platform — produce ichp.dll on Windows, libichp.so elsewhere.
 ifeq ($(OS),Windows_NT)
@@ -36,7 +36,7 @@ endif
 
 all: $(TARGET)
 
-$(TARGET): $(SRC) ../include/ichiping_frame.h
+$(TARGET): $(SRC) ../shared/include/ichiping_frame.h
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(SRC)
 
 clean:

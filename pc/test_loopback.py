@@ -6,7 +6,7 @@ is decoded byte-for-byte by the same code path receiver.py uses for the
 real MCU.
 
 Also bit-exact verifies random_servo_angles against the C formula in
-firmware/source/main.c — the same integer math should produce identical
+firmware/projects/01_dummy_emitter/main.c — the same integer math should produce identical
 values on every platform.
 
 Run:

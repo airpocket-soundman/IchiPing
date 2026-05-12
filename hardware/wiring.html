@@ -108,24 +108,36 @@
     <tr><th>Arduino</th><th>MCU 機能</th><th>I²C アドレス</th><th>デバイス</th><th>役割</th></tr>
   </thead>
   <tbody>
-    <tr><td>D14</td><td><code>FC4_I2C_SDA</code></td><td>0x40</td><td>PCA9685</td><td>サーボ PWM ドライバ</td></tr>
-    <tr><td>D15</td><td><code>FC4_I2C_SCL</code></td><td>0x3C</td><td>SSD1306</td><td>OLED 128×64</td></tr>
+    <tr><td>D14</td><td><code>FC4_I2C_SDA</code></td><td>0x40</td><td>PCA9685</td><td>サーボ PWM ドライバ（<a href="../firmware/shared/source/pca9685.c">pca9685.c</a>）</td></tr>
+    <tr><td>D15</td><td><code>FC4_I2C_SCL</code></td><td>0x00–0x1F</td><td>LU9685（代替）</td><td>同上、20 ch 中華製互換品（<a href="../firmware/shared/source/lu9685.c">lu9685.c</a>）</td></tr>
     <tr><td>—</td><td>—</td><td>0x47</td><td>BMP585</td><td>気圧センサ（補助）</td></tr>
   </tbody>
 </table>
+<div class="callout">
+  ディスプレイは I²C ではなく <b>SPI 接続の ILI9341 240×320 カラー TFT</b> を採用
+  （<a href="display_options.html">display_options.html</a> §選定理由 参照）。OLED 候補は v1 では非採用。
+</div>
 
-<h3>2.3 SPI（microSD, FC3）</h3>
+<h3>2.3 SPI（microSD + ILI9341, FC3 共有）</h3>
 <table>
   <thead>
-    <tr><th>Arduino</th><th>MCU 機能</th><th>microSD ピン</th></tr>
+    <tr><th>Arduino</th><th>MCU 機能</th><th>デバイス端子</th><th>備考</th></tr>
   </thead>
   <tbody>
-    <tr><td>D10</td><td><code>FC3_SPI_CS</code></td><td>CS</td></tr>
-    <tr><td>D11</td><td><code>FC3_SPI_MOSI</code></td><td>MOSI（DI）</td></tr>
-    <tr><td>D12</td><td><code>FC3_SPI_MISO</code></td><td>MISO（DO）</td></tr>
-    <tr><td>D13</td><td><code>FC3_SPI_SCK</code></td><td>SCK</td></tr>
+    <tr><td>D10</td><td><code>FC3_SPI_CS</code></td><td>microSD CS</td><td>microSD 専用 CS</td></tr>
+    <tr><td>D11</td><td><code>FC3_SPI_MOSI</code></td><td>microSD MOSI / ILI9341 SDI</td><td>バス共有</td></tr>
+    <tr><td>D12</td><td><code>FC3_SPI_MISO</code></td><td>microSD MISO</td><td>ILI9341 SDO は未接続（書込のみ）</td></tr>
+    <tr><td>D13</td><td><code>FC3_SPI_SCK</code></td><td>microSD SCK / ILI9341 SCK</td><td>バス共有</td></tr>
+    <tr><td><b>A2</b></td><td>GPIO 出力</td><td><b>ILI9341 CS</b></td><td>別 CS（microSD と排他選択）</td></tr>
+    <tr><td><b>A3</b></td><td>GPIO 出力</td><td><b>ILI9341 RESET</b></td><td>Hard reset (init 時のみ low パルス)</td></tr>
+    <tr><td><b>A4</b></td><td>GPIO 出力</td><td><b>ILI9341 DC</b></td><td>Data/Command 切替</td></tr>
+    <tr><td><b>A5</b></td><td>GPIO 出力 (任意 PWM)</td><td><b>ILI9341 LED/BL</b></td><td>バックライト制御</td></tr>
   </tbody>
 </table>
+<p>
+  ILI9341 と microSD を <b>同一 SPI バス</b>に乗せ、CS で排他選択。同時アクセスは出来ないが、
+  本プロジェクトでは推論／表示と SD への書込は別フェーズで行うため問題なし。
+</p>
 
 <h3>2.4 UART（ESP32, FC2）</h3>
 <table>
@@ -170,14 +182,18 @@
   </tbody>
 </table>
 
-<h3>2.7 GPIO 出力（330Ω 直列、アノードコモン）</h3>
+<h3>2.7 GPIO 出力（A0/A1 は 330Ω 直列、A2..A5 は直駆動）</h3>
 <table>
   <thead>
-    <tr><th>Arduino</th><th>用途</th><th>LED</th></tr>
+    <tr><th>Arduino</th><th>用途</th><th>デバイス</th></tr>
   </thead>
   <tbody>
-    <tr><td>A0</td><td>PWR LED</td><td>緑、電源 ON で常時点灯</td></tr>
-    <tr><td>A1</td><td>推論中 LED</td><td>橙、推論サイクル実行中点灯</td></tr>
+    <tr><td>A0</td><td>PWR LED</td><td>緑 LED、電源 ON で常時点灯</td></tr>
+    <tr><td>A1</td><td>推論中 LED</td><td>橙 LED、推論サイクル実行中点灯</td></tr>
+    <tr><td><b>A2</b></td><td><b>ILI9341 CS</b></td><td>TFT chip select（GPIO 直駆動、330Ω 不要）</td></tr>
+    <tr><td><b>A3</b></td><td><b>ILI9341 RESET</b></td><td>TFT hard reset 線（GPIO 直駆動）</td></tr>
+    <tr><td><b>A4</b></td><td><b>ILI9341 DC</b></td><td>TFT data/command 切替（GPIO 直駆動）</td></tr>
+    <tr><td><b>A5</b></td><td><b>ILI9341 BL</b></td><td>バックライト制御（GPIO ON/OFF か PWM 減光）</td></tr>
   </tbody>
 </table>
 
@@ -213,10 +229,11 @@
   <tbody>
     <tr><td>I²S（SAI 占有）</td><td>6 ピン</td><td>SAI0/1 専有なので干渉なし</td></tr>
     <tr><td>I²C（共有）</td><td>2 ピン</td><td>4 デバイス目以上追加可</td></tr>
-    <tr><td>SPI</td><td>4 ピン</td><td>CS を増やせばデバイス追加可</td></tr>
+    <tr><td>SPI（microSD + ILI9341 共有）</td><td>4 ピン + 別 CS 1</td><td>CS を増やせばさらに追加可</td></tr>
     <tr><td>UART</td><td>2 ピン</td><td>別 FC で増設可</td></tr>
-    <tr><td>GPIO</td><td>9 ピン</td><td>FRDM 拡張ヘッダで多数余り</td></tr>
-    <tr><td><b>合計</b></td><td><b>23 ピン</b></td><td>Arduino ヘッダ 36 本中</td></tr>
+    <tr><td>GPIO IN（トグル/EXEC/INT）</td><td>8 ピン</td><td>FRDM 拡張ヘッダで余り</td></tr>
+    <tr><td>GPIO OUT（LED + ILI9341 制御線）</td><td>2 + 4 = 6 ピン</td><td>A0..A5 を全消費</td></tr>
+    <tr><td><b>合計</b></td><td><b>27 ピン</b></td><td>Arduino ヘッダ 36 本中</td></tr>
   </tbody>
 </table>
 
