@@ -1,9 +1,19 @@
 /*
- * Pin routing for 07_speaker_test:
- *   - PIO1_8 / PIO1_9  → FlexComm 4 OpenSDA debug UART
- *   - SAI0 BCLK/FS/TXD → MAX98357A BCLK / LRC / DIN
+ * Copyright 2022-2024 NXP / 2026 IchiPing project
  *
- * SAI0 pin assignment must be confirmed against the MCUXpresso Pins tool.
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * Pin routing for 07_speaker_test, confirmed against the FRDM-MCXN947
+ * SDK SAI EDMA example:
+ *
+ *   - PIO1_8 / PIO1_9    → LP_FLEXCOMM4 (OpenSDA debug UART), Alt2
+ *   - PIO3_16 SAI1_TX_BCLK → MAX98357A BCLK  (Alt10)
+ *   - PIO3_17 SAI1_TX_FS   → MAX98357A LRC   (Alt10)
+ *   - PIO3_20 SAI1_TXD0    → MAX98357A DIN   (Alt10)
+ *
+ * NOTE: the SAI1 instance is shared with the on-board codec and (in our
+ * setup) the INMP441 mic. The two cannot both be configured as master at
+ * the same time — only 08_mic_speaker_test / 10_collector run full-duplex.
  */
 
 #include "fsl_common.h"
@@ -13,7 +23,7 @@
 void BOARD_InitBootPins(void)
 {
     BOARD_InitPins();
-    SAI0_TX_InitPins();
+    SAI1_TX_InitPins();
 }
 
 void BOARD_InitPins(void)
@@ -28,18 +38,16 @@ void BOARD_InitPins(void)
     PORT_SetPinConfig(PORT1, 9U, &uart_cfg);
 }
 
-void SAI0_TX_InitPins(void)
+void SAI1_TX_InitPins(void)
 {
-    /* TODO: confirm SAI0_TX_BCLK / SAI0_TX_SYNC / SAI0_TX_DATA pin mux on
-     *       FRDM-MCXN947. PIO4 group is a common SAI0 routing target. */
-    CLOCK_EnableClock(kCLOCK_Port4);
+    CLOCK_EnableClock(kCLOCK_Port3);
     const port_pin_config_t sai_cfg = {
         kPORT_PullDisable, kPORT_LowPullResistor, kPORT_FastSlewRate,
-        kPORT_PassiveFilterDisable, kPORT_OpenDrainDisable, kPORT_HighDriveStrength,
-        kPORT_MuxAlt8,
+        kPORT_PassiveFilterDisable, kPORT_OpenDrainDisable, kPORT_LowDriveStrength,
+        kPORT_MuxAlt10,   /* SAI1 function */
         kPORT_InputBufferEnable, kPORT_InputNormal, kPORT_UnlockRegister,
     };
-    PORT_SetPinConfig(PORT4, 0U, &sai_cfg);    /* SAI0_TX_BCLK */
-    PORT_SetPinConfig(PORT4, 1U, &sai_cfg);    /* SAI0_TX_SYNC */
-    PORT_SetPinConfig(PORT4, 2U, &sai_cfg);    /* SAI0_TX_DATA */
+    PORT_SetPinConfig(PORT3, 16U, &sai_cfg);   /* SAI1_TX_BCLK → MAX98357A BCLK */
+    PORT_SetPinConfig(PORT3, 17U, &sai_cfg);   /* SAI1_TX_FS   → MAX98357A LRC  */
+    PORT_SetPinConfig(PORT3, 20U, &sai_cfg);   /* SAI1_TXD0    → MAX98357A DIN  */
 }

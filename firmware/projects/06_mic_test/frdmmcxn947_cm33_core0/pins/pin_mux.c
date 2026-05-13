@@ -1,12 +1,19 @@
 /*
- * Pin routing for 06_mic_test:
- *   - PIO1_8 / PIO1_9  → FlexComm 4 OpenSDA debug UART
- *   - SAI1 BCLK/FS/RXD → INMP441
+ * Copyright 2022-2024 NXP / 2026 IchiPing project
  *
- * Exact PIO numbers for SAI1 on the FRDM-MCXN947 Arduino headers are NOT
- * fixed in stone — pick three pins routed to SAI1 (Alt depends on MCU)
- * with the help of MCUXpresso Pins tool. Placeholders below assume PIO0
- * pins similar to the LPSPI demo.
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * Pin routing for 06_mic_test, confirmed against the FRDM-MCXN947 SDK
+ * SAI EDMA example (driver_examples/sai/edma_transfer):
+ *
+ *   - PIO1_8 / PIO1_9    → LP_FLEXCOMM4 (OpenSDA debug UART), Alt2
+ *   - PIO3_16 SAI1_TX_BCLK → INMP441 SCK         (Alt10, clock master out)
+ *   - PIO3_17 SAI1_TX_FS   → INMP441 WS / LRCLK  (Alt10, FS master out)
+ *   - PIO3_21 SAI1_RXD0    ← INMP441 SD (data)   (Alt10)
+ *
+ * Even though only the RX side is used, the BCLK/FS are sourced from the
+ * TX framer (master) and shared internally. INMP441's L/R pin must be
+ * tied to GND to select the left channel.
  */
 
 #include "fsl_common.h"
@@ -33,17 +40,14 @@ void BOARD_InitPins(void)
 
 void SAI1_RX_InitPins(void)
 {
-    /* TODO: confirm SAI1_TX_BCLK / SAI1_TX_SYNC / SAI1_RX_DATA pin mux on
-     *       FRDM-MCXN947 via the MCUXpresso Pins tool. INMP441 needs all
-     *       three signals; clock pins are typically shared with TX block. */
-    CLOCK_EnableClock(kCLOCK_Port0);
+    CLOCK_EnableClock(kCLOCK_Port3);
     const port_pin_config_t sai_cfg = {
         kPORT_PullDisable, kPORT_LowPullResistor, kPORT_FastSlewRate,
-        kPORT_PassiveFilterDisable, kPORT_OpenDrainDisable, kPORT_HighDriveStrength,
-        kPORT_MuxAlt8,  /* SAI alt — VERIFY against MCXN947 reference manual */
+        kPORT_PassiveFilterDisable, kPORT_OpenDrainDisable, kPORT_LowDriveStrength,
+        kPORT_MuxAlt10,   /* SAI1 function */
         kPORT_InputBufferEnable, kPORT_InputNormal, kPORT_UnlockRegister,
     };
-    PORT_SetPinConfig(PORT0, 0U,  &sai_cfg);   /* SAI1_TX_BCLK  → INMP441 SCK */
-    PORT_SetPinConfig(PORT0, 1U,  &sai_cfg);   /* SAI1_TX_SYNC  → INMP441 WS  */
-    PORT_SetPinConfig(PORT0, 2U,  &sai_cfg);   /* SAI1_RX_DATA  ← INMP441 SD  */
+    PORT_SetPinConfig(PORT3, 16U, &sai_cfg);   /* SAI1_TX_BCLK → INMP441 SCK */
+    PORT_SetPinConfig(PORT3, 17U, &sai_cfg);   /* SAI1_TX_FS   → INMP441 WS  */
+    PORT_SetPinConfig(PORT3, 21U, &sai_cfg);   /* SAI1_RXD0    ← INMP441 SD  */
 }

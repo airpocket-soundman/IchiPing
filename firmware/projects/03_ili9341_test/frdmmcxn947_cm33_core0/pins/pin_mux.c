@@ -1,16 +1,30 @@
 /*
- * Copyright 2022-2023 NXP / 2026 IchiPing project
+ * Copyright 2022-2024 NXP / 2026 IchiPing project
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
  * Pin routing for 03_ili9341_test:
- *   - PIO1_8 / PIO1_9   → FlexComm 4 (OpenSDA debug UART)
- *   - LPSPI3 MOSI/SCK   → Arduino D11 / D13 (FC3)
- *   - PIO0_24..27       → 4× GPIO outputs for ILI9341 CS / RES / DC / BL
+ *   - PIO1_8 / PIO1_9   → LP_FLEXCOMM4 (OpenSDA debug UART), Alt2  ← confirmed
+ *   - LPSPI ? on Arduino D11 (MOSI) / D13 (SCK)                    ← TODO
+ *   - 4× GPIO outputs on Arduino A2 / A3 / A4 / A5 for CS/RES/DC/BL ← TODO
  *
- * The MISO line (D12) is unused — the ILI9341 is write-only on this design.
- * Exact Arduino-pin ↔ PIO mapping for D11/D13 depends on the FRDM-MCXN947
- * schematic; verify in MCUXpresso Pins tool before powering the display.
+ * IMPORTANT — these pin assignments are PLACEHOLDERS until you confirm
+ * them in MCUXpresso Pins tool. The FRDM-MCXN947 SDK ships an LPSPI demo
+ * that uses LP_FLEXCOMM1 on PIO0_24..27 (dedicated pads, not the Arduino
+ * headers); the Arduino D11/D13 silkscreens almost certainly map to a
+ * different FC instance, possibly FC1 / FC2 / FC3 depending on solder
+ * jumper settings on this board revision.
+ *
+ * The wiring.md previously said "FC3", which was inferred from the
+ * Arduino R3 convention but NOT verified against the FRDM-MCXN947
+ * schematic. **Do not power the ILI9341 without first confirming the
+ * D11 / D13 → PIO → FC mapping in the Pins tool and updating both
+ *   - the Alt mux number below, and
+ *   - LPSPI3_BASE in app.h to match the actual FC instance.
+ *
+ * MISO (D12) is unused — the ILI9341 is write-only in this design.
+ * If D12's pin is also LED_GREEN (PIO0_27), leave it as GPIO so the LED
+ * still works.
  */
 
 #include "fsl_common.h"

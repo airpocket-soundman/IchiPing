@@ -1,16 +1,17 @@
 /*
- * Copyright 2022-2023 NXP / 2026 IchiPing project
+ * Copyright 2022-2024 NXP / 2026 IchiPing project
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
- * Pin routing for 03_ili9341_test:
- *   - PIO1_8 / PIO1_9   → FlexComm 4 (OpenSDA debug UART)
- *   - LPSPI3 MOSI/SCK   → Arduino D11 / D13 (FC3)
- *   - PIO0_24..27       → 4× GPIO outputs for ILI9341 CS / RES / DC / BL
+ * Pin routing for 04_lvgl_test (same hardware as 03_ili9341_test):
+ *   - PIO1_8 / PIO1_9 → LP_FLEXCOMM4 (OpenSDA debug UART), Alt2  ← confirmed
+ *   - LPSPI on Arduino D11 (MOSI) / D13 (SCK)                    ← TODO
+ *   - 4× GPIO on Arduino A2..A5 for CS / RES / DC / BL           ← TODO
  *
- * The MISO line (D12) is unused — the ILI9341 is write-only on this design.
- * Exact Arduino-pin ↔ PIO mapping for D11/D13 depends on the FRDM-MCXN947
- * schematic; verify in MCUXpresso Pins tool before powering the display.
+ * See 03_ili9341_test/pins/pin_mux.c for the longer note. The Arduino
+ * SPI pin mapping is NOT yet confirmed against MCUXpresso Pins tool —
+ * the values below are placeholders that compile but will most likely
+ * need to be re-routed.
  */
 
 #include "fsl_common.h"

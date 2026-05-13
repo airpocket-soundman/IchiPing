@@ -1,10 +1,9 @@
 /*
- * Copyright 2022-2023 NXP / 2026 IchiPing project
+ * Copyright 2022-2024 NXP / 2026 IchiPing project
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
- * Pin routing for 02_servo_test.
- * Edit with MCUXpresso Config Tools / Pins tool to regenerate.
+ * Pin routing for 02_servo_test — LPI2C2 on PIO4_0/4_1 (Arduino D18/D19).
  */
 
 #ifndef _PIN_MUX_H_

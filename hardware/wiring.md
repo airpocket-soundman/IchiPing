@@ -6,11 +6,11 @@
 
 | バス | MCU 周辺 | 接続先デバイス | アドレス/CS | Arduino ヘッダ |
 |---|---|---|---|---|
-| I²S RX | SAI1 | INMP441（マイク） | — | SAI ブレイクアウト |
-| I²S TX | SAI0 | MAX98357A → 8Ω スピーカ | — | SAI ブレイクアウト |
-| I²C | FC4（共有） | PCA9685 / SSD1306 / BMP585 | 0x40 / 0x3C / 0x47 | D14 (SDA), D15 (SCL) |
-| SPI | FC3 | microSD（FatFs） | CS=D10 | D10–D13 |
-| UART | FC2 | ESP32-WROOM（任意） | — | D0, D1 |
+| I²S (full-duplex) | SAI1 | INMP441 マイク（RX）＋ MAX98357A スピーカ（TX） | — | J1 SAI 列（PIO3_16/17/20/21） |
+| I²C | LPI2C2（FC2） | PCA9685 / LU9685 / BMP585 | 0x40 / 0x00–0x1F / 0x47 | **D18 (SDA, PIO4_0), D19 (SCL, PIO4_1)** |
+| SPI（ILI9341 + microSD） | LPSPI? | microSD（FatFs）＋ ILI9341 TFT | CS=D10 / 別 GPIO | D10–D13 ※FC は要確認 |
+| UART | LPUART4（FC4） | OpenSDA 仮想 COM（v0.1 デバッグ／フレーム送信） | — | オンボード MCU-Link |
+| UART | LPUART2（FC2） | ESP32-WROOM（任意, 将来） | — | D0, D1 |
 | USB | USB0 | PC（CDC データ転送） | — | オンボード USB-C |
 | PWM | （PCA9685 経由） | SG90 ×5 | PCA ch 0–4 | — |
 | GPIO IN | — | トグル ×5 + EXEC ×1 + BMP INT | 内蔵プルアップ | D2–D9 |
@@ -20,41 +20,54 @@
 
 > **注**: Arduino ヘッダ番号（D0–D15、A0–A5）は FRDM-MCXN947 ボード上の刻印。実 P-port 番号は **MCUXpresso Config Tools の Pins ツール**で確定すること（pin_mux.c に反映）。
 
-### 2.1 I²S（音響系）
+### 2.1 I²S（音響系, SAI1 full-duplex）
 
-| Arduino/Header | MCU 機能 | 接続先 | 信号 | 方向 |
-|---|---|---|---|---|
-| SAI ブレイクアウト | `SAI1_RX_BCLK` | INMP441 | SCK | MCU → MIC |
-| SAI ブレイクアウト | `SAI1_RX_SYNC` | INMP441 | WS（LRCLK） | MCU → MIC |
-| SAI ブレイクアウト | `SAI1_RX_DATA` | INMP441 | SD（DATA） | MIC → MCU |
-| SAI ブレイクアウト | `SAI0_TX_BCLK` | MAX98357A | BCLK | MCU → DAC |
-| SAI ブレイクアウト | `SAI0_TX_SYNC` | MAX98357A | LRC | MCU → DAC |
-| SAI ブレイクアウト | `SAI0_TX_DATA` | MAX98357A | DIN | MCU → DAC |
+INMP441（マイク）と MAX98357A（スピーカ）を **同一 SAI1 ペリフェラル**にぶら下げる。BCLK/FS は MCU 側 TX 側マスタが発生し、両デバイスが共用する。これでサンプルクロックが内部で揃うので、インパルス応答計測（[08_mic_speaker_test](../firmware/projects/08_mic_speaker_test/), [10_collector](../firmware/projects/10_collector/)）でズレが出ない。
+
+| MCU pin | Alt | SDK 機能 | 接続先 | 信号 | 方向 |
+|---|---|---|---|---|---|
+| PIO3_16 | **Alt10** | `SAI1_TX_BCLK` | INMP441 SCK + MAX98357A BCLK | BCLK | MCU → MIC / SPK |
+| PIO3_17 | **Alt10** | `SAI1_TX_FS`   | INMP441 WS + MAX98357A LRC   | LRCLK/FS | MCU → MIC / SPK |
+| PIO3_20 | **Alt10** | `SAI1_TXD0`    | MAX98357A DIN                | TX data | MCU → SPK |
+| PIO3_21 | **Alt10** | `SAI1_RXD0`    | INMP441 SD                   | RX data | MIC → MCU |
+| PIO1_21 | **Alt10** | `SAI1_MCLK` (任意) | (外部 codec 用)            | MCLK | MCU → ext |
 
 INMP441 の `L/R` ピンは **GND に接続**（左チャネル選択）。MAX98357A の `GAIN` は無接続（9 dB デフォルト）、`SD` は 3.3V 直結（常時 ON）。
 
-### 2.2 I²C（共有バス FC4, 4.7 kΩ プルアップ ×2）
+> SAI 検証出典: [d:/GitHub/mcuxsdk/.../driver_examples/sai/edma_transfer/pin_mux.c](../../mcuxsdk/mcuxsdk/examples/_boards/frdmmcxn947/driver_examples/sai/edma_transfer/pin_mux.c) 同等構成で動作実績あり。
 
-| Arduino | MCU 機能 | I²C アドレス | デバイス | 役割 |
+### 2.2 I²C（LPI2C2 / FC2, 内蔵プルアップ可）
+
+**動作実績**: [d:/GitHub/FRDM-MCXN947_demo/41_lpi2c_vl53l0x_my](../../FRDM-MCXN947_demo/41_lpi2c_vl53l0x_my) で **内蔵プルアップだけで VL53L0X が動いた**実績あり。100 kHz・短いシールド配線・1 〜 2 デバイスなら外付け不要。
+
+| Arduino | MCU pin | Alt | SDK 機能 | I²C アドレス | デバイス |
+|---|---|---|---|---|---|
+| **D18** (J2 pin 18) | PIO4_0 | **Alt2** | `LP_FLEXCOMM2_P0` (LPI2C2 SDA) | 0x40 | PCA9685 サーボドライバ |
+| **D19** (J2 pin 20) | PIO4_1 | **Alt2** | `LP_FLEXCOMM2_P1` (LPI2C2 SCL) | 0x00–0x1F | LU9685（代替, [lu9685.c](../firmware/shared/source/lu9685.c)） |
+|  |  |  |  | 0x47 | BMP585 気圧センサ（補助） |
+
+> **注**: ボードシルクの "D14/D15" 表記は本ボードには存在しない（J2 ヘッダには D8〜D13 と D18/D19 が並ぶ）。Arduino UNO R3 で SDA/SCL に当たる位置のピンが D18/D19 にラベルされている。
+>
+> 内蔵プルアップは ~50 kΩ で I²C 仕様としては弱いが、上述の通り FRDM ボード上の短い配線では実機動作する。複数デバイス（PCA9685 + SSD1306 + BMP585 を同時に）下げる、または 400 kHz 動作時は外付け 4.7 kΩ × 2 を追加すること。
+
+### 2.3 SPI（microSD + ILI9341, **FC は要確認**）
+
+| Arduino | MCU pin | SDK 機能 | デバイス端子 | 備考 |
 |---|---|---|---|---|
-| D14 | `FC4_I2C_SDA` | 0x40 | PCA9685 | サーボ PWM ドライバ（[firmware/shared/source/pca9685.c](../firmware/shared/source/pca9685.c)） |
-| D15 | `FC4_I2C_SCL` | 0x00–0x1F | LU9685（代替） | 同上、20 ch 中華製互換品（[firmware/shared/source/lu9685.c](../firmware/shared/source/lu9685.c)） |
-|  |  | 0x47 | BMP585 | 気圧センサ（補助） |
+| D10 | TODO | `FC?_SPI_CS` (microSD) | microSD CS | |
+| D11 | TODO | `FC?_SPI_MOSI` | microSD MOSI / ILI9341 SDI | バス共有 |
+| D12 | TODO | `FC?_SPI_MISO` | microSD MISO | ILI9341 は書込のみで MISO 未接続 |
+| D13 | TODO | `FC?_SPI_SCK` | microSD SCK / ILI9341 SCK | |
+| **A2** | TODO GPIO | ILI9341 CS | microSD と排他選択 |
+| **A3** | TODO GPIO | ILI9341 RESET | Hard reset (init 時) |
+| **A4** | TODO GPIO | ILI9341 DC | Data/Command 切替 |
+| **A5** | TODO GPIO | ILI9341 LED/BL | バックライト |
 
-> ディスプレイは I²C ではなく **SPI 接続の ILI9341 240×320 カラー TFT** を採用（[display_options.html](display_options.html) §選定理由 参照）。OLED 候補は v1 では非採用。
-
-### 2.3 SPI（microSD + ILI9341, FC3 共有）
-
-| Arduino | MCU 機能 | デバイス端子 | 備考 |
-|---|---|---|---|
-| D10 | `FC3_SPI_CS` | microSD CS | microSD 専用 CS |
-| D11 | `FC3_SPI_MOSI` | microSD MOSI / ILI9341 SDI | バス共有 |
-| D12 | `FC3_SPI_MISO` | microSD MISO | ILI9341 SDO は未接続（書込のみ） |
-| D13 | `FC3_SPI_SCK` | microSD SCK / ILI9341 SCK | バス共有 |
-| **A2** | GPIO 出力 | **ILI9341 CS** | 別 CS（microSD と排他選択） |
-| **A3** | GPIO 出力 | **ILI9341 RESET** | Hard reset (init 時のみ low パルス) |
-| **A4** | GPIO 出力 | **ILI9341 DC** | Data/Command 切替 |
-| **A5** | GPIO 出力 (任意 PWM) | **ILI9341 LED/BL** | バックライト制御 |
+> **未確認**: FRDM-MCXN947 で Arduino D11/D13 がどの LP_FLEXCOMM に割り付くかは、SDK の標準サンプルからは特定できなかった（SDK の LPSPI 例は J7 Pmod 等の専用パッドを使う）。**MCUXpresso Pins tool で D11/D12/D13 の pin_signal 列を見て、`FCx_Px` の x を確定してから [03_ili9341_test/.../app.h](../firmware/projects/03_ili9341_test/frdmmcxn947_cm33_core0/cm33_core0/app.h) と [pin_mux.c](../firmware/projects/03_ili9341_test/frdmmcxn947_cm33_core0/pins/pin_mux.c) を更新**してください。
+>
+> 暫定の経験則:
+> - D12 の pin は **LED Green と共用**（`BOARD_LED_GREEN_GPIO_PIN = 27`）の可能性がある → MISO 機能と LED 表示の二者択一
+> - SW2 が `GPIO0 P23` (= A5 候補) を使っているので、**A5 を ILI9341 BL に取ると SW2 が効かなくなる**可能性
 
 ILI9341 と microSD を **同一 SPI バス**に乗せ、CS で排他選択。同時アクセスは出来ないが、本プロジェクトでは推論／表示と SD への書込は別フェーズで行うため問題なし。
 

@@ -69,11 +69,11 @@
     <tr><th>バス</th><th>MCU 周辺</th><th>接続先デバイス</th><th>アドレス / CS</th><th>Arduino ヘッダ</th></tr>
   </thead>
   <tbody>
-    <tr><td>I²S RX</td><td>SAI1</td><td>INMP441（マイク）</td><td>—</td><td>SAI ブレイクアウト</td></tr>
-    <tr><td>I²S TX</td><td>SAI0</td><td>MAX98357A → 8Ω スピーカ</td><td>—</td><td>SAI ブレイクアウト</td></tr>
-    <tr><td>I²C</td><td>FC4（共有）</td><td>PCA9685 / SSD1306 / BMP585</td><td>0x40 / 0x3C / 0x47</td><td>D14 (SDA), D15 (SCL)</td></tr>
-    <tr><td>SPI</td><td>FC3</td><td>microSD（FatFs）</td><td>CS=D10</td><td>D10–D13</td></tr>
-    <tr><td>UART</td><td>FC2</td><td>ESP32-WROOM（任意）</td><td>—</td><td>D0, D1</td></tr>
+    <tr><td>I²S (full-duplex)</td><td>SAI1</td><td>INMP441 マイク（RX）＋ MAX98357A スピーカ（TX）</td><td>—</td><td>J1 SAI 列（PIO3_16/17/20/21）</td></tr>
+    <tr><td>I²C</td><td>LPI2C2 (FC2)</td><td>PCA9685 / LU9685 / BMP585</td><td>0x40 / 0x00–0x1F / 0x47</td><td><b>D18 (SDA, PIO4_0), D19 (SCL, PIO4_1)</b></td></tr>
+    <tr><td>SPI（ILI9341 + microSD）</td><td>LPSPI?</td><td>microSD（FatFs）＋ ILI9341 TFT</td><td>CS=D10 / 別 GPIO</td><td>D10–D13 ※FC は要確認</td></tr>
+    <tr><td>UART</td><td>LPUART4 (FC4)</td><td>OpenSDA 仮想 COM（v0.1 デバッグ／フレーム送信）</td><td>—</td><td>オンボード MCU-Link</td></tr>
+    <tr><td>UART</td><td>LPUART2 (FC2)</td><td>ESP32-WROOM（任意, 将来）</td><td>—</td><td>D0, D1</td></tr>
     <tr><td>USB</td><td>USB0</td><td>PC（CDC データ転送）</td><td>—</td><td>オンボード USB-C</td></tr>
     <tr><td>PWM</td><td>（PCA9685 経由）</td><td>SG90 ×5</td><td>PCA ch 0–4</td><td>—</td></tr>
     <tr><td>GPIO IN</td><td>—</td><td>トグル ×5 + EXEC ×1 + BMP INT</td><td>内蔵プルアップ</td><td>D2–D9</td></tr>
@@ -86,54 +86,78 @@
   <strong>注:</strong> Arduino ヘッダ番号（D0–D15、A0–A5）は FRDM-MCXN947 ボード上の刻印。実 P-port 番号は <b>MCUXpresso Config Tools の Pins ツール</b>で確定すること（<code>pin_mux.c</code> に反映）。
 </div>
 
-<h3>2.1 I²S（音響系）</h3>
+<h3>2.1 I²S（音響系, SAI1 full-duplex）</h3>
+<p>
+  INMP441（マイク）と MAX98357A（スピーカ）を <b>同一 SAI1 ペリフェラル</b>にぶら下げる。
+  BCLK/FS は MCU 側 TX 側マスタが発生し、両デバイスが共用する。これでサンプルクロックが
+  内部で揃うので、インパルス応答計測（<a href="../firmware/projects/08_mic_speaker_test/">08_mic_speaker_test</a>,
+  <a href="../firmware/projects/10_collector/">10_collector</a>）でズレが出ない。
+</p>
 <table>
   <thead>
-    <tr><th>Arduino/Header</th><th>MCU 機能</th><th>接続先</th><th>信号</th><th>方向</th></tr>
+    <tr><th>MCU pin</th><th>Alt</th><th>SDK 機能</th><th>接続先</th><th>信号</th><th>方向</th></tr>
   </thead>
   <tbody>
-    <tr><td>SAI ブレイクアウト</td><td><code>SAI1_RX_BCLK</code></td><td>INMP441</td><td>SCK</td><td>MCU → MIC</td></tr>
-    <tr><td>SAI ブレイクアウト</td><td><code>SAI1_RX_SYNC</code></td><td>INMP441</td><td>WS（LRCLK）</td><td>MCU → MIC</td></tr>
-    <tr><td>SAI ブレイクアウト</td><td><code>SAI1_RX_DATA</code></td><td>INMP441</td><td>SD（DATA）</td><td>MIC → MCU</td></tr>
-    <tr><td>SAI ブレイクアウト</td><td><code>SAI0_TX_BCLK</code></td><td>MAX98357A</td><td>BCLK</td><td>MCU → DAC</td></tr>
-    <tr><td>SAI ブレイクアウト</td><td><code>SAI0_TX_SYNC</code></td><td>MAX98357A</td><td>LRC</td><td>MCU → DAC</td></tr>
-    <tr><td>SAI ブレイクアウト</td><td><code>SAI0_TX_DATA</code></td><td>MAX98357A</td><td>DIN</td><td>MCU → DAC</td></tr>
+    <tr><td>PIO3_16</td><td><b>Alt10</b></td><td><code>SAI1_TX_BCLK</code></td><td>INMP441 SCK + MAX98357A BCLK</td><td>BCLK</td><td>MCU → MIC / SPK</td></tr>
+    <tr><td>PIO3_17</td><td><b>Alt10</b></td><td><code>SAI1_TX_FS</code></td><td>INMP441 WS + MAX98357A LRC</td><td>LRCLK/FS</td><td>MCU → MIC / SPK</td></tr>
+    <tr><td>PIO3_20</td><td><b>Alt10</b></td><td><code>SAI1_TXD0</code></td><td>MAX98357A DIN</td><td>TX data</td><td>MCU → SPK</td></tr>
+    <tr><td>PIO3_21</td><td><b>Alt10</b></td><td><code>SAI1_RXD0</code></td><td>INMP441 SD</td><td>RX data</td><td>MIC → MCU</td></tr>
+    <tr><td>PIO1_21</td><td><b>Alt10</b></td><td><code>SAI1_MCLK</code>（任意）</td><td>(外部 codec 用)</td><td>MCLK</td><td>MCU → ext</td></tr>
   </tbody>
 </table>
 <p>INMP441 の <code>L/R</code> ピンは <b>GND に接続</b>（左チャネル選択）。MAX98357A の <code>GAIN</code> は無接続（9 dB デフォルト）、<code>SD</code> は 3.3V 直結（常時 ON）。</p>
 
-<h3>2.2 I²C（共有バス FC4, 4.7 kΩ プルアップ ×2）</h3>
+<h3>2.2 I²C（LPI2C2 / FC2, 内蔵プルアップ可）</h3>
+<div class="callout">
+  <b>動作実績</b>: <a href="../../FRDM-MCXN947_demo/41_lpi2c_vl53l0x_my/"><code>FRDM-MCXN947_demo/41_lpi2c_vl53l0x_my</code></a> で
+  <b>内蔵プルアップだけで VL53L0X が動いた</b>実績あり。100 kHz・短いシールド配線・1 〜 2 デバイスなら外付け不要。
+</div>
 <table>
   <thead>
-    <tr><th>Arduino</th><th>MCU 機能</th><th>I²C アドレス</th><th>デバイス</th><th>役割</th></tr>
+    <tr><th>Arduino</th><th>MCU pin</th><th>Alt</th><th>SDK 機能</th><th>I²C アドレス</th><th>デバイス</th></tr>
   </thead>
   <tbody>
-    <tr><td>D14</td><td><code>FC4_I2C_SDA</code></td><td>0x40</td><td>PCA9685</td><td>サーボ PWM ドライバ（<a href="../firmware/shared/source/pca9685.c">pca9685.c</a>）</td></tr>
-    <tr><td>D15</td><td><code>FC4_I2C_SCL</code></td><td>0x00–0x1F</td><td>LU9685（代替）</td><td>同上、20 ch 中華製互換品（<a href="../firmware/shared/source/lu9685.c">lu9685.c</a>）</td></tr>
-    <tr><td>—</td><td>—</td><td>0x47</td><td>BMP585</td><td>気圧センサ（補助）</td></tr>
+    <tr><td><b>D18</b> (J2 pin 18)</td><td>PIO4_0</td><td><b>Alt2</b></td><td><code>LP_FLEXCOMM2_P0</code> (LPI2C2 SDA)</td><td>0x40</td><td>PCA9685 サーボドライバ</td></tr>
+    <tr><td><b>D19</b> (J2 pin 20)</td><td>PIO4_1</td><td><b>Alt2</b></td><td><code>LP_FLEXCOMM2_P1</code> (LPI2C2 SCL)</td><td>0x00–0x1F</td><td>LU9685（代替, <a href="../firmware/shared/source/lu9685.c">lu9685.c</a>）</td></tr>
+    <tr><td>—</td><td>—</td><td>—</td><td>—</td><td>0x47</td><td>BMP585 気圧センサ（補助）</td></tr>
   </tbody>
 </table>
-<div class="callout">
-  ディスプレイは I²C ではなく <b>SPI 接続の ILI9341 240×320 カラー TFT</b> を採用
-  （<a href="display_options.html">display_options.html</a> §選定理由 参照）。OLED 候補は v1 では非採用。
+<div class="callout warn">
+  <b>注</b>: ボードシルクの "D14/D15" 表記は本ボードには存在しない（J2 ヘッダには D8〜D13 と D18/D19 が並ぶ）。
+  Arduino UNO R3 で SDA/SCL に当たる位置のピンが D18/D19 にラベルされている。<br>
+  内蔵プルアップは ~50 kΩ で I²C 仕様としては弱いが、上述の通り FRDM ボード上の短い配線では実機動作する。
+  複数デバイス（PCA9685 + SSD1306 + BMP585 を同時に）下げる、または 400 kHz 動作時は外付け 4.7 kΩ × 2 を追加すること。
 </div>
 
-<h3>2.3 SPI（microSD + ILI9341, FC3 共有）</h3>
+<h3>2.3 SPI（microSD + ILI9341, <b>FC は要確認</b>）</h3>
 <table>
   <thead>
-    <tr><th>Arduino</th><th>MCU 機能</th><th>デバイス端子</th><th>備考</th></tr>
+    <tr><th>Arduino</th><th>MCU pin</th><th>SDK 機能</th><th>デバイス端子</th><th>備考</th></tr>
   </thead>
   <tbody>
-    <tr><td>D10</td><td><code>FC3_SPI_CS</code></td><td>microSD CS</td><td>microSD 専用 CS</td></tr>
-    <tr><td>D11</td><td><code>FC3_SPI_MOSI</code></td><td>microSD MOSI / ILI9341 SDI</td><td>バス共有</td></tr>
-    <tr><td>D12</td><td><code>FC3_SPI_MISO</code></td><td>microSD MISO</td><td>ILI9341 SDO は未接続（書込のみ）</td></tr>
-    <tr><td>D13</td><td><code>FC3_SPI_SCK</code></td><td>microSD SCK / ILI9341 SCK</td><td>バス共有</td></tr>
-    <tr><td><b>A2</b></td><td>GPIO 出力</td><td><b>ILI9341 CS</b></td><td>別 CS（microSD と排他選択）</td></tr>
-    <tr><td><b>A3</b></td><td>GPIO 出力</td><td><b>ILI9341 RESET</b></td><td>Hard reset (init 時のみ low パルス)</td></tr>
-    <tr><td><b>A4</b></td><td>GPIO 出力</td><td><b>ILI9341 DC</b></td><td>Data/Command 切替</td></tr>
-    <tr><td><b>A5</b></td><td>GPIO 出力 (任意 PWM)</td><td><b>ILI9341 LED/BL</b></td><td>バックライト制御</td></tr>
+    <tr><td>D10</td><td>TODO</td><td><code>FC?_SPI_CS</code></td><td>microSD CS</td><td></td></tr>
+    <tr><td>D11</td><td>TODO</td><td><code>FC?_SPI_MOSI</code></td><td>microSD MOSI / ILI9341 SDI</td><td>バス共有</td></tr>
+    <tr><td>D12</td><td>TODO</td><td><code>FC?_SPI_MISO</code></td><td>microSD MISO</td><td>ILI9341 は書込のみで MISO 未接続</td></tr>
+    <tr><td>D13</td><td>TODO</td><td><code>FC?_SPI_SCK</code></td><td>microSD SCK / ILI9341 SCK</td><td></td></tr>
+    <tr><td><b>A2</b></td><td>TODO GPIO</td><td>—</td><td>ILI9341 CS</td><td>microSD と排他選択</td></tr>
+    <tr><td><b>A3</b></td><td>TODO GPIO</td><td>—</td><td>ILI9341 RESET</td><td>Hard reset (init 時)</td></tr>
+    <tr><td><b>A4</b></td><td>TODO GPIO</td><td>—</td><td>ILI9341 DC</td><td>Data/Command 切替</td></tr>
+    <tr><td><b>A5</b></td><td>TODO GPIO</td><td>—</td><td>ILI9341 LED/BL</td><td>バックライト</td></tr>
   </tbody>
 </table>
+<div class="callout warn">
+  <b>未確認</b>: FRDM-MCXN947 で Arduino D11/D13 がどの LP_FLEXCOMM に割り付くかは SDK 標準サンプルからは特定できなかった
+  （SDK の LPSPI 例は J7 Pmod 等の専用パッドを使う）。
+  <b>MCUXpresso Pins tool で D11/D12/D13 の pin_signal 列を見て、<code>FCx_Px</code> の x を確定してから</b>
+  <a href="../firmware/projects/03_ili9341_test/frdmmcxn947_cm33_core0/cm33_core0/app.h"><code>03_ili9341_test/app.h</code></a> と
+  <a href="../firmware/projects/03_ili9341_test/frdmmcxn947_cm33_core0/pins/pin_mux.c"><code>pin_mux.c</code></a>
+  を更新してください。<br><br>
+  暫定の経験則:
+  <ul>
+    <li>D12 の pin は <b>LED Green と共用</b>（<code>BOARD_LED_GREEN_GPIO_PIN = 27</code>）の可能性がある → MISO 機能と LED 表示の二者択一</li>
+    <li>SW2 が <code>GPIO0 P23</code> (= A5 候補) を使っているので、<b>A5 を ILI9341 BL に取ると SW2 が効かなくなる</b>可能性</li>
+  </ul>
+</div>
 <p>
   ILI9341 と microSD を <b>同一 SPI バス</b>に乗せ、CS で排他選択。同時アクセスは出来ないが、
   本プロジェクトでは推論／表示と SD への書込は別フェーズで行うため問題なし。

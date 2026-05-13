@@ -66,6 +66,8 @@
 
 #include "servo_driver.h"
 
+extern void BOARD_InitHardware(void);
+
 /* ----- Configuration ----- */
 
 #ifndef SERVO_I2C_BASE
@@ -107,9 +109,7 @@ static const char *const SERVO_NAMES[SERVO_CH_COUNT] = {
 };
 
 int main(void) {
-    BOARD_InitBootPins();
-    BOARD_InitBootClocks();
-    BOARD_InitDebugConsole();
+    BOARD_InitHardware();
     systick_init_1ms();
     i2c_master_init();
 

@@ -15,9 +15,9 @@ include(${SdkRootDirPath}/CMakeLists.txt)
 
 # Override main.c defaults so I²C goes to LP_FLEXCOMM2 instead of LPI2C4
 # (FC4 is already used by the OpenSDA debug UART and cannot serve both).
-# Switch backend by changing SERVO_BACKEND_PCA9685 → SERVO_BACKEND_LU9685_I2C.
+# Switch backend by changing SERVO_BACKEND_LU9685_I2C → SERVO_BACKEND_PCA9685.
 mcux_add_configuration(
-    CC "-DSERVO_BACKEND_PCA9685\
+    CC "-DSERVO_BACKEND_LU9685_I2C\
         -DSERVO_I2C_BASE=LPI2C2\
         -DSERVO_I2C_CLK_FREQ=CLOCK_GetLPFlexCommClkFreq(2)"
 )
