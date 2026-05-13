@@ -1,0 +1,13 @@
+ichiping_01_dummy_emitter:
+  boards:
+    frdmmcxn947@cm33_core0: []
+  contents:
+    document:
+      brief: IchiPing — generates synthetic chirp + reverb frames and streams them
+        out the OpenSDA debug UART (921600 8N1) as binary ICHP frames. PC-side
+        receiver in pc/receiver.py.
+      category: ichiping
+      name: ichiping_01_dummy_emitter${core_id_suffix_name}
+    meta_path: examples/ichiping/01_dummy_emitter
+    project-root-path: boards/${board}/ichiping/01_dummy_emitter/${multicore_foldername}
+  section-type: freestanding_application

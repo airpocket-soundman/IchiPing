@@ -36,6 +36,77 @@ ls ../runs/v1_pilot/
 #  -> config.json    再現用メタ
 ```
 
+## 確認方法
+
+このディレクトリは実機・シリアル不要。**PC 内で完結**。
+
+### A. 訓練が動く・loss が下がっていることの確認（本筋）
+
+1. `emulator.py` で 200 サンプル分のダミーデータを作る（実機が無くても可）:
+   ```powershell
+   python emulator.py --out captures_dummy/stream.bin --frames 200 --cadence 0
+   python receiver.py --in captures_dummy/stream.bin --out captures_dummy
+   ```
+2. 訓練を 5 エポックほど走らせる:
+   ```powershell
+   python -m training.train --captures captures_dummy --out ../runs/smoke --epochs 5
+   ```
+3. 期待出力（loss が下がる）:
+   ```
+   epoch 1: train_loss=0.6932 val_loss=0.6914 (any_open: 0.51 AUROC)
+   epoch 2: train_loss=0.6810 val_loss=0.6720 ...
+   ...
+   saved best.pt @ epoch 4 (val_loss=0.6450)
+   saved best.onnx
+   ```
+
+### B. ONNX エクスポートが成立していることの確認
+
+onnxruntime で再ロードして推論できるか 1 サンプルで確かめる:
+
+```powershell
+python -c "
+import onnxruntime as ort
+import numpy as np
+sess = ort.InferenceSession('../runs/smoke/best.onnx')
+x = np.random.randn(1, 1, 1024).astype(np.float32)
+out = sess.run(None, {sess.get_inputs()[0].name: x})
+print('outputs:', [o.shape for o in out])
+"
+```
+
+6 個の出力が返ってくれば OK。これが通れば eIQ Toolkit に入力できる。
+
+### C. データセット読み込みの単体動作確認
+
+```powershell
+python -c "
+from training.dataset import IchiPingDataset
+ds = IchiPingDataset('captures_dummy')
+print('size:', len(ds))
+x, y = ds[0]
+print('x:', x.shape, 'y keys:', list(y.keys()))
+"
+```
+
+`x.shape == (1, 1024)`、`y` に 6 個のラベルが入っていれば OK。
+
+### D. tensorboard で訓練を可視化（任意）
+
+```powershell
+tensorboard --logdir ../runs/smoke
+```
+
+ブラウザで http://localhost:6006
+
+### E. 実機データで本訓練
+
+v0.4 で 3 部屋模型を組んだあと、実機で 10000 サンプル収集して 50 エポック訓練:
+
+```powershell
+python -m training.train --captures ../captures_real --out ../runs/v1_pilot --epochs 50
+```
+
 ## 設計の意図
 
 - **backbone は `~30 K params`、INT8 で約 30 KB**。MCXN947 の NPU メモリ予算に収まる。

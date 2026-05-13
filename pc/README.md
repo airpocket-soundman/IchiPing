@@ -49,6 +49,28 @@ pip install -r requirements.txt
 python receiver.py --port COM7 --baud 921600 --out ../captures
 ```
 
+### A'. ラベル付き学習データを採取する（10_collector）
+
+```powershell
+# インタラクティブ — REPL で SET / START / STOP
+python collector_client.py --port COM7 --out ../captures/10
+
+# プラン実行 — JSON で条件×繰返しを一気に
+python collector_client.py --port COM7 --plan plan.json --out ../captures/10
+```
+
+`plan.json` 例:
+```json
+[
+  {"label": "door_closed", "tone": "chirp",   "repeats": 30},
+  {"label": "door_half",   "tone": "chirp",   "repeats": 30},
+  {"label": "door_open",   "tone": "chirp",   "repeats": 30},
+  {"label": "amb_silence", "tone": "silence", "repeats": 10}
+]
+```
+
+各 step で `SET label / tone / repeats / window / rate` → `START` を自動発行し、フレーム受信ごとに `<label>_<epoch>_NNNNNN.wav` ＋ `labels.csv` の 1 行を追加する。
+
 ### B. 実機なしでパイプラインを試す（loopback）
 
 ```powershell
@@ -131,13 +153,14 @@ gcc/MinGW があれば `test_ctypes_packer.py` も走り、C 側 `ichp_pack_fram
 | ファイル | 役割 |
 |---|---|
 | [`ichp_frame.py`](ichp_frame.py) | フレーム形式の単一情報源（Python 側）。`MAGIC` / `HEADER_FMT` / `crc16_ccitt` / `pack_frame` / `unpack_header` |
-| [`receiver.py`](receiver.py) | シリアル / TCP / ファイル → CRC 検証 → WAV+CSV 保存のメインスクリプト |
+| [`receiver.py`](receiver.py) | シリアル / TCP / ファイル → CRC 検証 → WAV+CSV 保存のメインスクリプト（01 / 05 / 08 / 09 で使用） |
+| [`collector_client.py`](collector_client.py) | [`firmware/projects/10_collector`](../firmware/projects/10_collector/) と対向。PC→MCU に SET/START/STOP の ASCII コマンドを送り、MCU→PC のラベル付き ICHP フレームを受け取って WAV+CSV 保存。インタラクティブと plan.json 両対応 |
 | [`emulator.py`](emulator.py) | 実機なしでダミーフレームを生成する偽 MCU。stdout / TCP / file の 3 出口 |
 | [`verify.py`](verify.py) | 受信ストリームを 8 項目（type/CRC/seq 連番/ts 単調/n_samples/rate/サーボ範囲/サンプル範囲）で検証する CLI。`--strict` で CI 利用可 |
 | [`test_frame_format.py`](test_frame_format.py) | unittest 9 件。ヘッダ層 + CRC ラウンドトリップ |
 | [`test_loopback.py`](test_loopback.py) | unittest 6 件。emulator → receiver E2E |
 | [`test_ctypes_packer.py`](test_ctypes_packer.py) | unittest 2 件。C ↔ Python パッカーをバイト比較（gcc 必要、無ければ skip） |
-| [`training/`](training/) | NN 訓練パイプライン（v0.5）— `model.py` / `features.py` / `dataset.py` / `train.py` |
+| [`training/`](training/README.md) ([HTML](training/README.html)) | NN 訓練パイプライン（v0.5）— `model.py` / `features.py` / `dataset.py` / `train.py` |
 | `environment.yml` | conda 環境定義（PyTorch / ONNX / pyroomacoustics 含む） |
 | `requirements.txt` | venv 用最小依存 |
 

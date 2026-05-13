@@ -1,0 +1,12 @@
+ichiping_03_ili9341_test:
+  boards:
+    frdmmcxn947@cm33_core0: []
+  contents:
+    document:
+      brief: IchiPing — 5-phase ILI9341 240×320 RGB565 TFT bring-up demo over
+        LPSPI3 (Arduino D11 MOSI, D13 SCK, A2..A5 CS/RES/DC/BL).
+      category: ichiping
+      name: ichiping_03_ili9341_test${core_id_suffix_name}
+    meta_path: examples/ichiping/03_ili9341_test
+    project-root-path: boards/${board}/ichiping/03_ili9341_test/${multicore_foldername}
+  section-type: freestanding_application

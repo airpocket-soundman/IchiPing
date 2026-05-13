@@ -106,6 +106,23 @@ pip install -r requirements.txt</code></pre>
 <pre><code># デバイスマネージャで FRDM-MCXN947 の OpenSDA COM 番号を確認（例: COM7）
 python receiver.py --port COM7 --baud 921600 --out ../captures</code></pre>
 
+<h3>A'. ラベル付き学習データを採取する（<a href="../firmware/projects/10_collector/">10_collector</a> 対向）</h3>
+<pre><code># インタラクティブ — REPL で SET / START / STOP
+python collector_client.py --port COM7 --out ../captures/10
+
+# プラン実行 — JSON で条件×繰返しを一気に
+python collector_client.py --port COM7 --plan plan.json --out ../captures/10</code></pre>
+
+<p><code>plan.json</code> 例:</p>
+<pre><code>[
+  {"label": "door_closed", "tone": "chirp",   "repeats": 30},
+  {"label": "door_half",   "tone": "chirp",   "repeats": 30},
+  {"label": "door_open",   "tone": "chirp",   "repeats": 30},
+  {"label": "amb_silence", "tone": "silence", "repeats": 10}
+]</code></pre>
+
+<p>各 step で <code>SET label / tone / repeats / window / rate</code> → <code>START</code> を自動発行し、フレーム受信ごとに <code>&lt;label&gt;_&lt;epoch&gt;_NNNNNN.wav</code> ＋ <code>labels.csv</code> の 1 行を追加する。</p>
+
 <h3>B. 実機なしでパイプラインを試す（loopback）</h3>
 <pre><code># 偽 MCU が 10 フレームをファイルに書き出す
 python emulator.py --out ../captures/loopback.bin --frames 10 --cadence 0
@@ -203,10 +220,16 @@ python -m unittest test_frame_format -v</code></pre>
   </thead>
   <tbody>
     <tr><td><a href="ichp_frame.py"><code>ichp_frame.py</code></a></td><td>フレーム形式の単一情報源。<code>MAGIC</code>, <code>HEADER_FMT</code>, <code>crc16_ccitt</code>, <code>pack_frame</code>, <code>unpack_header</code></td></tr>
-    <tr><td><a href="receiver.py"><code>receiver.py</code></a></td><td>シリアル受信 → CRC 検証 → WAV/CSV 保存のメインスクリプト</td></tr>
-    <tr><td><a href="test_frame_format.py"><code>test_frame_format.py</code></a></td><td><code>unittest</code> ベースのフレーム形式回帰テスト</td></tr>
-    <tr><td><code>environment.yml</code></td><td>conda 環境定義（numpy/scipy/matplotlib も含む）</td></tr>
-    <tr><td><code>requirements.txt</code></td><td>venv 用最小依存（pyserial のみ）</td></tr>
+    <tr><td><a href="receiver.py"><code>receiver.py</code></a></td><td>シリアル受信 → CRC 検証 → WAV/CSV 保存のメインスクリプト（01 / 05 / 08 / 09 で使用）</td></tr>
+    <tr><td><a href="collector_client.py"><code>collector_client.py</code></a></td><td><a href="../firmware/projects/10_collector/"><code>firmware/projects/10_collector</code></a> と対向。PC→MCU の ASCII コマンド（SET / START / STOP / PING）と MCU→PC の ICHP フレームを多重で処理。インタラクティブ／plan.json 両対応</td></tr>
+    <tr><td><a href="emulator.py"><code>emulator.py</code></a></td><td>実機なしでダミーフレームを生成する偽 MCU（stdout / TCP / file）</td></tr>
+    <tr><td><a href="verify.py"><code>verify.py</code></a></td><td>受信ストリームを 8 項目で自動検証する CLI（<code>--strict</code> で CI 利用可）</td></tr>
+    <tr><td><a href="test_frame_format.py"><code>test_frame_format.py</code></a></td><td>ヘッダ層 + CRC ラウンドトリップ unittest（9 件）</td></tr>
+    <tr><td><a href="test_loopback.py"><code>test_loopback.py</code></a></td><td>emulator → receiver E2E unittest（6 件）</td></tr>
+    <tr><td><a href="test_ctypes_packer.py"><code>test_ctypes_packer.py</code></a></td><td>C ↔ Python パッカーのバイト一致（gcc 必要、無ければ skip）</td></tr>
+    <tr><td><a href="training/README.html"><code>training/</code></a></td><td>NN 訓練パイプライン（v0.5）— <a href="training/README.html">README.html</a> / <a href="training/README.md">README.md</a></td></tr>
+    <tr><td><code>environment.yml</code></td><td>conda 環境定義（PyTorch / ONNX / pyroomacoustics 含む）</td></tr>
+    <tr><td><code>requirements.txt</code></td><td>venv 用最小依存</td></tr>
   </tbody>
 </table>
 

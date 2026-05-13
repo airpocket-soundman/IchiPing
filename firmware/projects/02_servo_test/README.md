@@ -58,6 +58,44 @@ Phase 2 (ソロスイープ ×5 ch):
   ch_n → 0°      hold 0.5 s
 ```
 
+## 確認方法
+
+このファームは **テキスト PRINTF** なので、シリアルモニタを開くだけで OK。PC 側スクリプト不要。
+
+### A. シリアルモニタで進行ログを観測
+
+ツールは何でも可: VS Code Serial Monitor / TeraTerm / PuTTY / `python -m serial.tools.miniterm COM7 115200`
+
+期待ログ例:
+```
+IchiPing servo_test (backend=PCA9685, addr=0x40)
+PCA9685 init OK @ 50 Hz
+Phase 1 sync waypoints:
+  all -> 0 deg   hold 1000 ms
+  all -> 90 deg  hold 1000 ms
+  ...
+Phase 2 solo sweep:
+  ch0 -> 180 deg
+  ch0 -> 0 deg
+  ...
+```
+
+### B. 目視で 5 個のサーボが動くことを確認（本命）
+
+シリアルログより**目視のほうが本命**。配線が間違っていてもログは進むので必ず実物を見る:
+
+1. Phase 1 で 5 個全部が同じ角度に動く（0° → 90° → 180° → 0°）
+2. Phase 2 で 1 個ずつ順に 0° ↔ 180° を往復（ch0=窓 a, ch1=窓 b, ch2=窓 c, ch3=扉 AB, ch4=扉 BC）
+3. 動かないチャネルがあれば配線か PCA9685 出力か個体不良
+4. 全部が同じ角度で固まる → I²C 通信失敗（次項参照）
+
+### C. I²C スキャン
+
+サーボが 1 個も動かない場合、起動ログの `PCA9685 init OK @ 50 Hz` か `init FAILED (no ACK)` を確認:
+
+- PCA9685: A0..A5 の I²C アドレス選択ピンを確認、デフォルト 0x40。プルアップ 4.7 kΩ × 2 が SDA/SCL に必要
+- LU9685: ジャンパで設定された I²C アドレス（0x00..0x1F）を `main.c` の `SERVO_DEFAULT_ADDR` 引数で指定
+
 ## トラブルシュート
 
 - **PCA9685 が応答しない**: A0..A5 の I²C アドレス選択ピンの位置を確認、デフォルト 0x40

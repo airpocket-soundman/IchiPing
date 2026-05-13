@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>firmware/host_build — IchiPing</title>
+<link rel="stylesheet" href="../../docs/style.css">
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../../index.html">トップ</a>
+      <a href="../../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../README.html">firmware ガイド</a>
+      <a href="../../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ファーム別デモ</div>
+      <a href="../projects/01_dummy_emitter/README.html">01 dummy_emitter</a>
+      <a href="../projects/02_servo_test/README.html">02 servo_test</a>
+      <a href="../projects/03_ili9341_test/README.html">03 ili9341_test</a>
+      <a href="../projects/04_lvgl_test/README.html">04 lvgl_test</a>
+      <a href="../projects/05_usb_cdc_emitter/README.html">05 usb_cdc_emitter</a>
+      <a href="../host_build/README.html" class="current">host_build</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="../../docs/spec.html">仕様書 (spec)</a>
+      <a href="../../hardware/wiring.html">配線テーブル</a>
+      <a href="../../hardware/bom.html">BOM (部品表)</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="../../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../../index.html">← IchiPing トップ</a>
+    ／ <a href="../README.html">firmware</a>
+    ／ host_build
+  </div>
+  <h1>firmware/host_build — C 側 frame packer のホストビルド</h1>
+  <div class="sub">
+    <code>firmware/shared/source/ichiping_frame.c</code> を MCUXpresso SDK なしで（普通の gcc で）
+    共有ライブラリ化するための足場。MCU と PC でフレーム形式がドリフトしていないことを
+    バイト単位で確認する回帰検証用。
+  </div>
+  <div class="meta">
+    <span class="meta-stat"><span class="num">gcc / MinGW</span></span>
+    <span class="meta-stat"><span class="num">.so / .dylib / .dll</span> 出力</span>
+    <span class="meta-stat"><span class="num">ctypes</span> 経由テスト</span>
+  </div>
+</header>
+
+<main>
+
+<h2>目的</h2>
+<p><a href="../../pc/ichp_frame.py"><code>pc/ichp_frame.py</code></a> の <code>pack_frame</code> と
+<a href="../source/ichiping_frame.c"><code>../source/ichiping_frame.c</code></a> の <code>ichp_pack_frame</code> が、
+<b>同じ入力に対してバイト単位で同一</b>の出力を返すことを Python の <code>ctypes</code> 越しに確認するための足場。</p>
+
+<p>C 側と Python 側でフレーム形式がドリフトすると CRC が通らず実機通信が全滅するため、これが最も強い回帰検証になる（ヘッダ層を 100% カバー）。</p>
+
+<h2>ビルド要件</h2>
+<table>
+  <thead><tr><th>プラットフォーム</th><th>コンパイラ</th></tr></thead>
+  <tbody>
+    <tr><td>Linux</td><td><code>gcc</code>（apt/dnf でデフォルト）</td></tr>
+    <tr><td>macOS</td><td><code>gcc</code> or <code>clang</code>（Command Line Tools）</td></tr>
+    <tr><td>Windows</td><td><b>MinGW-w64</b>（MSYS2 推奨。<code>pacman -S mingw-w64-x86_64-gcc</code>）</td></tr>
+  </tbody>
+</table>
+
+<p><code>ichiping_frame.c</code> の依存は <code>&lt;stdint.h&gt;</code>, <code>&lt;stddef.h&gt;</code>, <code>&lt;string.h&gt;</code> のみ。MCUXpresso SDK は不要。</p>
+
+<h2>ビルド</h2>
+<pre><code>cd firmware/host_build
+make</code></pre>
+
+<p>生成物:</p>
+<ul>
+  <li>Linux: <code>libichp.so</code></li>
+  <li>macOS: <code>libichp.dylib</code></li>
+  <li>Windows: <code>ichp.dll</code></li>
+</ul>
+
+<h2>確認方法</h2>
+
+<p>このディレクトリはファームではないので、書込・実機・シリアル全部不要。<b>PC でユニットテストを 1 本走らせるだけ</b>。</p>
+
+<h3>A. ライブラリのリンクと ctypes 突合テスト（本筋）</h3>
+
+<ol>
+  <li>上記 <code>make</code> で <code>.so/.dylib/.dll</code> が生成されることを確認</li>
+  <li>テストを実行:
+    <pre><code>cd ../../pc
+conda activate ichiping
+python -m unittest test_ctypes_packer -v</code></pre>
+  </li>
+  <li>期待出力:
+    <pre><code>test_pack_frame_matches_python ... ok
+test_crc16_matches_python ... ok
+----------------------------------------------------------------------
+Ran 2 tests in 0.018s
+
+OK</code></pre>
+  </li>
+</ol>
+
+<p>2 件のテストはそれぞれ:</p>
+<ul>
+  <li><code>test_pack_frame_matches_python</code> — 同じ入力に対して C 側 <code>ichp_pack_frame</code> と Python 側 <code>pack_frame</code> がバイト単位で同一フレームを出すことを確認</li>
+  <li><code>test_crc16_matches_python</code> — CRC-16/CCITT-FALSE の Python 側と C 側の実装一致確認（既知ベクタ + ランダム入力）</li>
+</ul>
+
+<h3>B. gcc が無い環境</h3>
+
+<p><code>libichp.so</code> が見つからない場合、<code>test_ctypes_packer</code> は <b>自動 skip</b> される（fail ではない）:</p>
+
+<pre><code>test_pack_frame_matches_python ... skipped 'libichp not built'</code></pre>
+
+<p>このときも <code>test_frame_format</code>（ヘッダ層 9 件）と <code>test_loopback</code>（E2E 6 件）は引き続き通る。最低限のフレーム整合性は保証されるが、<b>実機を繋ぐ前に host_build までは通しておくのを推奨</b>。</p>
+
+<h3>C. クリーン</h3>
+
+<pre><code>make clean</code></pre>
+
+</main>
+
+</body>
+</html>

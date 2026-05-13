@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>04_lvgl_test — IchiPing</title>
+<link rel="stylesheet" href="../../../docs/style.css">
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../../../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../../../index.html">トップ</a>
+      <a href="../../../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../../README.html">firmware ガイド</a>
+      <a href="../../../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ファーム別デモ</div>
+      <a href="../01_dummy_emitter/README.html">01 dummy_emitter</a>
+      <a href="../02_servo_test/README.html">02 servo_test</a>
+      <a href="../03_ili9341_test/README.html">03 ili9341_test</a>
+      <a href="../04_lvgl_test/README.html" class="current">04 lvgl_test</a>
+      <a href="../05_usb_cdc_emitter/README.html">05 usb_cdc_emitter</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="../../../docs/spec.html">仕様書 (spec)</a>
+      <a href="../../../hardware/wiring.html">配線テーブル</a>
+      <a href="../../../hardware/bom.html">BOM (部品表)</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="../../../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../../../index.html">← IchiPing トップ</a>
+    ／ <a href="../../README.html">firmware</a>
+    ／ <a href="../">projects</a>
+    ／ 04_lvgl_test
+  </div>
+  <h1>04_lvgl_test — LVGL 統合テスト</h1>
+  <div class="sub">
+    ILI9341 + LVGL v9 で IchiPing 状態 UI のモックを描画するファーム。
+    <a href="../03_ili9341_test/README.html">03_ili9341_test</a> が通ったあと、UI ライブラリの統合確認に使う。
+  </div>
+  <div class="meta">
+    <span class="meta-stat"><span class="num">v1.0</span> 準備</span>
+    <span class="meta-stat"><span class="num">LVGL v9</span></span>
+    <span class="meta-stat"><span class="num">lpspi/polling_b2b</span> ベース</span>
+  </div>
+</header>
+
+<main>
+
+<h2>MCUXpresso でのインポート手順</h2>
+<ol>
+  <li><code>File &gt; New &gt; Create a new C/C++ Project</code></li>
+  <li>SDK Wizard → ボード <b><code>frdmmcxn947</code></b> → ベース <code>driver_examples &gt; lpspi &gt; polling_b2b</code></li>
+  <li>プロジェクト名を <code>ichiping_lvgl_test</code> などに変更</li>
+  <li>生成された <code>main.c</code> を本フォルダの <a href="main.c">main.c</a> に置換</li>
+  <li>プロジェクトに追加:
+    <ul>
+      <li><a href="../../shared/source/ili9341.c"><code>../../shared/source/ili9341.c</code></a></li>
+      <li><a href="../../shared/source/lv_port_disp.c"><code>../../shared/source/lv_port_disp.c</code></a></li>
+    </ul>
+  </li>
+  <li>Include パスを追加:
+    <pre><code>"${ProjDirPath}/../../firmware/shared/include"</code></pre>
+  </li>
+  <li><b>LVGL を取り込む</b>（本リポにはバンドルされていない）:
+    <ul>
+      <li><b>SDK 経由</b>: SDK Wizard で <code>Components &gt; Middleware &gt; LVGL</code> を選択（v9.x 推奨）</li>
+      <li><b>手動</b>: <a href="https://github.com/lvgl/lvgl">github.com/lvgl/lvgl</a> v9 ブランチを clone して <code>firmware/third_party/lvgl/</code> に展開、ソース全部を Include / Source path に追加</li>
+    </ul>
+  </li>
+  <li><b><code>lv_conf.h</code> を用意</b>（SDK の <code>lv_conf_template.h</code> をコピーして以下を上書き）:
+    <pre><code>#define LV_COLOR_DEPTH      16
+#define LV_COLOR_16_SWAP    0
+#define LV_USE_PERF_MONITOR 1
+#define LV_TICK_CUSTOM      0
+#define LV_MEM_SIZE         (48 * 1024)</code></pre>
+  </li>
+  <li><b>Config Tools の Pins ツール</b> は <a href="../03_ili9341_test/README.html">03_ili9341_test</a> と同じ（D11/D13 → LPSPI3、A2..A5 → GPIO 出力）</li>
+  <li>ビルド → OpenSDA で書込</li>
+</ol>
+
+<h2>配線</h2>
+<p><a href="../03_ili9341_test/README.html">03_ili9341_test</a> と完全に同じ。配線はテスト 03 から変更不要。</p>
+
+<h2>動作</h2>
+<p><code>SysTick_Handler</code> 内で <code>lv_tick_inc(1)</code> を呼び、main loop で <code>lv_timer_handler()</code> を回す。UI は以下を 1.5 秒ステップで更新:</p>
+<ul>
+  <li><b>タイトル</b>: "IchiPing v0.1" (緑、24pt)</li>
+  <li><b>フェーズラベル</b>: 右上に step 番号</li>
+  <li><b>5 部屋タイル</b>: window a/b/c + door AB/BC、closed (緑) → half (橙) → open (赤) を index ずらしで巡回</li>
+  <li><b>信頼度バー</b>: 0–100% の sinusoidal-ish 動き</li>
+  <li><b>LV_USE_PERF_MONITOR</b>: 左下に FPS / CPU 使用率（<code>lv_conf.h</code> で有効化）</li>
+</ul>
+
+<h2>確認方法</h2>
+
+<p>このファームも <b>視覚での目視確認が本命</b>。PC 側スクリプト不要。</p>
+
+<h3>A. TFT の目視確認（本筋）</h3>
+
+<p>期待される表示:</p>
+<ol>
+  <li>起動直後に "IchiPing v0.1" のタイトルが緑で出る</li>
+  <li>5 個のタイル（window a, b, c, door AB, BC）が並ぶ</li>
+  <li>1.5 秒ごとに各タイルの色が closed (緑) → half (橙) → open (赤) を巡回</li>
+  <li>信頼度バーが画面下部で動き続ける</li>
+  <li>左下の <code>LV_USE_PERF_MONITOR</code> に <b>FPS と CPU 使用率</b>がリアルタイム表示</li>
+</ol>
+
+<h3>B. パフォーマンス確認（重要）</h3>
+
+<p><b>FPS が 20 以上 / CPU 50% 以下</b>を目標。これを満たさないと v1.0 の実画面更新でカクつく:</p>
+
+<table>
+  <thead><tr><th>状態</th><th>判定</th><th>対処</th></tr></thead>
+  <tbody>
+    <tr><td>FPS 30+, CPU 30%</td><td>◎ 余裕</td><td>そのまま v1.0 統合へ</td></tr>
+    <tr><td>FPS 20-30, CPU 50-70%</td><td>○ ボーダー</td><td>partial blit の窓サイズを調整</td></tr>
+    <tr><td>FPS &lt; 20</td><td>✗ NG</td><td>SPI クロックを 20→30 MHz、または LV_MEM_SIZE 増</td></tr>
+    <tr><td>FPS &lt; 5</td><td>✗ 致命的</td><td>SPI 配線がバウンスしている疑い、まず 03 に戻る</td></tr>
+  </tbody>
+</table>
+
+<h3>C. シリアルログを補助確認</h3>
+
+<p>115200 bps テキストで起動ログと <code>lv_log</code> 出力が見える:</p>
+
+<pre><code>LVGL v9.x init OK
+Display registered: 320x240
+LVGL task started
+[Warn] mem usage 35%
+[Info] frame rate 24 fps</code></pre>
+
+<p>VS Code Serial Monitor / TeraTerm / PuTTY のいずれでも可。</p>
+
+<h3>D. PC 側スクリプト</h3>
+
+<p><b>不要</b>。LVGL のレンダリング結果は MCU 側で完結する。</p>
+
+<h2>メモリ使用量</h2>
+<table>
+  <thead><tr><th>項目</th><th>サイズ</th></tr></thead>
+  <tbody>
+    <tr><td>LVGL ライン buffer (40 行 × 320 px × 2 B × 2)</td><td>~50 KB</td></tr>
+    <tr><td>LV_MEM_SIZE</td><td>48 KB</td></tr>
+    <tr><td>LVGL コード</td><td>~80 KB（Flash）</td></tr>
+    <tr><td>ILI9341 ドライバ</td><td>~14 KB（Flash）</td></tr>
+  </tbody>
+</table>
+
+<p>MCXN947 (Flash 2 MB / SRAM 768 KB) には余裕の構成。</p>
+
+<h2>トラブルシュート</h2>
+<ul>
+  <li><b>画面が真っ黒のまま</b>: <a href="../03_ili9341_test/README.html">03_ili9341_test</a> が通っているか先に確認。LVGL 統合より前にドライバ単体問題の可能性</li>
+  <li><b><code>lv_init</code> が固まる</b>: <code>LV_MEM_SIZE</code> がスタック領域を食い潰している → <code>48 * 1024</code> を下げるかリンカで <code>_Min_Heap_Size</code> を増やす</li>
+  <li><b>FPS が 5 以下</b>: SPI クロックが遅い (8 MHz) かバスがバウンスしている → <code>ILI_SPI_BAUD_HZ</code> を 20–30 MHz に</li>
+  <li><b>タイル色が逆</b>: 03 のトラブルシュート §「色が逆」と同じく MADCTL_BGR の問題</li>
+</ul>
+
+</main>
+
+</body>
+</html>

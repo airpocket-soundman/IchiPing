@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>01_dummy_emitter — IchiPing</title>
+<link rel="stylesheet" href="../../../docs/style.css">
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../../../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../../../index.html">トップ</a>
+      <a href="../../../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../../README.html">firmware ガイド</a>
+      <a href="../../../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ファーム別デモ</div>
+      <a href="../01_dummy_emitter/README.html" class="current">01 dummy_emitter</a>
+      <a href="../02_servo_test/README.html">02 servo_test</a>
+      <a href="../03_ili9341_test/README.html">03 ili9341_test</a>
+      <a href="../04_lvgl_test/README.html">04 lvgl_test</a>
+      <a href="../05_usb_cdc_emitter/README.html">05 usb_cdc_emitter</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="../../../docs/spec.html">仕様書 (spec)</a>
+      <a href="../../../hardware/wiring.html">配線テーブル</a>
+      <a href="../../../hardware/bom.html">BOM (部品表)</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="../../../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../../../index.html">← IchiPing トップ</a>
+    ／ <a href="../../README.html">firmware</a>
+    ／ <a href="../">projects</a>
+    ／ 01_dummy_emitter
+  </div>
+  <h1>01_dummy_emitter — シリアル疎通テスト</h1>
+  <div class="sub">
+    MCU 内で合成した chirp+残響をフレーム化し、OpenSDA UART (921600 bps) で PC に流す v0.1 の本番ファーム。
+  </div>
+  <div class="meta">
+    <span class="meta-stat active"><span class="num">v0.1</span> 本番</span>
+    <span class="meta-stat"><span class="num">921600 bps</span> シリアル</span>
+    <span class="meta-stat"><span class="num">lpuart/polling_transfer</span> ベース</span>
+  </div>
+</header>
+
+<main>
+
+<h2>MCUXpresso でのインポート手順</h2>
+<ol>
+  <li><code>File &gt; New &gt; Create a new C/C++ Project</code></li>
+  <li>SDK Wizard → ボード <b><code>frdmmcxn947</code></b> → ベース <code>driver_examples &gt; lpuart &gt; polling_transfer</code></li>
+  <li>プロジェクト名を <code>ichiping_dummy_emitter</code> などに変更</li>
+  <li>生成された <code>main.c</code> を本フォルダの <a href="main.c">main.c</a> に置換</li>
+  <li>以下をプロジェクトに追加（リンクでもコピーでも可）:
+    <ul>
+      <li><a href="../../shared/source/ichiping_frame.c"><code>../../shared/source/ichiping_frame.c</code></a></li>
+      <li><a href="../../shared/source/dummy_audio.c"><code>../../shared/source/dummy_audio.c</code></a></li>
+    </ul>
+  </li>
+  <li><code>Project &gt; Properties &gt; C/C++ Build &gt; Settings &gt; MCU C Compiler &gt; Includes</code> に追加:
+    <pre><code>"${ProjDirPath}/../../firmware/shared/include"</code></pre>
+  </li>
+  <li>ビルド → OpenSDA で書込</li>
+</ol>
+
+<h2>シリアル設定</h2>
+<table>
+  <thead><tr><th>項目</th><th>値</th></tr></thead>
+  <tbody>
+    <tr><th>ポート</th><td>OpenSDA Debug VCP（デバイスマネージャの「COMx」）</td></tr>
+    <tr><th>ボーレート</th><td><b>921600 bps</b></td></tr>
+    <tr><th>フォーマット</th><td>バイナリ ICHP フレーム、8N1 フロー制御なし</td></tr>
+    <tr><th>受け側</th><td><a href="../../../pc/receiver.py"><code>pc/receiver.py</code></a></td></tr>
+  </tbody>
+</table>
+
+<h2>動作</h2>
+<p>3 秒周期で:</p>
+<ol>
+  <li>INFER LED ON</li>
+  <li>seq から決定論的なサーボ角 5 個を生成</li>
+  <li><code>dummy_audio_generate()</code> で 32000 サンプルの chirp+残響</li>
+  <li><code>ichp_pack_frame()</code> で 64038 B のフレーム化</li>
+  <li><code>LPUART_WriteBlocking()</code> で送出 (~556 ms)</li>
+  <li>INFER LED OFF</li>
+  <li>待機</li>
+</ol>
+
+<p>詳細シーケンスは <a href="../../README.html">firmware ガイド §動作シーケンス（Dummy emitter）</a> を参照。</p>
+
+<h2>確認方法</h2>
+
+<div class="panel" style="background: #1f242d; border-left: 4px solid #ffb454; padding: 10px 14px; margin: 14px 0; border-radius: 4px;">
+  <b>⚠ 注意:</b> このファームは <b>バイナリフレーム</b>を吐くので、TeraTerm / PuTTY / VS Code Serial Monitor で開いても文字化けして見えるだけ。<b>必ず <a href="../../../pc/receiver.py">pc/receiver.py</a> で受ける</b>こと。
+</div>
+
+<h3>A. PC 側受信スクリプトで実機フレームを受け取る（本筋）</h3>
+
+<ol>
+  <li>conda 環境を有効化（初回のみ <code>conda env create -f environment.yml</code>）:
+    <pre><code>cd pc
+conda activate ichiping</code></pre>
+  </li>
+  <li>デバイスマネージャで FRDM-MCXN947 の OpenSDA 仮想 COM 番号（例 COM7）を確認</li>
+  <li>受信スクリプトを起動:
+    <pre><code>python receiver.py --port COM7 --baud 921600 --out ../captures</code></pre>
+  </li>
+  <li>3 秒ごとに 1 行ログが出れば成功。期待ログ例:
+    <pre><code>[     0] t=    3001ms sr=16000 N=32000 servos=[ 17.0, 65.0, 82.0,  3.0, 41.0] CRC=OK (0.33 fps)
+[     1] t=    6002ms sr=16000 N=32000 servos=[ 33.0, 12.0,  7.0, 88.0, 56.0] CRC=OK (0.33 fps)</code></pre>
+  </li>
+  <li><b>成功条件</b>:
+    <ul>
+      <li><code>CRC=OK</code> が連続で出る</li>
+      <li><code>../captures/labels.csv</code> に行が追記される</li>
+      <li><code>../captures/frame_000000.wav</code> ... が増えていく（メディアプレーヤで開けば chirp の "ピュッ" + ノイズ尾が聞こえる）</li>
+    </ul>
+  </li>
+</ol>
+
+<h3>B. verify.py で 8 項目自動チェック（推奨）</h3>
+
+<p>受信ストリームが本当にフレーム形式仕様に従っているかを 8 項目で機械的に判定する：</p>
+
+<pre><code>python verify.py --port COM7 --frames 20 --strict</code></pre>
+
+<p>seq 単調増加、CRC 全数 OK、サンプル数固定、chirp の整合フィルタピーク位置などをまとめてチェック。1 件でも FAIL なら exit 1。</p>
+
+<h3>C. PC 受信パイプラインの単体テスト（実機なしで先に通す）</h3>
+
+<p>ハードを繋ぐ前に、PC 側の受信・パッカー・CRC 実装が壊れていないことを単体テストで確認しておく：</p>
+
+<pre><code>cd pc
+python -m unittest test_frame_format test_loopback -v</code></pre>
+
+<table>
+  <thead><tr><th>テスト</th><th>件数</th><th>カバレッジ</th></tr></thead>
+  <tbody>
+    <tr><td><code>test_frame_format</code></td><td>9</td><td>ヘッダ長 36 B、各フィールドのバイトオフセット、CRC-16/CCITT-FALSE の既知ベクタ、pack→unpack ラウンドトリップ</td></tr>
+    <tr><td><code>test_loopback</code></td><td>6</td><td><a href="../../../pc/emulator.py"><code>emulator.py</code></a> が書いた偽フレームを <code>receiver.py</code> で E2E 解釈、chirp の構造、サーボ角の C 互換性</td></tr>
+  </tbody>
+</table>
+
+<p>gcc/MinGW があれば <code>test_ctypes_packer</code> も走り、C 側 <code>ichp_pack_frame</code> と Python 側 <code>pack_frame</code> のバイト一致を 2 件で検証（無ければ自動 skip）。</p>
+
+<h3>D. 実機なしで loopback テスト</h3>
+
+<p>MCU が手元に無い段階でも、<a href="../../../pc/emulator.py"><code>emulator.py</code></a> で同じフレーム形式の偽ストリームを生成して <code>receiver.py</code> を通せる:</p>
+
+<pre><code># Terminal 1: 偽 MCU が TCP で配信
+python emulator.py --tcp 127.0.0.1:5000 --frames 10
+
+# Terminal 2: 受信
+python receiver.py --tcp 127.0.0.1:5000 --out ../captures_dummy</code></pre>
+
+<p>または file 経由:</p>
+
+<pre><code>python emulator.py --out fake_stream.bin --frames 10
+python receiver.py --in fake_stream.bin --out ../captures_dummy</code></pre>
+
+<h3>E. OpenSDA 起動ログを補助的に確認</h3>
+
+<p>main.c の冒頭に <code>PRINTF("IchiPing dummy emitter: ...\r\n")</code> が 1 行だけ流れる（バイナリ送信前）。<b>テキストモニタで一瞬だけ見える</b>かは速度的に怪しいので、これは "完全に死んでないか" の最後の砦として扱う:</p>
+
+<pre><code># TeraTerm / PuTTY を 921600 bps で開いて起動直後だけ見える可能性がある
+# ただし起動から数 ms 後にはバイナリフレームが流れ込んでくるので化ける</code></pre>
+
+<p>本筋の確認は A/B/C/D で行う。</p>
+
+</main>
+
+</body>
+</html>

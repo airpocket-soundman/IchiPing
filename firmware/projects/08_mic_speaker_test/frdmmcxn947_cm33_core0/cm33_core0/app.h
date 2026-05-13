@@ -1,0 +1,15 @@
+#ifndef _APP_H_
+#define _APP_H_
+
+/* SAI0 = MAX98357A TX, SAI1 = INMP441 RX */
+#define BOARD_SPK_SAI_BASE       I2S0
+#define BOARD_SPK_SAI_CLK_ATTACH kFRO_HF_to_SAI0
+#define BOARD_SPK_SAI_CLK_DIV    kCLOCK_DivSai0Clk
+#define BOARD_SPK_SAI_CLK_FREQ   CLOCK_GetSaiClkFreq(0u)
+
+#define BOARD_MIC_SAI_BASE       I2S1
+#define BOARD_MIC_SAI_CLK_ATTACH kFRO_HF_to_SAI1
+#define BOARD_MIC_SAI_CLK_DIV    kCLOCK_DivSai1Clk
+#define BOARD_MIC_SAI_CLK_FREQ   CLOCK_GetSaiClkFreq(1u)
+
+#endif

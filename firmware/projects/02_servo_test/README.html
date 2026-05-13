@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>02_servo_test — IchiPing</title>
+<link rel="stylesheet" href="../../../docs/style.css">
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../../../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../../../index.html">トップ</a>
+      <a href="../../../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../../README.html">firmware ガイド</a>
+      <a href="../../../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ファーム別デモ</div>
+      <a href="../01_dummy_emitter/README.html">01 dummy_emitter</a>
+      <a href="../02_servo_test/README.html" class="current">02 servo_test</a>
+      <a href="../03_ili9341_test/README.html">03 ili9341_test</a>
+      <a href="../04_lvgl_test/README.html">04 lvgl_test</a>
+      <a href="../05_usb_cdc_emitter/README.html">05 usb_cdc_emitter</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="../../../docs/spec.html">仕様書 (spec)</a>
+      <a href="../../../hardware/wiring.html">配線テーブル</a>
+      <a href="../../../hardware/bom.html">BOM (部品表)</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="../../../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../../../index.html">← IchiPing トップ</a>
+    ／ <a href="../../README.html">firmware</a>
+    ／ <a href="../">projects</a>
+    ／ 02_servo_test
+  </div>
+  <h1>02_servo_test — サーボ動作確認</h1>
+  <div class="sub">
+    PCA9685 <b>または</b> LU9685 経由で SG90 ×5 をスイープして配線確認する単体テストファーム。
+    <code>servo_driver.h</code> の共通 API を経由するので、コードを変えずに 2 種類のサーボドライバ IC を切り替えられる。
+  </div>
+  <div class="meta">
+    <span class="meta-stat"><span class="num">v0.4</span> 準備</span>
+    <span class="meta-stat"><span class="num">115200 bps</span> 観測用シリアル</span>
+    <span class="meta-stat"><span class="num">lpi2c/polling_master</span> ベース</span>
+  </div>
+</header>
+
+<main>
+
+<h2>MCUXpresso でのインポート手順</h2>
+<ol>
+  <li><code>File &gt; New &gt; Create a new C/C++ Project</code></li>
+  <li>SDK Wizard → ボード <b><code>frdmmcxn947</code></b> → ベース <code>driver_examples &gt; lpi2c &gt; polling_master</code></li>
+  <li>プロジェクト名を <code>ichiping_servo_test</code> などに変更</li>
+  <li>生成された <code>main.c</code> を本フォルダの <a href="main.c">main.c</a> に置換</li>
+  <li><b>使うドライバに応じて 1 つだけ</b> ソースを追加:
+    <ul>
+      <li>PCA9685 の場合: <a href="../../shared/source/pca9685.c"><code>../../shared/source/pca9685.c</code></a></li>
+      <li>LU9685 の場合: <a href="../../shared/source/lu9685.c"><code>../../shared/source/lu9685.c</code></a></li>
+    </ul>
+  </li>
+  <li>Include パスを追加:
+    <pre><code>"${ProjDirPath}/../../firmware/shared/include"</code></pre>
+  </li>
+  <li><b>LU9685 を使う場合のみ</b> Preprocessor Defined symbols に追加:
+    <pre><code>SERVO_BACKEND_LU9685_I2C</code></pre>
+    PCA9685 は既定なのでシンボル追加不要。
+  </li>
+  <li><b>Config Tools の Pins ツール</b>で D14/D15 を <code>LPI2C4_SDA</code> / <code>LPI2C4_SCL</code> に割当 → <code>pin_mux.c</code> に反映</li>
+  <li>ビルド → OpenSDA で書込</li>
+</ol>
+
+<h2>配線（必読）</h2>
+<p>詳細: <a href="../../../hardware/wiring.html">hardware/wiring.html</a> §2.2 / §2.5</p>
+<table>
+  <thead><tr><th>デバイス端子</th><th>FRDM-MCXN947</th><th>注意</th></tr></thead>
+  <tbody>
+    <tr><td>SDA</td><td>D14 (FC4_I2C_SDA)</td><td>4.7 kΩ プルアップ 1 セットのみ</td></tr>
+    <tr><td>SCL</td><td>D15 (FC4_I2C_SCL)</td><td>同上</td></tr>
+    <tr><td>VCC</td><td>3V3</td><td>ロジック電源</td></tr>
+    <tr><td><b>V+</b></td><td><b>外部 5V レール</b></td><td><b>FRDM 3V3 不可。1000 µF 電解必須</b></td></tr>
+    <tr><td>GND</td><td>GND</td><td>サーボ GND も共通バーに</td></tr>
+    <tr><td>PWM0..4</td><td>サーボ信号線 5 本</td><td>窓 a/b/c, 扉 AB/BC</td></tr>
+  </tbody>
+</table>
+
+<h2>シリアル設定（PRINTF 観測用）</h2>
+<table>
+  <thead><tr><th>項目</th><th>値</th></tr></thead>
+  <tbody>
+    <tr><th>ポート</th><td>OpenSDA Debug VCP</td></tr>
+    <tr><th>ボーレート</th><td><b>115200 bps</b></td></tr>
+    <tr><th>内容</th><td>テキストの進行ログ</td></tr>
+  </tbody>
+</table>
+
+<h2>動作シーケンス</h2>
+<pre><code>Phase 1 (同期ウェイポイント):
+  all → 0°       hold 1.0 s
+  all → 90°      hold 1.0 s
+  all → 180°     hold 1.0 s
+  all → 0°       hold 0.5 s
+
+Phase 2 (ソロスイープ ×5 ch):
+  ch_n → 180°    hold 1.0 s
+  ch_n → 0°      hold 0.5 s</code></pre>
+
+<h2>確認方法</h2>
+
+<p>このファームは <b>テキスト PRINTF</b> なので、シリアルモニタを開くだけで OK。PC 側スクリプト不要。</p>
+
+<h3>A. シリアルモニタで進行ログを観測（本筋）</h3>
+
+<p>使えるツールはどれでもよい:</p>
+
+<ul>
+  <li><b>VS Code Serial Monitor</b> 拡張（推奨） — F5 後に COM 選択で開く</li>
+  <li><b>TeraTerm</b> — シリアル接続 → 設定 → シリアルポート → 115200 / 8N1</li>
+  <li><b>PuTTY</b> — Connection type: Serial、Speed: 115200</li>
+  <li><code>python -m serial.tools.miniterm COM7 115200</code>（pyserial 入っていれば即動く）</li>
+</ul>
+
+<p>期待ログ例:</p>
+
+<pre><code>IchiPing servo_test (backend=PCA9685, addr=0x40)
+PCA9685 init OK @ 50 Hz
+Phase 1 sync waypoints:
+  all -> 0 deg   hold 1000 ms
+  all -> 90 deg  hold 1000 ms
+  all -> 180 deg hold 1000 ms
+  all -> 0 deg   hold 500 ms
+Phase 2 solo sweep:
+  ch0 -> 180 deg
+  ch0 -> 0 deg
+  ch1 -> 180 deg
+  ...</code></pre>
+
+<h3>B. 目視で 5 個のサーボが動くことを確認</h3>
+
+<p>シリアルログより<b>こちらが本命</b>。配線が間違っていてもログは進むので必ず実物を見る:</p>
+
+<ol>
+  <li>Phase 1 で 5 個全部が同じ角度に動く（0° → 90° → 180° → 0° の 3 段階）</li>
+  <li>Phase 2 で 1 個ずつ順に 0° ↔ 180° を往復（ch0 = 窓 a, ch1 = 窓 b, ch2 = 窓 c, ch3 = 扉 AB, ch4 = 扉 BC）</li>
+  <li>動かないチャネルがあれば配線か PCA9685 出力か個体不良</li>
+  <li>全部が同じ角度で固まる → I²C 通信失敗（次項参照）</li>
+</ol>
+
+<h3>C. I²C スキャンで PCA9685 / LU9685 が見えているか先に確認</h3>
+
+<p>サーボが 1 個も動かない場合、まず I²C アドレスが正しく見えているかを確認するファームを別に流す手もあるが、本ファームでも起動ログに以下が出る:</p>
+
+<pre><code>PCA9685 init OK @ 50 Hz       ← OK
+# または
+PCA9685 init FAILED (no ACK)  ← デバイスが見えてない</code></pre>
+
+<p>失敗時は:</p>
+<ul>
+  <li>PCA9685: A0..A5 ピンの設定確認、デフォルト 0x40。プルアップ 4.7 kΩ × 2 が SDA/SCL に入っているか</li>
+  <li>LU9685: ジャンパで設定された I²C アドレス（0x00..0x1F）を <code>main.c</code> の <code>SERVO_DEFAULT_ADDR</code> 引数で指定</li>
+</ul>
+
+<h2>トラブルシュート</h2>
+<ul>
+  <li><b>PCA9685 が応答しない</b>: A0..A5 の I²C アドレス選択ピンの位置を確認、デフォルト 0x40</li>
+  <li><b>LU9685 が応答しない</b>: ジャンパで設定された I²C アドレス（0x00..0x1F）を確認、0x00 は General Call と被るので 0x01 以上にずらすのが安全</li>
+  <li><b>サーボがガタつく</b>: V+ の 5V 電源容量不足。USB バスパワーでは足りないので外部 5V 電源 + 1000 µF を必ず</li>
+</ul>
+
+</main>
+
+</body>
+</html>

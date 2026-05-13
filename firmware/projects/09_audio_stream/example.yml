@@ -1,0 +1,13 @@
+ichiping_09_audio_stream:
+  boards:
+    frdmmcxn947@cm33_core0: []
+  contents:
+    document:
+      brief: IchiPing — continuous INMP441 capture streamed as ICHP frames over
+        the OpenSDA UART at 921600 bps. Same wire format as 01_dummy_emitter,
+        so pc/receiver.py works unchanged. Building block for v0.2.
+      category: ichiping
+      name: ichiping_09_audio_stream${core_id_suffix_name}
+    meta_path: examples/ichiping/09_audio_stream
+    project-root-path: boards/${board}/ichiping/09_audio_stream/${multicore_foldername}
+  section-type: freestanding_application

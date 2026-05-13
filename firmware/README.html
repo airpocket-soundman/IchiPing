@@ -91,27 +91,37 @@
 │       ├── ili9341.c                     ILI9341 ドライバ（SPI + 5x7 ASCII フォント）
 │       └── lv_port_disp.c                LVGL ↔ ILI9341 glue（partial render）
 ├── projects/                            MCUXpresso プロジェクトを 1 つずつ独立に
-│   ├── 01_dummy_emitter/
-│   │   ├── main.c                        SysTick + LPUART + 3 秒周期フレーム送信
-│   │   └── README.md                     MCUXpresso インポート手順
-│   ├── 02_servo_test/
-│   │   ├── main.c                        servo_driver.h 経由で PCA9685/LU9685 両対応
-│   │   └── README.md
-│   ├── 03_ili9341_test/
-│   │   ├── main.c                        ILI9341 単体の 5 フェーズ描画デモ
-│   │   └── README.md
-│   ├── 04_lvgl_test/
-│   │   ├── main.c                        LVGL v9 統合 + IchiPing 状態 UI モック
-│   │   └── README.md
-│   └── 05_usb_cdc_emitter/
-│       ├── main.c                        USB CDC ACM 経由で ICHP フレーム送信
-│       └── README.md
+│   ├── 01_dummy_emitter/                 シリアル疎通／フレーム生成（LPUART のみ）
+│   │   ├── main.c
+│   │   ├── README.md
+│   │   ├── CMakeLists.txt                プロジェクト固有のソース＋インクルードリスト
+│   │   ├── CMakePresets.json             debug/release プリセット（共通）
+│   │   ├── Kconfig                       SDK Kconfig ルート（共通）
+│   │   ├── example.yml                   MCUXpresso example メタデータ
+│   │   ├── mcux_include.json             ARMGCC/SDK パス（共通、開発機固有）
+│   │   ├── prj.conf                      プロジェクト個別の SDK コンポーネント選択
+│   │   └── frdmmcxn947_cm33_core0/
+│   │       ├── board_files.cmake          board/clock/pins/cm33_core0 を mcux_add_*
+│   │       ├── prj.conf                   ボード共通の SDK コンポーネント（共通）
+│   │       ├── Kconfig.trace              CUSTOM_APP_* config 宣言
+│   │       ├── frdmmcxn947/               board.{c,h} + clock_config.{c,h}（Config Tools 生成物）
+│   │       ├── cm33_core0/                app.h + hardware_init.c（FlexComm 接続）
+│   │       └── pins/                      pin_mux.{c,h}（Config Tools 生成物）
+│   ├── 02_servo_test/                    PCA9685／LU9685 ＋ SG90 ×5（LPI2C2）
+│   ├── 03_ili9341_test/                  TFT 配線確認＋5 フェーズ描画（LPSPI3 + 4 GPIO）
+│   ├── 04_lvgl_test/                     LVGL v9 ＋ IchiPing 状態 UI モック（LPSPI3 + 4 GPIO）
+│   ├── 05_usb_cdc_emitter/               USB CDC ACM で ICHP フレーム送信（USB1 FS）
+│   ├── 06_mic_test/                      INMP441 単体疎通（SAI1 RX, RMS/Peak PRINTF）
+│   ├── 07_speaker_test/                  MAX98357A 単体疎通（SAI0 TX, 5 種テスト音）
+│   ├── 08_mic_speaker_test/              TX chirp ＋ RX キャプチャ（室内インパルス応答）
+│   ├── 09_audio_stream/                  実音 INMP441 → ICHP フレーム連続送信（01 の real-mic 版）
+│   └── 10_collector/                     PC 双方向: PC→MCU 設定 / MCU→PC ラベル付き学習データ
 ├── host_build/                          ホスト (gcc/MinGW) でビルドする足場
 │   ├── Makefile                          .so/.dll を作って ctypes 突合テストに使う
 │   └── README.md
 └── README.md / README.html</code></pre>
 
-<p>本リポは <b>5 つの独立ファーム</b>を提供する。それぞれ別 MCUXpresso プロジェクト:</p>
+<p>本リポは <b>10 つの独立ファーム</b>を提供する。それぞれ別 MCUXpresso プロジェクト:</p>
 <table>
   <thead>
     <tr><th>#</th><th>ディレクトリ</th><th>用途</th><th>SDK ベース</th></tr>
@@ -119,33 +129,63 @@
   <tbody>
     <tr>
       <td>1</td>
-      <td><a href="projects/01_dummy_emitter/"><code>projects/01_dummy_emitter</code></a></td>
+      <td><a href="projects/01_dummy_emitter/README.html"><code>projects/01_dummy_emitter</code></a></td>
       <td>シリアル疎通とフレーム形式の確立（v0.1 本番）</td>
       <td><code>lpuart/polling_transfer</code></td>
     </tr>
     <tr>
       <td>2</td>
-      <td><a href="projects/02_servo_test/"><code>projects/02_servo_test</code></a></td>
+      <td><a href="projects/02_servo_test/README.html"><code>projects/02_servo_test</code></a></td>
       <td>PCA9685 <b>または</b> LU9685 + SG90 ×5 の動作確認（v0.4 準備）</td>
       <td><code>lpi2c/polling_master</code></td>
     </tr>
     <tr>
       <td>3</td>
-      <td><a href="projects/03_ili9341_test/"><code>projects/03_ili9341_test</code></a></td>
+      <td><a href="projects/03_ili9341_test/README.html"><code>projects/03_ili9341_test</code></a></td>
       <td>TFT 配線確認 + 5 フェーズ最小描画デモ（v1.0 準備）</td>
       <td><code>lpspi/polling_b2b</code></td>
     </tr>
     <tr>
       <td>4</td>
-      <td><a href="projects/04_lvgl_test/"><code>projects/04_lvgl_test</code></a></td>
+      <td><a href="projects/04_lvgl_test/README.html"><code>projects/04_lvgl_test</code></a></td>
       <td>LVGL v9 のポート確立 + IchiPing 状態 UI モック</td>
       <td><code>lpspi/polling_b2b</code> + middleware/lvgl</td>
     </tr>
     <tr>
       <td>5</td>
-      <td><a href="projects/05_usb_cdc_emitter/"><code>projects/05_usb_cdc_emitter</code></a></td>
+      <td><a href="projects/05_usb_cdc_emitter/README.html"><code>projects/05_usb_cdc_emitter</code></a></td>
       <td>USB CDC ACM で 1 フレーム ~50 ms（v0.3 高速化）</td>
       <td><code>usb_examples/usb_device_cdc_vcom</code></td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td><a href="projects/06_mic_test/"><code>projects/06_mic_test</code></a></td>
+      <td>INMP441 単体疎通 — PRINTF だけで RMS/Peak/ZCR 観測</td>
+      <td><code>sai/sai_interrupt_record</code></td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td><a href="projects/07_speaker_test/"><code>projects/07_speaker_test</code></a></td>
+      <td>MAX98357A 単体疎通 — 200/1k/5k Hz + chirp 再生</td>
+      <td><code>sai/sai_interrupt_play</code></td>
+    </tr>
+    <tr>
+      <td>8</td>
+      <td><a href="projects/08_mic_speaker_test/"><code>projects/08_mic_speaker_test</code></a></td>
+      <td>TX chirp ＋ RX キャプチャの閉ループ（室内インパルス応答）</td>
+      <td><code>sai/sai_*</code> + <code>lpuart</code></td>
+    </tr>
+    <tr>
+      <td>9</td>
+      <td><a href="projects/09_audio_stream/"><code>projects/09_audio_stream</code></a></td>
+      <td>実マイク連続ストリーミング（01 の real audio 版）</td>
+      <td><code>sai/sai_*</code> + <code>lpuart</code></td>
+    </tr>
+    <tr>
+      <td>10</td>
+      <td><a href="projects/10_collector/"><code>projects/10_collector</code></a></td>
+      <td>PC 双方向制御の学習データ採取（窓 / 励起 / 反復 / ラベル）</td>
+      <td><code>sai/sai_*</code> + <code>lpuart</code> ＋ PC <code>collector_client.py</code></td>
     </tr>
   </tbody>
 </table>
@@ -193,29 +233,60 @@
   ハード差し替え時のコード変更はゼロ（Preprocessor シンボルを変えるだけ）。
 </p>
 
-<h2>ビルド手順（MCUXpresso IDE / MCUXpresso for VS Code）</h2>
+<h2>ビルド手順（MCUXpresso for VS Code）</h2>
 
-<p>各プロジェクトのインポート手順は <b>対応する <code>projects/XX_*/README.md</code></b> に詳細を書いた。共通の前提は:</p>
+<p>各 <code>projects/XX_*/</code> フォルダは <b>MCUXpresso for VS Code に直接 Import → Existing Project</b> できる状態に揃えてある（NXP の標準デモ <code>frdmmcxn947_lpspi_interrupt_b2b_transfer_master_cm33_core0</code> と同じ構造）。共通の流れは:</p>
 <ol>
-  <li><b>MCUXpresso SDK for FRDM-MCXN947</b> 11.9 以降を <code>frdmmcxn947</code> 用にダウンロード</li>
-  <li>SDK Wizard でベース例を選び（各 README の §1〜2 参照）、新規プロジェクトを作成</li>
-  <li>プロジェクトの <code>main.c</code> を <code>firmware/projects/XX_*/main.c</code> で置換</li>
-  <li>必要な共通ソース（<code>firmware/shared/source/*.c</code>）をプロジェクトに追加</li>
-  <li>Include パスに <code>${ProjDirPath}/../firmware/shared/include</code> を追加</li>
-  <li>プロジェクトごとの Preprocessor / Pin Mux / 外部依存（LVGL や USB stack）を README 通りに設定</li>
-  <li>ビルド → 書込</li>
+  <li><b>MCUXpresso SDK for FRDM-MCXN947</b> 11.9 以降を <code>d:/GitHub/mcuxsdk</code> 等に配置（<code>mcux_include.json</code> の <code>SdkRootDirPath</code> と一致させる）</li>
+  <li><b>arm-gnu-toolchain 14.2</b> を <code>~/.mcuxpressotools/...</code> に展開（<code>mcux_include.json</code> の <code>ARMGCC_DIR</code> と一致）</li>
+  <li>VS Code で <i>MCUXpresso → Import Project From Folder</i> → <code>firmware/projects/XX_*/</code> を指定</li>
+  <li><i>Configure preset</i> で <code>debug</code> または <code>release</code> を選び、ビルド</li>
+  <li>OpenSDA 経由で書込（GDB / Run target）</li>
 </ol>
+
+<p>各プロジェクトの個別事情（02 の I²C 変更、04 の LVGL ソース追加、05 の USB stack 追加）と <b>確認方法（シリアルだけで OK か、PC 側スクリプトが必要か）</b> は対応する README に書いてある:</p>
 
 <table>
   <thead>
-    <tr><th>プロジェクト</th><th>詳細 README</th></tr>
+    <tr><th>プロジェクト</th><th>ブラウザで読む</th><th>Markdown (GitHub Web)</th><th>確認方法の要点</th></tr>
   </thead>
   <tbody>
-    <tr><td>01_dummy_emitter</td><td><a href="projects/01_dummy_emitter/README.md">projects/01_dummy_emitter/README.md</a></td></tr>
-    <tr><td>02_servo_test</td><td><a href="projects/02_servo_test/README.md">projects/02_servo_test/README.md</a></td></tr>
-    <tr><td>03_ili9341_test</td><td><a href="projects/03_ili9341_test/README.md">projects/03_ili9341_test/README.md</a></td></tr>
-    <tr><td>04_lvgl_test</td><td><a href="projects/04_lvgl_test/README.md">projects/04_lvgl_test/README.md</a></td></tr>
-    <tr><td>05_usb_cdc_emitter</td><td><a href="projects/05_usb_cdc_emitter/README.md">projects/05_usb_cdc_emitter/README.md</a></td></tr>
+    <tr>
+      <td>01_dummy_emitter</td>
+      <td><a href="projects/01_dummy_emitter/README.html">README.html</a></td>
+      <td><a href="projects/01_dummy_emitter/README.md">README.md</a></td>
+      <td><b>PC で <code>receiver.py</code> 起動必須</b>（バイナリ）</td>
+    </tr>
+    <tr>
+      <td>02_servo_test</td>
+      <td><a href="projects/02_servo_test/README.html">README.html</a></td>
+      <td><a href="projects/02_servo_test/README.md">README.md</a></td>
+      <td>シリアルモニタ + 目視（PC スクリプト不要）</td>
+    </tr>
+    <tr>
+      <td>03_ili9341_test</td>
+      <td><a href="projects/03_ili9341_test/README.html">README.html</a></td>
+      <td><a href="projects/03_ili9341_test/README.md">README.md</a></td>
+      <td>TFT 目視 + シリアル進行ログ（PC スクリプト不要）</td>
+    </tr>
+    <tr>
+      <td>04_lvgl_test</td>
+      <td><a href="projects/04_lvgl_test/README.html">README.html</a></td>
+      <td><a href="projects/04_lvgl_test/README.md">README.md</a></td>
+      <td>TFT 目視 + LVGL FPS モニタ（PC スクリプト不要）</td>
+    </tr>
+    <tr>
+      <td>05_usb_cdc_emitter</td>
+      <td><a href="projects/05_usb_cdc_emitter/README.html">README.html</a></td>
+      <td><a href="projects/05_usb_cdc_emitter/README.md">README.md</a></td>
+      <td><b>PC で <code>receiver.py</code> 起動必須</b>（仮想 COM, バイナリ）</td>
+    </tr>
+    <tr>
+      <td>host_build</td>
+      <td><a href="host_build/README.html">README.html</a></td>
+      <td><a href="host_build/README.md">README.md</a></td>
+      <td>ファームではない。<code>python -m unittest test_ctypes_packer</code> で C↔Python 突合</td>
+    </tr>
   </tbody>
 </table>
 

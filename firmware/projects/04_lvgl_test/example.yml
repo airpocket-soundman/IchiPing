@@ -1,0 +1,13 @@
+ichiping_04_lvgl_test:
+  boards:
+    frdmmcxn947@cm33_core0: []
+  contents:
+    document:
+      brief: IchiPing — LVGL v9 port on top of the ILI9341 + LPSPI3. Renders a
+        mock IchiPing room-state UI (5 tiles + confidence bar + FPS monitor).
+        LVGL sources are NOT bundled; pull from SDK middleware/lvgl or upstream.
+      category: ichiping
+      name: ichiping_04_lvgl_test${core_id_suffix_name}
+    meta_path: examples/ichiping/04_lvgl_test
+    project-root-path: boards/${board}/ichiping/04_lvgl_test/${multicore_foldername}
+  section-type: freestanding_application

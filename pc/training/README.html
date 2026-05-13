@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>pc/training — IchiPing</title>
+<link rel="stylesheet" href="../../docs/style.css">
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../../index.html">トップ</a>
+      <a href="../../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../../firmware/README.html">firmware ガイド</a>
+      <a href="../README.html">PC ガイド</a>
+      <a href="../training/README.html" class="current">training</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="../../docs/spec.html">仕様書 (spec)</a>
+      <a href="../../docs/nn_design.html">NN 設計</a>
+      <a href="../../docs/mcu_deployment.html">MCU デプロイ</a>
+      <a href="../../hardware/wiring.html">配線テーブル</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="../../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../../index.html">← IchiPing トップ</a>
+    ／ <a href="../README.html">pc</a>
+    ／ training
+  </div>
+  <h1>pc/training — IchiPing v1 学習パイプライン</h1>
+  <div class="sub">
+    DigiKey v1 用の 1D-CNN マルチタスク NN（<a href="../../docs/spec.html">spec.html §4.3</a>）の訓練・エクスポート一式。
+  </div>
+  <div class="meta">
+    <span class="meta-stat"><span class="num">v0.5</span> ターゲット</span>
+    <span class="meta-stat"><span class="num">PyTorch 2.1+</span></span>
+    <span class="meta-stat"><span class="num">ONNX export</span></span>
+  </div>
+</header>
+
+<main>
+
+<h2>ファイル構成</h2>
+<table>
+  <thead><tr><th>ファイル</th><th>役割</th></tr></thead>
+  <tbody>
+    <tr><td><a href="features.py"><code>features.py</code></a></td><td>WAV → 整合フィルタで RIR 抽出 → 1024 bin log-magnitude スペクトル</td></tr>
+    <tr><td><a href="model.py"><code>model.py</code></a></td><td>共有 backbone + 6 ヘッド (any_open / door_AB / door_BC / window_a/b/c)</td></tr>
+    <tr><td><a href="dataset.py"><code>dataset.py</code></a></td><td><code>captures/</code> の labels.csv + WAV 群を読む PyTorch Dataset</td></tr>
+    <tr><td><a href="train.py"><code>train.py</code></a></td><td>訓練ループ・ベストチェックポイント保存・ONNX エクスポート</td></tr>
+  </tbody>
+</table>
+
+<h2>クイックスタート</h2>
+<p>データは <a href="../receiver.py"><code>pc/receiver.py</code></a> が生成する <code>captures/</code> ディレクトリ（labels.csv + frame_*.wav）を想定。</p>
+
+<pre><code># 1. 環境を作る
+cd pc
+conda env create -f environment.yml
+conda activate ichiping
+
+# 2. データ収集（loopback でダミー、または実機 + 模型）
+python emulator.py --out captures_dummy/stream.bin --frames 200 --cadence 0
+python receiver.py --in captures_dummy/stream.bin --out captures_dummy
+
+# 3. 訓練
+python -m training.train --captures captures_dummy --out ../runs/v1_pilot --epochs 50
+
+# 4. 推論物の確認
+ls ../runs/v1_pilot/
+#  -> best.pt        PyTorch チェックポイント
+#  -> best.onnx      ONNX 形式（eIQ Toolkit で INT8 量子化する入力）
+#  -> train_log.csv  per-epoch ロス
+#  -> config.json    再現用メタ</code></pre>
+
+<h2>確認方法</h2>
+
+<p>このディレクトリはファームではないので実機・シリアル不要。<b>PC 内で完結</b>。</p>
+
+<h3>A. 訓練が動く・loss が下がっていることの確認（本筋）</h3>
+
+<ol>
+  <li>まず <a href="../emulator.py"><code>emulator.py</code></a> で 200 サンプル分のダミーデータを作る（実機が無くても可）:
+    <pre><code>python emulator.py --out captures_dummy/stream.bin --frames 200 --cadence 0
+python receiver.py --in captures_dummy/stream.bin --out captures_dummy</code></pre>
+  </li>
+  <li><code>captures_dummy/</code> に <code>labels.csv</code> + 200 個の <code>frame_*.wav</code> ができている</li>
+  <li>訓練を 5 エポックほど走らせて、loss が下がるか見る（短時間で動作確認）:
+    <pre><code>python -m training.train --captures captures_dummy --out ../runs/smoke --epochs 5</code></pre>
+  </li>
+  <li>期待出力:
+    <pre><code>epoch 1: train_loss=0.6932 val_loss=0.6914 (any_open: 0.51 AUROC)
+epoch 2: train_loss=0.6810 val_loss=0.6720 ...
+epoch 3: ...
+...
+saved best.pt @ epoch 4 (val_loss=0.6450)
+saved best.onnx</code></pre>
+  </li>
+</ol>
+
+<h3>B. ONNX エクスポートが成立していることの確認</h3>
+
+<p>onnxruntime で再ロードして推論できるかを 1 サンプルで確かめる:</p>
+
+<pre><code>python -c "
+import onnxruntime as ort
+import numpy as np
+sess = ort.InferenceSession('../runs/smoke/best.onnx')
+x = np.random.randn(1, 1, 1024).astype(np.float32)
+out = sess.run(None, {sess.get_inputs()[0].name: x})
+print('outputs:', [o.shape for o in out])
+"</code></pre>
+
+<p>6 個の出力（各ヘッド）が返ってくれば OK。これが通れば eIQ Toolkit に入力できる。</p>
+
+<h3>C. データセット読み込みの単体動作確認</h3>
+
+<pre><code>python -c "
+from training.dataset import IchiPingDataset
+ds = IchiPingDataset('captures_dummy')
+print('size:', len(ds))
+x, y = ds[0]
+print('x:', x.shape, 'y keys:', list(y.keys()))
+"</code></pre>
+
+<p><code>x.shape == (1, 1024)</code>、<code>y</code> に 6 個のラベル（any_open, door_AB, door_BC, window_a, window_b, window_c）が入っていれば OK。</p>
+
+<h3>D. tensorboard で訓練を可視化（任意）</h3>
+
+<pre><code>tensorboard --logdir ../runs/smoke
+# ブラウザで http://localhost:6006</code></pre>
+
+<h3>E. 実機データで本訓練</h3>
+
+<p>v0.4 で 3 部屋模型を組んだあと、実機で 10000 サンプル収集して 50 エポック訓練する:</p>
+
+<pre><code>python -m training.train --captures ../captures_real --out ../runs/v1_pilot --epochs 50</code></pre>
+
+<h2>設計の意図</h2>
+<ul>
+  <li><b>backbone は <code>~30 K params</code>、INT8 で約 30 KB</b>。MCXN947 の NPU メモリ予算に収まる。</li>
+  <li><b>マルチタスク学習で共有 backbone</b> を 6 つのヘッドで使う。<a href="../../docs/spec.html">spec.html §4.3</a> の図を踏襲。</li>
+  <li><b>特徴は 1024 bin log-magnitude スペクトル</b>。MCU 側は PowerQuad で N=2048 rFFT を計算し、<code>bin 1..1024</code> を使う（DC を捨てて 1024 にする）。</li>
+  <li><b>ロス重み</b>は <a href="train.py"><code>train.py</code></a> 冒頭の <code>LOSS_WEIGHTS</code> 辞書で調整。データ分布に合わせて要チューニング。</li>
+</ul>
+
+<h2>次のステップ（v0.5 タスク）</h2>
+<ol>
+  <li><code>IP-0.5.1</code> PyTorch で訓練・評価 ← ここで完了</li>
+  <li><code>IP-0.5.2</code> ONNX → eIQ Toolkit で INT8 量子化 + MCXN947 用 C コード生成（<a href="../../docs/mcu_deployment.html">docs/mcu_deployment.html</a> 参照）</li>
+  <li><code>IP-0.5.3</code> MCU 側に推論コードを組み込み、chirp → RIR → spectrum → NN → 結果のレイテンシ計測</li>
+</ol>
+
+<h2>NN 詳細設計</h2>
+<p>アーキテクチャ図と各層の理由は <a href="../../docs/nn_design.html">docs/nn_design.html</a> を参照。</p>
+
+</main>
+
+</body>
+</html>

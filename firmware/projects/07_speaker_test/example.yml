@@ -1,0 +1,13 @@
+ichiping_07_speaker_test:
+  boards:
+    frdmmcxn947@cm33_core0: []
+  contents:
+    document:
+      brief: IchiPing — MAX98357A speaker bring-up. Plays 200 Hz / 1 kHz / 5 kHz
+        sine, the inference chirp (200 Hz → 8 kHz) and silence on SAI0 TX so
+        wiring + I²S clocking can be validated by ear.
+      category: ichiping
+      name: ichiping_07_speaker_test${core_id_suffix_name}
+    meta_path: examples/ichiping/07_speaker_test
+    project-root-path: boards/${board}/ichiping/07_speaker_test/${multicore_foldername}
+  section-type: freestanding_application

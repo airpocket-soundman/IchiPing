@@ -1,0 +1,14 @@
+ichiping_08_mic_speaker_test:
+  boards:
+    frdmmcxn947@cm33_core0: []
+  contents:
+    document:
+      brief: IchiPing — closed-loop SAI test. Plays the 200 Hz → 8 kHz chirp on
+        the MAX98357A while capturing the response on the INMP441; emits one
+        ICHP audio frame per cycle so pc/receiver.py can save room impulse
+        response WAVs for offline analysis.
+      category: ichiping
+      name: ichiping_08_mic_speaker_test${core_id_suffix_name}
+    meta_path: examples/ichiping/08_mic_speaker_test
+    project-root-path: boards/${board}/ichiping/08_mic_speaker_test/${multicore_foldername}
+  section-type: freestanding_application

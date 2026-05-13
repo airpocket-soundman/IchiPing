@@ -1,0 +1,13 @@
+ichiping_05_usb_cdc_emitter:
+  boards:
+    frdmmcxn947@cm33_core0: []
+  contents:
+    document:
+      brief: IchiPing — pushes ICHP audio frames over USB-FS CDC ACM (Virtual COM)
+        from MCXN947's native USB controller. Faster replacement for the
+        OpenSDA UART path in 01_dummy_emitter (~50ms vs 560ms per frame).
+      category: ichiping
+      name: ichiping_05_usb_cdc_emitter${core_id_suffix_name}
+    meta_path: examples/ichiping/05_usb_cdc_emitter
+    project-root-path: boards/${board}/ichiping/05_usb_cdc_emitter/${multicore_foldername}
+  section-type: freestanding_application

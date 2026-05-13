@@ -1,0 +1,14 @@
+ichiping_10_collector:
+  boards:
+    frdmmcxn947@cm33_core0: []
+  contents:
+    document:
+      brief: IchiPing — PC-driven labelled training data collector. Bidirectional
+        UART path; PC sends SET / GET / START / STOP / PING / SET label lines,
+        MCU returns ICHP audio frames carrying the configured window + tone +
+        repeat-index meta. PC client is pc/collector_client.py.
+      category: ichiping
+      name: ichiping_10_collector${core_id_suffix_name}
+    meta_path: examples/ichiping/10_collector
+    project-root-path: boards/${board}/ichiping/10_collector/${multicore_foldername}
+  section-type: freestanding_application

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>05_usb_cdc_emitter — IchiPing</title>
+<link rel="stylesheet" href="../../../docs/style.css">
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../../../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../../../index.html">トップ</a>
+      <a href="../../../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../../README.html">firmware ガイド</a>
+      <a href="../../../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ファーム別デモ</div>
+      <a href="../01_dummy_emitter/README.html">01 dummy_emitter</a>
+      <a href="../02_servo_test/README.html">02 servo_test</a>
+      <a href="../03_ili9341_test/README.html">03 ili9341_test</a>
+      <a href="../04_lvgl_test/README.html">04 lvgl_test</a>
+      <a href="../05_usb_cdc_emitter/README.html" class="current">05 usb_cdc_emitter</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="../../../docs/spec.html">仕様書 (spec)</a>
+      <a href="../../../hardware/wiring.html">配線テーブル</a>
+      <a href="../../../hardware/bom.html">BOM (部品表)</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="../../../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../../../index.html">← IchiPing トップ</a>
+    ／ <a href="../../README.html">firmware</a>
+    ／ <a href="../">projects</a>
+    ／ 05_usb_cdc_emitter
+  </div>
+  <h1>05_usb_cdc_emitter — USB CDC エミッタ（高速版）</h1>
+  <div class="sub">
+    <a href="../01_dummy_emitter/README.html">01_dummy_emitter</a> の OpenSDA UART 921600 bps を
+    <b>USB Full-Speed (12 Mbps) CDC ACM</b> に置き換えたファーム。
+    フレーム転送が ~560 ms → ~50 ms に短縮され、v0.3 以降の常時ストリームに対応できる。
+  </div>
+  <div class="meta">
+    <span class="meta-stat"><span class="num">v0.3+</span> 用</span>
+    <span class="meta-stat"><span class="num">USB FS 12 Mbps</span></span>
+    <span class="meta-stat"><span class="num">usb_device_cdc_vcom</span> ベース</span>
+  </div>
+</header>
+
+<main>
+
+<h2>MCUXpresso でのインポート手順</h2>
+<ol>
+  <li><code>File &gt; New &gt; Create a new C/C++ Project</code></li>
+  <li>SDK Wizard → ボード <b><code>frdmmcxn947</code></b> → ベース <code>usb_examples &gt; usb_device_cdc_vcom</code></li>
+  <li>プロジェクト名を <code>ichiping_usb_cdc_emitter</code> などに変更</li>
+  <li>SDK 例の <code>main.c</code> を本フォルダの <a href="main.c">main.c</a> で <b>置き換え</b></li>
+  <li><b>以下は SDK 例から触らずに残す</b>（CDC ACM スタックの本体）:
+    <ul>
+      <li><code>usb_device_descriptor.c</code> / <code>.h</code></li>
+      <li><code>virtual_com.c</code> / <code>.h</code></li>
+      <li><code>usb_device_config.h</code></li>
+      <li><code>usb_phy.c</code> / <code>.h</code></li>
+    </ul>
+  </li>
+  <li>プロジェクトに追加:
+    <ul>
+      <li><a href="../../shared/source/ichiping_frame.c"><code>../../shared/source/ichiping_frame.c</code></a></li>
+      <li><a href="../../shared/source/dummy_audio.c"><code>../../shared/source/dummy_audio.c</code></a></li>
+    </ul>
+  </li>
+  <li>Include パスを追加:
+    <pre><code>"${ProjDirPath}/../../firmware/shared/include"</code></pre>
+  </li>
+  <li><b><code>virtual_com.c</code> に小改造</b>: <code>USB_DeviceCdcVcomCallback</code> の DTR 受信ハンドラで <code>g_UsbCdcVcomReady</code> フラグを立てる（本 main.c が参照する）。1〜2 行の追加で済む</li>
+  <li>ビルド → 書込</li>
+</ol>
+
+<h2>配線</h2>
+<table>
+  <thead><tr><th>用途</th><th>コネクタ</th></tr></thead>
+  <tbody>
+    <tr><td>電源 + USB CDC</td><td>ボード上の <b>target USB-C (J21)</b> ← <b>OpenSDA USB (J17) ではない</b></td></tr>
+    <tr><td>デバッグ + 書込</td><td>OpenSDA USB (J17) を使う場合は SWD 経由で別途接続</td></tr>
+  </tbody>
+</table>
+
+<p>J21 をホスト PC に挿すと、PC 側に新しい仮想 COM ポートが現れる（Windows なら「USB CDC Device」、Linux なら <code>/dev/ttyACM*</code>）。</p>
+
+<h2>確認方法</h2>
+
+<p>受信側は <a href="../01_dummy_emitter/README.html">01_dummy_emitter</a> と <b>完全に同じパイプライン</b>。MCU 側のシリアル経路だけが UART → USB CDC に変わったため、PC 側スクリプトは無修正で動く。</p>
+
+<h3>A. PC が USB CDC を仮想 COM として認識しているか確認</h3>
+
+<ol>
+  <li>J21 (target USB-C) を PC に挿す</li>
+  <li>Windows: デバイスマネージャ → ポート (COM &amp; LPT) に新しい <b>USB シリアルデバイス</b>が出る（OpenSDA 用とは別の COM 番号）</li>
+  <li>Linux: <code>ls /dev/ttyACM*</code> で新しい <code>/dev/ttyACM1</code> 等が見えるはず</li>
+  <li>macOS: <code>ls /dev/tty.usbmodem*</code></li>
+</ol>
+
+<p>見えない場合は <b>Windows なら NXP の usbser ドライバ問題</b>、<b>Linux/macOS なら 配線・電源確認</b>から。</p>
+
+<h3>B. receiver.py で実機フレームを受け取る（01 と同じ）</h3>
+
+<pre><code>cd pc
+conda activate ichiping
+# UART のときと "--port が違う" だけ
+python receiver.py --port COM8 --baud 921600 --out ../captures_usb</code></pre>
+
+<p><code>--baud</code> は CDC では無視されるが pyserial が値を要求するため適当な値で OK。</p>
+
+<p>期待ログ（UART と完全に同じ表示）:</p>
+
+<pre><code>[     0] t=    3001ms sr=16000 N=32000 servos=[ ... ] CRC=OK (0.33 fps)
+[     1] t=    3050ms sr=16000 N=32000 servos=[ ... ] CRC=OK</code></pre>
+
+<p>3 秒周期の cadence は MCU 側 <code>main.c</code> の <code>FRAME_PERIOD_MS</code> に依存。早めたいなら 100 ms 等に落とすと <b>10 fps の常時ストリーム</b>になる（これが本ファームの存在意義）。</p>
+
+<h3>C. verify.py で 8 項目自動チェック</h3>
+
+<pre><code>python verify.py --port COM8 --frames 50 --strict</code></pre>
+
+<p>seq 単調増加、CRC 全数 OK、フレーム間隔（高速版なので 100 ms 以下になるはず）などを自動判定。</p>
+
+<h3>D. スループット確認</h3>
+
+<p>UART 版 (01) と並べて比較するのが最も雄弁。連続 100 フレームの所要時間を測る:</p>
+
+<pre><code># UART 版: 100 フレーム × 3 秒 = ~300 秒
+python receiver.py --port COM7 --baud 921600 --out ../tmp_uart --max-frames 100
+
+# CDC 版: MCU 側周期を 100 ms に下げてあれば ~10 秒
+python receiver.py --port COM8 --baud 921600 --out ../tmp_cdc --max-frames 100</code></pre>
+
+<table>
+  <thead><tr><th>ファーム</th><th>1 フレーム転送時間</th><th>最大フレームレート</th></tr></thead>
+  <tbody>
+    <tr><td>01_dummy_emitter (UART 921 600 bps)</td><td>~560 ms</td><td>~1 fps（3 秒周期想定）</td></tr>
+    <tr><td><b>05_usb_cdc_emitter (USB FS 12 Mbps)</b></td><td><b>~50 ms</b></td><td><b>理論 ~10 fps、実用 5 fps 程度</b></td></tr>
+  </tbody>
+</table>
+
+<p>これにより、v0.5 で chirp 放射 → 録音 → 即推論 → 即送信 の常時ストリームが現実的になる。</p>
+
+<h2>トラブルシュート</h2>
+<ul>
+  <li><b>PC が仮想 COM を認識しない</b>:
+    <ul>
+      <li>Windows: NXP の <code>usbser.sys</code> ドライバが必要なケース。Windows 10 以降は inbox driver で動くはず。デバイスマネージャで「ドライバの更新」</li>
+      <li>Linux/macOS: 標準で認識</li>
+    </ul>
+  </li>
+  <li><b><code>USB_DeviceCdcAcmSend</code> が失敗する</b>:
+    <ul>
+      <li>大きなバッファ (64 KB) を一度に送ると一部の SDK 版ではエラー。512 B 単位に分割するか、SDK 例の <code>USB_DeviceCdcVcomTransfer</code> を使う</li>
+    </ul>
+  </li>
+  <li><b>PC からは見えるがデータが来ない</b>:
+    <ul>
+      <li><code>g_UsbCdcVcomReady</code> フラグが立っていない可能性。<code>virtual_com.c</code> の DTR ハンドラ追加を再確認</li>
+    </ul>
+  </li>
+  <li><b>OpenSDA UART と同時利用</b>:
+    <ul>
+      <li>同じ MCU の別 IF なので干渉なし。デバッグ用に PRINTF は OpenSDA UART (J17) に出したまま、データは USB CDC (J21) に流せる</li>
+    </ul>
+  </li>
+</ul>
+
+<h2>SDK の参考リソース</h2>
+<ul>
+  <li>NXP AN12153 — MCXN94x USB Device Stack Bring-up</li>
+  <li>MCUXpresso SDK の <code>usb_examples/usb_device_cdc_vcom/readme.md</code></li>
+  <li>このプロジェクトはその readme の手順をベースに、send データを ICHP フレームに差し替えただけ</li>
+</ul>
+
+</main>
+
+</body>
+</html>

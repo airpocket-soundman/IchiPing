@@ -33,14 +33,42 @@ make
 - macOS: `libichp.dylib`
 - Windows: `ichp.dll`
 
-## テスト
+## 確認方法
 
-```bash
-cd pc
-python -m unittest test_ctypes_packer -v
+このディレクトリはファームではないので実機・シリアル不要。**PC でユニットテストを 1 本走らせるだけ**。
+
+### A. ライブラリのリンクと ctypes 突合テスト（本筋）
+
+1. 上記 `make` で `.so/.dylib/.dll` が生成されることを確認
+2. テストを実行:
+   ```bash
+   cd ../../pc
+   conda activate ichiping
+   python -m unittest test_ctypes_packer -v
+   ```
+3. 期待出力:
+   ```
+   test_pack_frame_matches_python ... ok
+   test_crc16_matches_python ... ok
+   ----------------------------------------------------------------------
+   Ran 2 tests in 0.018s
+
+   OK
+   ```
+
+2 件のテスト:
+- `test_pack_frame_matches_python` — 同じ入力に対して C 側 `ichp_pack_frame` と Python 側 `pack_frame` がバイト単位で同一フレームを出すか
+- `test_crc16_matches_python` — CRC-16/CCITT-FALSE の C 側と Python 側の実装一致（既知ベクタ + ランダム入力）
+
+### B. gcc が無い環境
+
+ライブラリが見つからない場合 `test_ctypes_packer` は **自動 skip**（fail ではない）:
+
+```
+test_pack_frame_matches_python ... skipped 'libichp not built'
 ```
 
-ライブラリが見つからない場合（gcc が無い環境）はテストが skip される。`test_frame_format` 側のテストは引き続き動くので、ヘッダ層の最低限の整合性は確認できる。
+このときも `test_frame_format` と `test_loopback` は通るので最低限のフレーム整合性は保証される。**実機を繋ぐ前に host_build まで通しておくのを推奨**。
 
 ## クリーン
 

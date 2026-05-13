@@ -1,0 +1,13 @@
+ichiping_02_servo_test:
+  boards:
+    frdmmcxn947@cm33_core0: []
+  contents:
+    document:
+      brief: IchiPing — drives 5× SG90 servos through either a PCA9685 (16-ch NXP)
+        or LU9685-20CU (20-ch compatible). Switch backend with SERVO_BACKEND_*
+        symbol. I²C on LPI2C2 (Arduino D14 SDA / D15 SCL).
+      category: ichiping
+      name: ichiping_02_servo_test${core_id_suffix_name}
+    meta_path: examples/ichiping/02_servo_test
+    project-root-path: boards/${board}/ichiping/02_servo_test/${multicore_foldername}
+  section-type: freestanding_application

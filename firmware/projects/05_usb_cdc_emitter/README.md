@@ -43,6 +43,44 @@ python receiver.py --port COMx --baud 921600 --out ../captures
 
 `--baud` は CDC では無視されるが pyserial が値を要求するため適当な値で OK。
 
+## 確認方法
+
+受信側は [01_dummy_emitter](../01_dummy_emitter/README.md) と **完全に同じパイプライン**。MCU 側のシリアル経路だけが UART → USB CDC に変わったため、PC 側スクリプトは無修正で動く。
+
+### A. PC が USB CDC を仮想 COM として認識しているか
+
+1. J21 (target USB-C) を PC に挿す
+2. Windows: デバイスマネージャ → ポート (COM & LPT) に新しい USB シリアルデバイスが出る（OpenSDA 用とは別の COM 番号）
+3. Linux: `ls /dev/ttyACM*` で新しい `/dev/ttyACM1` 等
+4. macOS: `ls /dev/tty.usbmodem*`
+
+見えない場合は Windows なら NXP の usbser ドライバ問題、Linux/macOS なら 配線・電源確認から。
+
+### B. receiver.py で実機フレームを受け取る（01 と同じ）
+
+```powershell
+cd pc
+conda activate ichiping
+python receiver.py --port COM8 --baud 921600 --out ../captures_usb
+```
+
+期待ログは UART 版と同じ表示。3 秒周期は MCU 側 `FRAME_PERIOD_MS` に依存。100 ms に下げれば 10 fps の常時ストリーム。
+
+### C. verify.py で 8 項目自動チェック
+
+```powershell
+python verify.py --port COM8 --frames 50 --strict
+```
+
+### D. スループット確認（UART 版との比較が雄弁）
+
+```powershell
+# UART 版: 100 フレーム × 3 秒 = ~300 秒
+python receiver.py --port COM7 --baud 921600 --out ../tmp_uart --max-frames 100
+# CDC 版: 周期 100 ms に下げてあれば ~10 秒
+python receiver.py --port COM8 --baud 921600 --out ../tmp_cdc --max-frames 100
+```
+
 ## スループット比較
 
 | ファーム | 1 フレーム転送時間 | 最大フレームレート |

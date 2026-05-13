@@ -1,0 +1,13 @@
+ichiping_06_mic_test:
+  boards:
+    frdmmcxn947@cm33_core0: []
+  contents:
+    document:
+      brief: IchiPing — INMP441 mic bring-up. Captures 0.5 s windows on SAI1 RX
+        and prints peak / RMS / DC / zero-crossing-rate over the OpenSDA UART
+        so wiring + I²S clocking can be validated without a PC pipeline.
+      category: ichiping
+      name: ichiping_06_mic_test${core_id_suffix_name}
+    meta_path: examples/ichiping/06_mic_test
+    project-root-path: boards/${board}/ichiping/06_mic_test/${multicore_foldername}
+  section-type: freestanding_application

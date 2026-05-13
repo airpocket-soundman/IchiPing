@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>03_ili9341_test — IchiPing</title>
+<link rel="stylesheet" href="../../../docs/style.css">
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../../../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../../../index.html">トップ</a>
+      <a href="../../../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../../README.html">firmware ガイド</a>
+      <a href="../../../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ファーム別デモ</div>
+      <a href="../01_dummy_emitter/README.html">01 dummy_emitter</a>
+      <a href="../02_servo_test/README.html">02 servo_test</a>
+      <a href="../03_ili9341_test/README.html" class="current">03 ili9341_test</a>
+      <a href="../04_lvgl_test/README.html">04 lvgl_test</a>
+      <a href="../05_usb_cdc_emitter/README.html">05 usb_cdc_emitter</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="../../../docs/spec.html">仕様書 (spec)</a>
+      <a href="../../../hardware/wiring.html">配線テーブル</a>
+      <a href="../../../hardware/bom.html">BOM (部品表)</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="../../../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../../../index.html">← IchiPing トップ</a>
+    ／ <a href="../../README.html">firmware</a>
+    ／ <a href="../">projects</a>
+    ／ 03_ili9341_test
+  </div>
+  <h1>03_ili9341_test — ILI9341 単体描画テスト</h1>
+  <div class="sub">
+    ILI9341 240×320 RGB565 TFT を SPI で叩いて、配線・回転設定・色順を 5 フェーズで一気に検証するファーム。
+    LVGL を載せる前の最小確認。
+  </div>
+  <div class="meta">
+    <span class="meta-stat"><span class="num">v1.0</span> 準備</span>
+    <span class="meta-stat"><span class="num">115200 bps</span> 観測用シリアル</span>
+    <span class="meta-stat"><span class="num">lpspi/polling_b2b</span> ベース</span>
+  </div>
+</header>
+
+<main>
+
+<h2>MCUXpresso でのインポート手順</h2>
+<ol>
+  <li><code>File &gt; New &gt; Create a new C/C++ Project</code></li>
+  <li>SDK Wizard → ボード <b><code>frdmmcxn947</code></b> → ベース <code>driver_examples &gt; lpspi &gt; polling_b2b</code></li>
+  <li>プロジェクト名を <code>ichiping_ili9341_test</code> などに変更</li>
+  <li>生成された <code>main.c</code> を本フォルダの <a href="main.c">main.c</a> に置換</li>
+  <li>プロジェクトに追加:
+    <ul>
+      <li><a href="../../shared/source/ili9341.c"><code>../../shared/source/ili9341.c</code></a></li>
+    </ul>
+  </li>
+  <li>Include パスを追加:
+    <pre><code>"${ProjDirPath}/../../firmware/shared/include"</code></pre>
+  </li>
+  <li><b>Config Tools の Pins ツール</b>で以下を設定:
+    <ul>
+      <li><b>D11</b> → <code>LPSPI3_SDO</code></li>
+      <li><b>D13</b> → <code>LPSPI3_SCK</code></li>
+      <li><b>A2, A3, A4, A5</b> → GPIO 出力（push-pull、プルなし）</li>
+      <li>必要に応じて <code>pin_mux.c</code> 内の <code>BOARD_*_PORT/_PIN</code> マクロ定義名と <code>main.c</code> 冒頭の <code>ILI_*_GPIO/PIN</code> 定義を一致させる</li>
+    </ul>
+  </li>
+  <li>ビルド → OpenSDA で書込</li>
+</ol>
+
+<h2>配線</h2>
+<p>詳細: <a href="../../../hardware/wiring.html">hardware/wiring.html</a> §2.3 / §2.7</p>
+<table>
+  <thead><tr><th>ILI9341</th><th>FRDM-MCXN947</th><th>機能</th></tr></thead>
+  <tbody>
+    <tr><td>VCC</td><td>3V3</td><td>電源</td></tr>
+    <tr><td>GND</td><td>GND</td><td>共通グランド</td></tr>
+    <tr><td>CS</td><td>A2</td><td>Chip Select (GPIO out)</td></tr>
+    <tr><td>RESET</td><td>A3</td><td>Hard reset (GPIO out)</td></tr>
+    <tr><td>DC</td><td>A4</td><td>Data/Command 切替 (GPIO out)</td></tr>
+    <tr><td>SDI/MOSI</td><td>D11 (FC3_SPI_MOSI)</td><td>microSD と共有</td></tr>
+    <tr><td>SCK</td><td>D13 (FC3_SPI_SCK)</td><td>microSD と共有</td></tr>
+    <tr><td>LED/BL</td><td>A5</td><td>バックライト (GPIO out or PWM)</td></tr>
+    <tr><td>SDO/MISO</td><td>未接続</td><td>書込のみ</td></tr>
+  </tbody>
+</table>
+
+<h2>動作</h2>
+<p>cycle 内で次の 5 フェーズが順に流れる:</p>
+<ol>
+  <li><b>全画面塗りつぶし</b>: 黒/赤/緑/青/白の順 — RGB565 バイト順と MADCTL 回転の確認</li>
+  <li><b>入れ子矩形</b>: シアン/マゼンタ/黄/白の同心矩形 — CASET/PASET の non-zero 起点動作</li>
+  <li><b>テキスト + バックライトパルス</b>: タイトル「IchiPing」+ バージョン行 — 5×7 フォント描画と BL 配線</li>
+  <li><b>5 部屋タイル モック</b>: window a/b/c + door AB/BC の色付きタイル — 状態 UI の予習</li>
+  <li><b>ピクセル スイープ</b>: 4 行ずつ色帯 — partial blit / window rollover の検出</li>
+</ol>
+
+<h2>確認方法</h2>
+
+<p>このファームは <b>視覚での目視確認が本命</b>。PC 側スクリプト不要。シリアルは進行ログだけ。</p>
+
+<h3>A. TFT の目視確認（本筋）</h3>
+
+<p>5 フェーズの<b>1 サイクル ≈ 8 秒</b>。期待される画面の見え方:</p>
+
+<table>
+  <thead><tr><th>フェーズ</th><th>見え方</th><th>意図</th><th>失敗時の意味</th></tr></thead>
+  <tbody>
+    <tr><td>1. 単色塗り</td><td>黒→赤→緑→青→白</td><td>SPI 配線・電源・MADCTL</td><td>真っ白＝ドライバ未反応 / 色が逆＝BGR/RGB</td></tr>
+    <tr><td>2. 入れ子矩形</td><td>シアン/マゼンタ/黄/白の同心矩形</td><td>CASET/PASET の起点と幅</td><td>位置ずれ＝座標設定が壊れている</td></tr>
+    <tr><td>3. テキスト</td><td>"IchiPing" + "v0.1" の文字</td><td>5×7 フォント描画と BL</td><td>文字化けあり＝SPI クロック過剰</td></tr>
+    <tr><td>4. 5 タイル</td><td>5 個の色付き矩形（window/door）</td><td>状態 UI のレイアウト</td><td>枠線ズレ＝MADCTL 回転設定</td></tr>
+    <tr><td>5. ピクセルスイープ</td><td>4 行ずつ色帯が流れる</td><td>partial blit と window rollover</td><td>縞模様の崩れ＝幅指定誤り</td></tr>
+  </tbody>
+</table>
+
+<h3>B. シリアルモニタで進行ログを補助確認</h3>
+
+<p><b>115200 bps テキスト</b>なので、VS Code Serial Monitor / TeraTerm / PuTTY のいずれでも可。</p>
+
+<pre><code>ILI9341 init OK
+Phase 1: solid fills...
+Phase 2: nested rects...
+Phase 3: text + backlight...
+Phase 4: 5-room tile mock...
+Phase 5: pixel sweep...
+cycle done</code></pre>
+
+<p>視覚と組み合わせて、どのフェーズで止まったか・どのフェーズで化けたかを切り分ける。</p>
+
+<h3>C. PC 側スクリプト</h3>
+
+<p><b>不要</b>。このファームはホスト送信を一切しない。</p>
+
+<h2>トラブルシュート</h2>
+<ul>
+  <li><b>画面が真っ白</b>: バックライト ON でドライバ反応なし → CS / DC / RESET 配線、SPI クロック極性</li>
+  <li><b>色が逆</b>（赤と青が入れ替わる）: MADCTL の BGR ビットを反転、または <code>ili9341.c</code> の <code>MADCTL_BGR</code> を外して再ビルド</li>
+  <li><b>画面が 90°回転している</b>: <code>lcd.rotation</code> を <code>ILI9341_ROT_PORTRAIT</code> 系に変更（既定 <code>LANDSCAPE</code>）</li>
+  <li><b>SPI クロック早すぎでノイズ</b>: <code>ILI_SPI_BAUD_HZ</code> を 20 MHz → 8 MHz に下げる</li>
+</ul>
+
+</main>
+
+</body>
+</html>
