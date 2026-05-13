@@ -29,9 +29,11 @@
 /* ----- Configuration ----- */
 
 /* Use the OpenSDA debug UART for first bring-up.
- * For high-throughput swap to USB CDC later (see TODO in README). */
+ * For high-throughput swap to USB CDC later (see TODO in README).
+ * Note: board.h casts BOARD_DEBUG_UART_BASEADDR to uint32_t, but the LPUART
+ * driver wants an LPUART_Type *. Use the SDK LPUART4 macro directly. */
 #ifndef ICHP_UART_BASE
-#define ICHP_UART_BASE   BOARD_DEBUG_UART_BASEADDR    /* LPUART4 on FRDM-MCXN947 default */
+#define ICHP_UART_BASE   LPUART4
 #endif
 #ifndef ICHP_UART_CLOCK
 #define ICHP_UART_CLOCK  BOARD_DEBUG_UART_CLK_FREQ

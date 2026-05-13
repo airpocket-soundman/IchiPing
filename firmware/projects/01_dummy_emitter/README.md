@@ -2,20 +2,29 @@
 
 MCU 内で合成した chirp+残響をフレーム化し、OpenSDA UART (921600 bps) で PC に流す v0.1 の本番ファーム。
 
-## MCUXpresso でのインポート手順
+## MCUXpresso for VS Code でのビルド・書込手順
 
-1. `File > New > Create a new C/C++ Project`
-2. SDK Wizard → ボード **`frdmmcxn947`** → ベース `driver_examples > lpuart > polling_transfer`
-3. プロジェクト名を `ichiping_dummy_emitter` などに変更
-4. 生成された `main.c` を本フォルダの [main.c](main.c) に置換
-5. 以下をプロジェクトに追加（リンクでもコピーでも可）:
-   - [`../../shared/source/ichiping_frame.c`](../../shared/source/ichiping_frame.c)
-   - [`../../shared/source/dummy_audio.c`](../../shared/source/dummy_audio.c)
-6. `Project > Properties > C/C++ Build > Settings > MCU C Compiler > Includes` に追加:
-   ```
-   "${ProjDirPath}/../../firmware/shared/include"
-   ```
-7. ビルド → OpenSDA で書込
+本フォルダは **`.vscode/mcuxpresso-tools.json` まで含めた完全な MCUXpresso for VS Code プロジェクト**として構築済み。Import Wizard を使う必要はなく、フォルダを直接開けば拡張が自動で認識する。
+
+### 前提
+
+- `mcuxsdk` を `d:/GitHub/mcuxsdk` に配置（`.vscode/mcuxpresso-tools.json` の `sdk.path` と一致）
+- arm-gnu-toolchain 14.2.rel1 を `~/.mcuxpressotools/...` に展開
+- VS Code 拡張 **MCUXpresso for VS Code** インストール済み
+
+### 手順
+
+1. VS Code で `File → Open Folder...` → 本フォルダ（[01_dummy_emitter](.) ）を選択
+2. 拡張が `.vscode/mcuxpresso-tools.json` を検出して自動構成
+3. ステータスバー左下の CMake preset で **`debug`** を選択
+4. `CMake: Build` (Ctrl+Shift+B) でビルド → `debug/ichiping_01_dummy_emitter_cm33_core0.elf`
+5. Debug ボタン or `Run > Start Debugging` で OpenSDA 経由フラッシュ
+
+### IchiPing ルートを開いたまま使うなら
+
+`File → Add Folder to Workspace` で本フォルダを追加。multi-root workspace として認識され、各 0X プロジェクトが個別の MCUXpresso プロジェクトとして並ぶ。
+
+> ⚠ IchiPing ルート (`d:/GitHub/IchiPing`) を「Open Folder」で開いた状態で Import Project を試すと、ワークスペース直下に `mcuxpresso-tools.json` が無いため失敗する。**必ず単体プロジェクトフォルダを直接開く** か **Add Folder to Workspace** を使うこと。
 
 ## シリアル設定
 

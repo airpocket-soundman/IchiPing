@@ -30,6 +30,11 @@
       <a href="../03_ili9341_test/README.html">03 ili9341_test</a>
       <a href="../04_lvgl_test/README.html">04 lvgl_test</a>
       <a href="../05_usb_cdc_emitter/README.html">05 usb_cdc_emitter</a>
+      <a href="../06_mic_test/README.md">06 mic_test</a>
+      <a href="../07_speaker_test/README.md">07 speaker_test</a>
+      <a href="../08_mic_speaker_test/README.md">08 mic_speaker_test</a>
+      <a href="../09_audio_stream/README.md">09 audio_stream</a>
+      <a href="../10_collector/README.md">10 collector</a>
     </div>
     <div class="sidenav-group">
       <div class="sidenav-h">設計 / 仕様</div>
@@ -67,23 +72,32 @@
 
 <main>
 
-<h2>MCUXpresso でのインポート手順</h2>
+<h2>MCUXpresso for VS Code でのビルド・書込手順</h2>
+
+<p>本フォルダは <b><code>.vscode/mcuxpresso-tools.json</code> まで含めた完全な MCUXpresso for VS Code プロジェクト</b>として構築済み。Import Wizard を使う必要はなく、フォルダを直接開けば拡張が自動で認識する。</p>
+
+<h3>前提</h3>
+<ul>
+  <li><code>mcuxsdk</code> を <code>d:/GitHub/mcuxsdk</code> に配置（<code>.vscode/mcuxpresso-tools.json</code> の <code>sdk.path</code> と一致）</li>
+  <li>arm-gnu-toolchain 14.2.rel1 を <code>~/.mcuxpressotools/...</code> に展開</li>
+  <li>VS Code 拡張 <b>MCUXpresso for VS Code</b> インストール済み</li>
+</ul>
+
+<h3>手順</h3>
 <ol>
-  <li><code>File &gt; New &gt; Create a new C/C++ Project</code></li>
-  <li>SDK Wizard → ボード <b><code>frdmmcxn947</code></b> → ベース <code>driver_examples &gt; lpuart &gt; polling_transfer</code></li>
-  <li>プロジェクト名を <code>ichiping_dummy_emitter</code> などに変更</li>
-  <li>生成された <code>main.c</code> を本フォルダの <a href="main.c">main.c</a> に置換</li>
-  <li>以下をプロジェクトに追加（リンクでもコピーでも可）:
-    <ul>
-      <li><a href="../../shared/source/ichiping_frame.c"><code>../../shared/source/ichiping_frame.c</code></a></li>
-      <li><a href="../../shared/source/dummy_audio.c"><code>../../shared/source/dummy_audio.c</code></a></li>
-    </ul>
-  </li>
-  <li><code>Project &gt; Properties &gt; C/C++ Build &gt; Settings &gt; MCU C Compiler &gt; Includes</code> に追加:
-    <pre><code>"${ProjDirPath}/../../firmware/shared/include"</code></pre>
-  </li>
-  <li>ビルド → OpenSDA で書込</li>
+  <li>VS Code で <code>File → Open Folder...</code> → 本フォルダ（<a href=".">01_dummy_emitter</a>）を選択</li>
+  <li>拡張が <code>.vscode/mcuxpresso-tools.json</code> を検出して自動構成</li>
+  <li>ステータスバー左下の CMake preset で <b><code>debug</code></b> を選択</li>
+  <li><code>CMake: Build</code> (Ctrl+Shift+B) でビルド → <code>debug/ichiping_01_dummy_emitter_cm33_core0.elf</code></li>
+  <li>Debug ボタン or <code>Run → Start Debugging</code> で OpenSDA 経由フラッシュ</li>
 </ol>
+
+<h3>IchiPing ルートを開いたまま使うなら</h3>
+<p><code>File → Add Folder to Workspace</code> で本フォルダを追加。multi-root workspace として認識され、各 0X プロジェクトが個別の MCUXpresso プロジェクトとして並ぶ。</p>
+
+<div class="panel" style="background: #1f242d; border-left: 4px solid #ffb454; padding: 10px 14px; margin: 14px 0; border-radius: 4px;">
+  ⚠ IchiPing ルート (<code>d:/GitHub/IchiPing</code>) を「Open Folder」で開いた状態で <b>Import Project を試すと、ワークスペース直下に <code>mcuxpresso-tools.json</code> が無いため失敗する</b>。必ず単体プロジェクトフォルダを直接開く、または Add Folder to Workspace を使うこと。
+</div>
 
 <h2>シリアル設定</h2>
 <table>

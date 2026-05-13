@@ -24,6 +24,18 @@ firmware/host_build/*.dll
 firmware/host_build/*.dylib
 firmware/host_build/*.a
 
+# MCUXpresso for VS Code build / SDK-clone artefacts under each project
+# (CMakePresets → ${fileDir}/<preset>/ holds compile output;
+#  __repo__/ holds west-managed clones of mcuxsdk + manifests.)
+**/debug/
+**/release/
+**/flash_debug/
+**/flash_release/
+**/__repo__/
+**/mcuxsdk/
+**/manifests/
+**/.west/
+
 # Editor / OS detritus
 .DS_Store
 Thumbs.db
