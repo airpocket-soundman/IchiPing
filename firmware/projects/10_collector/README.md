@@ -85,4 +85,4 @@ python collector_client.py --port COM7 --plan plan.json --out ../captures/10
 
 ## 配線
 
-[08_mic_speaker_test](../08_mic_speaker_test/) と同じ（SAI0 TX + SAI1 RX）。
+[08_mic_speaker_test](../08_mic_speaker_test/README.md) と完全に同じ（**SAI1 全二重**, J1 ヘッダ、SJ10=2-3 / SJ11=1-2）。J1.1 BCLK / J1.3 LRC / J1.5 DIN / J1.15 SD。

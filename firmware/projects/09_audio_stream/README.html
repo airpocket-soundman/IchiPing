@@ -92,7 +92,7 @@ python receiver.py --port COM7 --baud 921600 --out ../captures/09
 <li>現状 <code>sai_mic_record_blocking</code> を使うので、<strong>録音中は他の処理ができない</strong>。EDMA に切り替えれば録音中に TX を流せて 2 倍弱の cadence になる</li>
 </ul>
 <h2>配線</h2>
-<p><a href="../06_mic_test/">06_mic_test</a> と同じ（マイクのみ）。</p>
+<p><a href="../06_mic_test/README.html">06_mic_test</a> と完全に同じ（<b>マイクのみ</b>, SAI1 TX-master + RX-sync）。J1.1 SCK / J1.3 WS / J1.15 SD、SJ10=2-3 / SJ11=1-2。スピーカ (MAX98357A) は接続不要。</p>
 
 </main>
 

@@ -23,4 +23,4 @@ python receiver.py --port COM7 --baud 921600 --out ../captures/09
 
 ## 配線
 
-[06_mic_test](../06_mic_test/) と同じ（マイクのみ）。
+[06_mic_test](../06_mic_test/README.md) と完全に同じ（**マイクのみ**, SAI1 TX-master + RX-sync）。J1.1 SCK / J1.3 WS / J1.15 SD、SJ10=2-3 / SJ11=1-2。スピーカ (MAX98357A) は接続不要。
