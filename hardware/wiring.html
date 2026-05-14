@@ -70,7 +70,7 @@
   </thead>
   <tbody>
     <tr><td>I²S (full-duplex)</td><td>SAI1</td><td>INMP441 マイク（RX）＋ MAX98357A スピーカ（TX）</td><td>—</td><td>J1 SAI 列（PIO3_16/17/20/21）</td></tr>
-    <tr><td>I²C</td><td>LPI2C2 (FC2)</td><td>PCA9685 / LU9685 / BMP585</td><td>0x40 / 0x00–0x1F / 0x47</td><td><b>D18 (SDA, PIO4_0), D19 (SCL, PIO4_1)</b></td></tr>
+    <tr><td>I²C</td><td>LPI2C2 (FC2)</td><td>PCA9685 / LU9685 / BMP585</td><td>0x40 / 0x1F (jumper 0x00–0x1F) / 0x47</td><td><b>D18 (SDA, PIO4_0), D19 (SCL, PIO4_1)</b></td></tr>
     <tr><td>SPI（ILI9341 + microSD）</td><td>LPSPI?</td><td>microSD（FatFs）＋ ILI9341 TFT</td><td>CS=D10 / 別 GPIO</td><td>D10–D13 ※FC は要確認</td></tr>
     <tr><td>UART</td><td>LPUART4 (FC4)</td><td>OpenSDA 仮想 COM（v0.1 デバッグ／フレーム送信）</td><td>—</td><td>オンボード MCU-Link</td></tr>
     <tr><td>UART</td><td>LPUART2 (FC2)</td><td>ESP32-WROOM（任意, 将来）</td><td>—</td><td>D0, D1</td></tr>
@@ -118,7 +118,7 @@
   </thead>
   <tbody>
     <tr><td><b>D18</b> (J2 pin 18)</td><td>PIO4_0</td><td><b>Alt2</b></td><td><code>LP_FLEXCOMM2_P0</code> (LPI2C2 SDA)</td><td>0x40</td><td>PCA9685 サーボドライバ</td></tr>
-    <tr><td><b>D19</b> (J2 pin 20)</td><td>PIO4_1</td><td><b>Alt2</b></td><td><code>LP_FLEXCOMM2_P1</code> (LPI2C2 SCL)</td><td>0x00–0x1F</td><td>LU9685（代替, <a href="../firmware/shared/source/lu9685.c">lu9685.c</a>）</td></tr>
+    <tr><td><b>D19</b> (J2 pin 20)</td><td>PIO4_1</td><td><b>Alt2</b></td><td><code>LP_FLEXCOMM2_P1</code> (LPI2C2 SCL)</td><td>0x00–0x1F（<b>現物 0x1F</b>）</td><td>LU9685（代替, <a href="../firmware/shared/source/lu9685.c">lu9685.c</a>）</td></tr>
     <tr><td>—</td><td>—</td><td>—</td><td>—</td><td>0x47</td><td>BMP585 気圧センサ（補助）</td></tr>
   </tbody>
 </table>

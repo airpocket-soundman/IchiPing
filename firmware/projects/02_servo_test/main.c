@@ -108,6 +108,31 @@ static const char *const SERVO_NAMES[SERVO_CH_COUNT] = {
     "window a", "window b", "window c", "door AB", "door BC",
 };
 
+/* Probe every 7-bit address on the bus by issuing a zero-byte write and
+ * checking for ACK. Lets us confirm what the LU9685 (or anything else)
+ * actually sits at, independent of the IchiPing header's assumption. */
+static void i2c_scan(LPI2C_Type *base) {
+    PRINTF("\r\nI2C scan (0x01..0x77):\r\n");
+    int found = 0;
+    for (uint8_t a = 1U; a < 0x78U; a++) {
+        lpi2c_master_transfer_t xfer = {
+            .flags          = (uint32_t)kLPI2C_TransferDefaultFlag,
+            .slaveAddress   = (uint16_t)a,
+            .direction      = kLPI2C_Write,
+            .subaddress     = 0u,
+            .subaddressSize = 0u,
+            .data           = NULL,
+            .dataSize       = 0u,
+        };
+        status_t s = LPI2C_MasterTransferBlocking(base, &xfer);
+        if (s == kStatus_Success) {
+            PRINTF("  ACK at 0x%02X\r\n", (unsigned)a);
+            found++;
+        }
+    }
+    PRINTF("I2C scan: %d device(s) responded\r\n\r\n", found);
+}
+
 int main(void) {
     BOARD_InitHardware();
     systick_init_1ms();
@@ -119,6 +144,8 @@ int main(void) {
            (unsigned)SERVO_DEFAULT_FREQ_HZ,
            (unsigned)SERVO_CH_COUNT);
 
+    i2c_scan(SERVO_I2C_BASE);
+
     servo_driver_t servo;
     status_t s = servo_init(&servo, SERVO_I2C_BASE,
                             SERVO_DEFAULT_ADDR, SERVO_DEFAULT_FREQ_HZ);
@@ -128,11 +155,13 @@ int main(void) {
         (void)servo_all_off(&servo);
         for (;;) { __WFI(); }
     }
-    PRINTF("OK: %s initialised\r\n", SERVO_BACKEND_NAME);
+    PRINTF("OK: %s initialised (addr=0x%02X)\r\n",
+           SERVO_BACKEND_NAME, (unsigned)SERVO_DEFAULT_ADDR);
 
     /* Park servos before the first move so the horn does not jump. */
     float park[SERVO_CH_COUNT] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
-    (void)servo_set_first_n_deg(&servo, park, SERVO_CH_COUNT);
+    status_t ps = servo_set_first_n_deg(&servo, park, SERVO_CH_COUNT);
+    PRINTF("park bulk-write status=%d (0=OK, !=0=I2C error)\r\n", (int)ps);
     delay_ms(500);
 
     uint32_t cycle = 0;
@@ -145,30 +174,33 @@ int main(void) {
         float all90[SERVO_CH_COUNT]  = { 90.0f,  90.0f,  90.0f,  90.0f,  90.0f};
         float all180[SERVO_CH_COUNT] = {180.0f, 180.0f, 180.0f, 180.0f, 180.0f};
 
-        (void)servo_set_first_n_deg(&servo, all0,   SERVO_CH_COUNT);
-        PRINTF("  all -> 0°\r\n");
+        status_t w;
+        w = servo_set_first_n_deg(&servo, all0,   SERVO_CH_COUNT);
+        PRINTF("  all -> 0°   (status=%d)\r\n", (int)w);
         delay_ms(1000);
 
-        (void)servo_set_first_n_deg(&servo, all90,  SERVO_CH_COUNT);
-        PRINTF("  all -> 90°\r\n");
+        w = servo_set_first_n_deg(&servo, all90,  SERVO_CH_COUNT);
+        PRINTF("  all -> 90°  (status=%d)\r\n", (int)w);
         delay_ms(1000);
 
-        (void)servo_set_first_n_deg(&servo, all180, SERVO_CH_COUNT);
-        PRINTF("  all -> 180°\r\n");
+        w = servo_set_first_n_deg(&servo, all180, SERVO_CH_COUNT);
+        PRINTF("  all -> 180° (status=%d)\r\n", (int)w);
         delay_ms(1000);
 
-        (void)servo_set_first_n_deg(&servo, all0,   SERVO_CH_COUNT);
-        PRINTF("  all -> 0°  (rest)\r\n");
+        w = servo_set_first_n_deg(&servo, all0,   SERVO_CH_COUNT);
+        PRINTF("  all -> 0°   (status=%d, rest)\r\n", (int)w);
         delay_ms(500);
 
         PRINTF("[cycle %u] phase 2: solo sweep\r\n", (unsigned)cycle);
         for (int ch = 0; ch < SERVO_CH_COUNT; ch++) {
-            PRINTF("  ch%d (%s) -> 180°\r\n", ch, SERVO_NAMES[ch]);
-            (void)servo_set_deg(&servo, (uint8_t)ch, 180.0f);
+            w = servo_set_deg(&servo, (uint8_t)ch, 180.0f);
+            PRINTF("  ch%d (%s) -> 180° (status=%d)\r\n",
+                   ch, SERVO_NAMES[ch], (int)w);
             delay_ms(1000);
 
-            PRINTF("  ch%d (%s) -> 0°\r\n", ch, SERVO_NAMES[ch]);
-            (void)servo_set_deg(&servo, (uint8_t)ch, 0.0f);
+            w = servo_set_deg(&servo, (uint8_t)ch, 0.0f);
+            PRINTF("  ch%d (%s) -> 0°   (status=%d)\r\n",
+                   ch, SERVO_NAMES[ch], (int)w);
             delay_ms(500);
         }
     }

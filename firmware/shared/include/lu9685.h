@@ -2,11 +2,15 @@
  * LU9685 (LU9685-20CU) — 20-channel servo controller, I²C variant.
  *
  * Protocol (reverse-engineered from ESPEasy P178 source):
- *   I²C address       : 0x00 by default; hardware-configurable in 0x00..0x1F
- *                       via on-board jumpers / solder pads. Note that 0x00 is
- *                       the I²C General Call address — most masters tolerate
- *                       it but some libraries reject it; consult the seller's
- *                       sheet and reassign with the jumpers if needed.
+ *   I²C address       : 7-bit, hardware-configurable in 0x00..0x1F via the
+ *                       on-board A0..A4 jumpers / solder pads. Stock modules
+ *                       observed in this project shipped at 0x1F (all jumpers
+ *                       in their default position) — confirm with an I²C bus
+ *                       scan on first bring-up. The chip also opts in to the
+ *                       I²C General Call address (0x00), so a probe to 0x00
+ *                       will *ACK* even though servo commands sent there are
+ *                       interpreted as broadcasts and produce no PWM. Use the
+ *                       chip's own address, not 0x00.
  *   Channel count     : 20 (vs 16 on the PCA9685)
  *   Reg 0xFC, 16-bit  : PWM frequency in Hz (big-endian, 20..300)
  *   Reg 0xFD, 20 bytes: bulk write all channel angles in one transaction
@@ -29,7 +33,7 @@
 #include "fsl_common.h"
 #include "fsl_lpi2c.h"
 
-#define LU9685_DEFAULT_ADDR    0x00u
+#define LU9685_DEFAULT_ADDR    0x1Fu
 #define LU9685_NUM_CHANNELS    20u
 #define LU9685_DISABLED        0xFFu
 

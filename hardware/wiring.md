@@ -7,7 +7,7 @@
 | バス | MCU 周辺 | 接続先デバイス | アドレス/CS | Arduino ヘッダ |
 |---|---|---|---|---|
 | I²S (full-duplex) | SAI1 | INMP441 マイク（RX）＋ MAX98357A スピーカ（TX） | — | J1 SAI 列（PIO3_16/17/20/21） |
-| I²C | LPI2C2（FC2） | PCA9685 / LU9685 / BMP585 | 0x40 / 0x00–0x1F / 0x47 | **D18 (SDA, PIO4_0), D19 (SCL, PIO4_1)** |
+| I²C | LPI2C2（FC2） | PCA9685 / LU9685 / BMP585 | 0x40 / 0x1F (jumper 0x00–0x1F) / 0x47 | **D18 (SDA, PIO4_0), D19 (SCL, PIO4_1)** |
 | SPI（ILI9341 + microSD） | LPSPI? | microSD（FatFs）＋ ILI9341 TFT | CS=D10 / 別 GPIO | D10–D13 ※FC は要確認 |
 | UART | LPUART4（FC4） | OpenSDA 仮想 COM（v0.1 デバッグ／フレーム送信） | — | オンボード MCU-Link |
 | UART | LPUART2（FC2） | ESP32-WROOM（任意, 将来） | — | D0, D1 |
@@ -43,7 +43,7 @@ INMP441 の `L/R` ピンは **GND に接続**（左チャネル選択）。MAX98
 | Arduino | MCU pin | Alt | SDK 機能 | I²C アドレス | デバイス |
 |---|---|---|---|---|---|
 | **D18** (J2 pin 18) | PIO4_0 | **Alt2** | `LP_FLEXCOMM2_P0` (LPI2C2 SDA) | 0x40 | PCA9685 サーボドライバ |
-| **D19** (J2 pin 20) | PIO4_1 | **Alt2** | `LP_FLEXCOMM2_P1` (LPI2C2 SCL) | 0x00–0x1F | LU9685（代替, [lu9685.c](../firmware/shared/source/lu9685.c)） |
+| **D19** (J2 pin 20) | PIO4_1 | **Alt2** | `LP_FLEXCOMM2_P1` (LPI2C2 SCL) | 0x00–0x1F（**現物 0x1F**） | LU9685（代替, [lu9685.c](../firmware/shared/source/lu9685.c)） |
 |  |  |  |  | 0x47 | BMP585 気圧センサ（補助） |
 
 > **注**: ボードシルクの "D14/D15" 表記は本ボードには存在しない（J2 ヘッダには D8〜D13 と D18/D19 が並ぶ）。Arduino UNO R3 で SDA/SCL に当たる位置のピンが D18/D19 にラベルされている。
