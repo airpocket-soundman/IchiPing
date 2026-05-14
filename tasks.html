@@ -61,10 +61,10 @@
     本ボードは <b>IchiPing リポ内に閉じた実装単位</b>のサブタスクを管理する。
   </div>
   <div class="meta">
-    <span class="meta-stat done"><span class="num">16</span> 完了</span>
-    <span class="meta-stat active"><span class="num">5</span> 足場あり</span>
+    <span class="meta-stat done"><span class="num">18</span> 完了</span>
+    <span class="meta-stat active"><span class="num">4</span> 足場あり</span>
     <span class="meta-stat pending"><span class="num">20</span> 未着手</span>
-    <span class="meta-stat"><span class="num">1</span> ブロック</span>
+    <span class="meta-stat"><span class="num">0</span> ブロック</span>
     <span class="meta-stat"><span class="num">42</span> 全体</span>
   </div>
 </header>
@@ -157,14 +157,14 @@
       <div class="task-status"><span class="status-badge completed">完了</span></div>
     </div>
 
-    <div class="task" data-status="blocked">
+    <div class="task" data-status="completed">
       <div class="task-id">IP-0.1.8</div>
       <div class="task-body">
         <h3 class="task-title">実機での OpenSDA UART 疎通確認</h3>
-        <p class="task-desc">FRDM-MCXN947 にファーム書込、OpenSDA COM ポートを <code>receiver.py</code> で開いて連続 100 フレーム取得。手順書は <a href="docs/bringup.html">docs/bringup.html</a> に整備済</p>
-        <div class="task-meta"><span>担当: <b>両側統合</b></span><span>ブロッカー: 実機未到着</span><span>完了条件: CRC OK 100% で 5 分連続動作</span></div>
+        <p class="task-desc">FRDM-MCXN947 に 01_dummy_emitter ファームを書込、OpenSDA COM ポートを <code>receiver.py</code> で開いて 5 フレーム連続取得。<b>5/5 CRC OK</b>、3.88 sec / フレーム（設計値 3 sec + UART 転送 ~880 ms）。<code>captures/frame_0000{19..23}.wav</code> + <code>labels.csv</code> が想定どおり生成された。手順書 <a href="docs/bringup.html">docs/bringup.html</a> 通り。</p>
+        <div class="task-meta"><span>担当: <b>両側統合</b></span><span>完了: 2026-05-14（5 フレーム × 64044 B WAV、bad CRC=0）</span></div>
       </div>
-      <div class="task-status"><span class="status-badge blocked">ブロック</span></div>
+      <div class="task-status"><span class="status-badge completed">完了</span></div>
     </div>
 
     <div class="task" data-status="completed">
@@ -297,23 +297,24 @@
       <div class="task-status"><span class="status-badge pending">未着手</span></div>
     </div>
 
-    <div class="task" data-status="in_progress">
+    <div class="task" data-status="completed">
       <div class="task-id">IP-0.3.4</div>
       <div class="task-body">
-        <h3 class="task-title">USB CDC エミッタファーム（足場完成）</h3>
+        <h3 class="task-title">USB CDC エミッタファーム — 実機ブリングアップ完了</h3>
         <p class="task-desc">
-          <code>firmware/projects/05_usb_cdc_emitter/main.c</code> — OpenSDA UART 921600 bps から USB Full-Speed (12 Mbps) CDC ACM に切替。
-          1 フレーム転送 ~560 ms → <b>~50 ms</b>、最大 ~10 fps 想定。SDK の <code>usb_examples/usb_device_cdc_vcom</code> をベースに、
-          <code>USB_DeviceCdcAcmSend()</code> で ICHP フレームを送出する skeleton。PC 側は <code>receiver.py</code> / <code>verify.py</code> ともに変更不要
-          （pyserial が COM ポートを開くだけ、baud パラメータは CDC で無視される）
+          <code>firmware/projects/05_usb_cdc_emitter/</code> — SDK <code>usb_examples/usb_device_cdc_vcom/bm</code> を 05 に移植
+          （<code>virtual_com.c</code> の <code>APPInit</code> → <code>USB_DeviceApplicationInit</code> rename + <code>g_UsbCdcVcomReady</code> 追加 + DTR ハンドラ整備）。
+          target USB-C (J21) で VID:PID 1FC9:0094 として enumerate、<code>receiver.py</code> 無修正で受信成功。<b>20 フレーム × 100% CRC OK</b>。
+          実測 <b>3.44 fps（~291 ms / フレーム）</b> = OpenSDA UART 比 <b>13× 高速化</b>。残差は MCU 側
+          <code>dummy_audio_generate</code> + CRC 演算で、09_audio_stream で実マイクに置換すれば自然に解消する見込み。
         </p>
         <div class="task-meta">
-          <span>担当: <b>MCU</b></span>
-          <span>ファーム: 足場完成</span>
-          <span>外部依存: SDK USB stack (virtual_com.c, usb_device_descriptor.c 等)</span>
+          <span>担当: <b>MCU + PC 統合</b></span>
+          <span>完了: 2026-05-14（commit <code>9e2644b</code>）</span>
+          <span>fps 比: 0.26 (UART) → 3.44 (USB CDC)</span>
         </div>
       </div>
-      <div class="task-status"><span class="status-badge in_progress">足場完成</span></div>
+      <div class="task-status"><span class="status-badge completed">完了</span></div>
     </div>
 
   </div>
@@ -334,20 +335,20 @@
     <div class="task" data-status="in_progress">
       <div class="task-id">IP-0.4.1</div>
       <div class="task-body">
-        <h3 class="task-title">サーボドライバ + 5 ch スイープテストファーム（PCA9685 / LU9685 両対応、足場完成）</h3>
+        <h3 class="task-title">サーボドライバ + 5 ch スイープテストファーム（PCA9685 / LU9685 両対応）</h3>
         <p class="task-desc">
           <code>firmware/shared/include/servo_driver.h</code> がビルド時シンボルでバックエンドを切り替える共通 API:
           <code>SERVO_BACKEND_PCA9685</code>（16 ch, NXP, 既定）/ <code>SERVO_BACKEND_LU9685_I2C</code>（20 ch, 中国製互換）。
           <code>pca9685.c</code> は PWM tick + SG90 校正、<code>lu9685.c</code> は ESPEasy 由来プロトコル（reg 0xFC=freq, 0xFD=20ch bulk, reg=pin で個別）。
-          <code>main_servo_test.c</code> は共通 API のみ呼び、ハード差し替え時のコード変更ゼロ（Preprocessor シンボルを変えるだけ）。同期ウェイポイント (0/90/180°) → 5 ch ソロスイープのループ
+          <code>main_servo_test.c</code> は共通 API のみ呼び、ハード差し替え時のコード変更ゼロ（Preprocessor シンボルを変えるだけ）。同期ウェイポイント (0/90/180°) → 5 ch ソロスイープのループ。<b>LU9685 実機動作確認済</b>（commit <code>b22a9f0</code>、現物 I²C アドレス 0x1F、<code>i2c_scan()</code> 診断付き）。
         </p>
         <div class="task-meta">
           <span>担当: <b>MCU + ハード</b></span>
-          <span>ファーム: 足場完成</span>
-          <span>未着手: 実機キャリブ + LU9685 I²C アドレス確認</span>
+          <span>済: LU9685 5 ch スイープ + アドレス確定 (0x1F)</span>
+          <span>未着手: PCA9685 実機キャリブ</span>
         </div>
       </div>
-      <div class="task-status"><span class="status-badge in_progress">足場完成</span></div>
+      <div class="task-status"><span class="status-badge in_progress">部分完了</span></div>
     </div>
 
     <div class="task" data-status="in_progress">

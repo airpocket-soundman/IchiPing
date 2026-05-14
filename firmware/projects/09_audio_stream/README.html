@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>09_audio_stream — INMP441 連続ストリーミング — IchiPing</title>
+<link rel="stylesheet" href="../../../docs/style.css">
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../../../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../../../index.html">トップ</a>
+      <a href="../../../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="../../../docs/spec.html">仕様書 (spec)</a>
+      <a href="../../../docs/nn_design.html">NN 設計</a>
+      <a href="../../../docs/mcu_deployment.html">MCU デプロイ</a>
+      <a href="../../../docs/bringup.html">実機ブリングアップ</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="../../../hardware/wiring.html">配線テーブル</a>
+      <a href="../../../hardware/bom.html">BOM (部品表)</a>
+      <a href="../../../hardware/display_options.html">ディスプレイ候補</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../../../firmware/README.html">firmware ガイド</a>
+      <a href="../../../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ファーム別デモ</div>
+      <a href="../01_dummy_emitter/README.html">01 dummy_emitter</a>
+      <a href="../02_servo_test/README.html">02 servo_test</a>
+      <a href="../03_ili9341_test/README.html">03 ili9341_test</a>
+      <a href="../04_lvgl_test/README.html">04 lvgl_test</a>
+      <a href="../05_usb_cdc_emitter/README.html">05 usb_cdc_emitter</a>
+      <a href="../06_mic_test/README.html">06 mic_test</a>
+      <a href="../07_speaker_test/README.html">07 speaker_test</a>
+      <a href="../08_mic_speaker_test/README.html">08 mic_speaker_test</a>
+      <a href="../09_audio_stream/README.html" class="current">09 audio_stream</a>
+      <a href="../10_collector/README.html">10 collector</a>
+      <a href="../../host_build/README.html">host_build</a>
+      <a href="../../../pc/training/README.html">pc/training (NN 学習)</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="../../../docs/vscode_setup.html">VS Code セットアップ</a>
+      <a href="../../../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a><br>
+    <a href="https://github.com/airpocket-soundman/digikey_project">正本 digikey_project</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../../../index.html">← IchiPing トップ</a>
+    ／ <a href="../../README.html">firmware</a>
+    ／ <a href="../">projects</a>
+    ／ 09_audio_stream
+  </div>
+</header>
+
+<main>
+
+<h1>09_audio_stream — INMP441 連続ストリーミング</h1>
+<p><a href="../01_dummy_emitter/">01_dummy_emitter</a> が <strong>合成 chirp</strong> を流していたのを、<strong>実マイク (INMP441) の音</strong>に差し替えた版。ICHP フレーム形式と 921600 bps の経路はそのままなので、PC 側 <a href="../../../pc/receiver.py">pc/receiver.py</a> は変更ゼロで使える。</p>
+<h2>使い方</h2>
+<pre><code># 1) MCU 焼き
+cd firmware/projects/09_audio_stream
+# MCUXpresso for VS Code → Import → debug → build → run
+
+# 2) PC 受信
+cd pc
+python receiver.py --port COM7 --baud 921600 --out ../captures/09
+</code></pre>
+<p><code>captures/09/frame_NNNNNN.wav</code> に 2 秒分の WAV が連続で保存される（<strong>1 フレーム ~ 560 ms かかる</strong>ので、2 秒録音 + 0.56 秒送信 = 約 0.4 fps）。</p>
+<h2>v0.1 の制約</h2>
+<ul>
+<li><strong>UART 921600 bps はストリーミング下限ぎりぎり</strong>。レート上げたければ <a href="../05_usb_cdc_emitter/">05_usb_cdc_emitter</a> と組み合わせる（こちらは ~20 fps 出る）</li>
+<li>現状 <code>sai_mic_record_blocking</code> を使うので、<strong>録音中は他の処理ができない</strong>。EDMA に切り替えれば録音中に TX を流せて 2 倍弱の cadence になる</li>
+</ul>
+<h2>配線</h2>
+<p><a href="../06_mic_test/">06_mic_test</a> と同じ（マイクのみ）。</p>
+
+</main>
+
+</body>
+</html>

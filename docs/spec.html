@@ -1187,10 +1187,10 @@
       <text x="21" y="64" font-size="9" text-anchor="middle" fill="#ffb454">開</text>
     </g>
 
-    <!-- OLED -->
+    <!-- TFT (ILI9341 2.4") -->
     <g transform="translate(140, 175)">
       <rect width="280" height="80" rx="4" fill="#000" stroke="#6ea8fe" stroke-width="1.5"/>
-      <text x="140" y="20" font-size="10" font-weight="600" text-anchor="middle" fill="#6ea8fe">OLED 128 × 64</text>
+      <text x="140" y="20" font-size="10" font-weight="600" text-anchor="middle" fill="#6ea8fe">TFT 240 × 320 (ILI9341)</text>
       <text x="14" y="40" font-size="11" fill="#7be0a4">▸ 連続空間: { A, B, C }</text>
       <text x="14" y="55" font-size="11" fill="#7be0a4">▸ any_open: YES (信頼度 0.93)</text>
       <text x="14" y="70" font-size="11" fill="#7be0a4">▸ 開窓: a=OFF, b=ON, c=OFF</text>
@@ -1215,7 +1215,7 @@
     <text x="370" y="345" font-size="11" font-weight="600" text-anchor="middle" fill="#e5e9f0">実行ボタン</text>
 
     <!-- Pipeline description -->
-    <text x="280" y="380" font-size="10.5" text-anchor="middle" fill="#8b95a7">EXEC 押下 → サーボ位置取得 → 0.5 s 待機 → リファレンストーン放射 (chirp 300 ms) → マイク取得 (1.5 s) → NN 推論 → OLED 表示</text>
+    <text x="280" y="380" font-size="10.5" text-anchor="middle" fill="#8b95a7">EXEC 押下 → サーボ位置取得 → 0.5 s 待機 → リファレンストーン放射 (chirp 300 ms) → マイク取得 (1.5 s) → NN 推論 → TFT 表示</text>
 
     <!-- Side connectors -->
     <g transform="translate(60, 390)">
@@ -1239,8 +1239,8 @@
   <h4 style="margin-top: 14px;">操作と機能</h4>
   <ul>
     <li><b>5 個のトグルスイッチ</b>で窓 a/b/c・扉 AB/BC を手動制御（デモ時は来場者が任意に開閉）</li>
-    <li><b>EXEC（実行）ボタン</b>を押すと: サーボ位置反映 → 待機 → リファレンストーン放射 → マイク取得 → NN 推論 → OLED 結果表示の <b>1 サイクル</b>を自動実行</li>
-    <li><b>OLED</b> で連続空間状態・any_open 判定・各ゲート開閉推定・信頼度を表示</li>
+    <li><b>EXEC（実行）ボタン</b>を押すと: サーボ位置反映 → 待機 → リファレンストーン放射 → マイク取得 → NN 推論 → TFT 結果表示の <b>1 サイクル</b>を自動実行</li>
+    <li><b>TFT</b>（ILI9341 240×320 RGB565）で連続空間状態・any_open 判定・各ゲート開閉推定・信頼度をフルカラー表示</li>
     <li><b>PWR LED</b>（緑）= 電源 ON、<b>推論中 LED</b>（橙）= 推論サイクル実行中</li>
   </ul>
 
@@ -1251,7 +1251,7 @@
       <tr><th>メインボード</th><td>FRDM-MCXN947</td><td>v1 推論本体。NPU + PowerQuad + I²S 多系統</td></tr>
       <tr><th>サーボドライバ</th><td>PCA9685（16ch I²C PWM）</td><td>5 個の SG90 へ PWM 供給、MCU の PWM チャネル節約</td></tr>
       <tr><th>音声出力</th><td>MAX98357A I²S DAC + Class-D アンプ</td><td>3.2 W / 8Ω、MCU から I²S 直結</td></tr>
-      <tr><th>表示</th><td>OLED 128 × 64 SSD1306（I²C）</td><td>状態・推論結果表示</td></tr>
+      <tr><th>表示</th><td>ILI9341 2.4" TFT 240 × 320 RGB565（SPI）</td><td>状態・推論結果表示。フルカラーで模型 + 信頼度 + 5 部屋タイルを同時表示。SH1106/SSD1306 OLED から差替え（<a href="../hardware/display_options.html">採用根拠</a>）</td></tr>
       <tr><th>UI 入力</th><td>SPDT トグルスイッチ × 5 + 押しボタン × 1</td><td>MCU GPIO で読み取り、プルアップ内蔵</td></tr>
       <tr><th>表示 LED</th><td>緑 LED ×1（PWR）+ 橙 LED ×1（推論中）</td><td>GPIO 駆動、330Ω 直列</td></tr>
       <tr><th>電源</th><td>LiPo 2,000 mAh + USB-C 充電 IC（TP4056 等）+ 5V/3.3V LDO</td><td>携帯デモ可、AC 電源にも対応</td></tr>

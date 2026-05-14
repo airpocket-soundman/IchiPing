@@ -126,7 +126,7 @@
   <b>注</b>: ボードシルクの "D14/D15" 表記は本ボードには存在しない（J2 ヘッダには D8〜D13 と D18/D19 が並ぶ）。
   Arduino UNO R3 で SDA/SCL に当たる位置のピンが D18/D19 にラベルされている。<br>
   内蔵プルアップは ~50 kΩ で I²C 仕様としては弱いが、上述の通り FRDM ボード上の短い配線では実機動作する。
-  複数デバイス（PCA9685 + SSD1306 + BMP585 を同時に）下げる、または 400 kHz 動作時は外付け 4.7 kΩ × 2 を追加すること。
+  複数デバイス（PCA9685 + BMP585 を同時に）下げる、または 400 kHz 動作時は外付け 4.7 kΩ × 2 を追加すること。
 </div>
 
 <h3>2.3 SPI（microSD + ILI9341, <b>FC は要確認</b>）</h3>
@@ -239,7 +239,7 @@
   </thead>
   <tbody>
     <tr><td>5V</td><td>USB-C VBUS or LiPo→ブースト</td><td>MAX98357A VIN、PCA9685 V+（サーボ系）、ESP32</td></tr>
-    <tr><td>3.3V</td><td>FRDM オンボード LDO</td><td>MCU、INMP441、SSD1306、BMP585、microSD、PCA9685 VCC（ロジック）</td></tr>
+    <tr><td>3.3V</td><td>FRDM オンボード LDO</td><td>MCU、INMP441、ILI9341、BMP585、microSD、PCA9685 VCC（ロジック）</td></tr>
     <tr><td>GND</td><td>全共通</td><td>サーボ電源 GND も必ずここに集約</td></tr>
   </tbody>
 </table>
@@ -264,7 +264,7 @@
 <h2>5. 配線手順の推奨順序</h2>
 <ol>
   <li><b>電源</b>（3.3V/5V/GND）を先に配り、テスタで各レール電圧を確認</li>
-  <li><b>I²C</b> を結線 → PCA9685 → SSD1306 → BMP585 を <code>i2cdetect</code> 相当のコードで全アドレス確認（0x40 / 0x3C / 0x47）</li>
+  <li><b>I²C</b> を結線 → PCA9685 (0x40) / LU9685 (0x1F) / BMP585 (0x47) を <code>i2cdetect</code> 相当のコードで全アドレス確認</li>
   <li><b>GPIO 入力</b>（トグル + EXEC）を結線 → MCU ポーリングで各ビット確認</li>
   <li><b>GPIO 出力</b>（LED）を結線 → ブリンクテスト</li>
   <li><b>SPI microSD</b> を結線 → FatFs マウント、ファイル書き込みテスト</li>
@@ -280,7 +280,7 @@
   <ul style="margin: 0;">
     <li><b>MAX98357A → INMP441 の機械クロストーク</b>: スピーカと MEMS マイクは筐体内で 40 mm 以上離し、防振フォームで挟む（spec.html §7.5 参照）</li>
     <li><b>サーボ動作音の chirp 混入</b>: サーボ完了後 500 ms 以上の待機を入れてから chirp 放射（<a href="../docs/spec.html">spec.html §7.5</a> シーケンス）</li>
-    <li><b>I²C プルアップは 1 セットのみ</b>: PCA9685 / SSD1306 / BMP585 のモジュールに既存プルアップがある場合、バス上で合成されて値が変わるので注意（多くのブレイクアウトに 10 kΩ が乗っている）</li>
+    <li><b>I²C プルアップは 1 セットのみ</b>: PCA9685 / LU9685 / BMP585 のモジュールに既存プルアップがある場合、バス上で合成されて値が変わるので注意（多くのブレイクアウトに 10 kΩ が乗っている）</li>
     <li><b>3.3V ロジック で 5V サーボ電源</b>: PCA9685 のオープンドレイン PWM 出力は 5V トレラントなので問題なし</li>
   </ul>
 </div>

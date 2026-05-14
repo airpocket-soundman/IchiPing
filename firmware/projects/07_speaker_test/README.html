@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>07_speaker_test — MAX98357A スピーカ疎通 — IchiPing</title>
+<link rel="stylesheet" href="../../../docs/style.css">
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../../../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../../../index.html">トップ</a>
+      <a href="../../../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="../../../docs/spec.html">仕様書 (spec)</a>
+      <a href="../../../docs/nn_design.html">NN 設計</a>
+      <a href="../../../docs/mcu_deployment.html">MCU デプロイ</a>
+      <a href="../../../docs/bringup.html">実機ブリングアップ</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="../../../hardware/wiring.html">配線テーブル</a>
+      <a href="../../../hardware/bom.html">BOM (部品表)</a>
+      <a href="../../../hardware/display_options.html">ディスプレイ候補</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../../../firmware/README.html">firmware ガイド</a>
+      <a href="../../../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ファーム別デモ</div>
+      <a href="../01_dummy_emitter/README.html">01 dummy_emitter</a>
+      <a href="../02_servo_test/README.html">02 servo_test</a>
+      <a href="../03_ili9341_test/README.html">03 ili9341_test</a>
+      <a href="../04_lvgl_test/README.html">04 lvgl_test</a>
+      <a href="../05_usb_cdc_emitter/README.html">05 usb_cdc_emitter</a>
+      <a href="../06_mic_test/README.html">06 mic_test</a>
+      <a href="../07_speaker_test/README.html" class="current">07 speaker_test</a>
+      <a href="../08_mic_speaker_test/README.html">08 mic_speaker_test</a>
+      <a href="../09_audio_stream/README.html">09 audio_stream</a>
+      <a href="../10_collector/README.html">10 collector</a>
+      <a href="../../host_build/README.html">host_build</a>
+      <a href="../../../pc/training/README.html">pc/training (NN 学習)</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="../../../docs/vscode_setup.html">VS Code セットアップ</a>
+      <a href="../../../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a><br>
+    <a href="https://github.com/airpocket-soundman/digikey_project">正本 digikey_project</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../../../index.html">← IchiPing トップ</a>
+    ／ <a href="../../README.html">firmware</a>
+    ／ <a href="../">projects</a>
+    ／ 07_speaker_test
+  </div>
+</header>
+
+<main>
+
+<h1>07_speaker_test — MAX98357A スピーカ疎通</h1>
+<p>MAX98357A（クラス D, I²S→アナログ）に <strong>200 Hz / 1 kHz / 5 kHz 正弦波</strong>、<strong>chirp 200→8 kHz</strong>、<strong>無音</strong> を順に流して耳で確認する。PC ソフトは不要、スピーカが鳴れば合格。</p>
+<h2>期待する動作</h2>
+<pre><code>[cycle 1]
+  200 Hz tone        ← 低音 1秒
+  1 kHz tone         ← 中音 1秒（一番聞きやすい）
+  5 kHz tone         ← 高音 1秒（耳キンキンする）
+  chirp 200-&gt;8k      ← 推論で使うパッタリ系の音 2秒
+  silence 1 s        ← 完全に止まればクラス D シャットダウン OK
+</code></pre>
+<p>判定:
+- 無音 → BCLK が出ていない、もしくは VIN が 3V3 のままで 5V が来ていない
+- ザザザ系のノイズ → DIN フローティング、または BCLK ↔ LRCLK の順序が逆
+- 5 kHz だけ大きく歪む → Fs と BCLK の比率が 32× になっていない（MAX98357A は 32×Fs か 64×Fs しか受け付けない）</p>
+<h2>配線</h2>
+<table>
+<thead>
+<tr>
+<th>MAX98357A</th>
+<th>FRDM-MCXN947</th>
+<th>備考</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>VIN</td>
+<td><strong>5V 外部レール</strong></td>
+<td>3V3 だと音量取れない</td>
+</tr>
+<tr>
+<td>GND</td>
+<td>GND</td>
+<td></td>
+</tr>
+<tr>
+<td>LRC</td>
+<td>SAI0_FS</td>
+<td>LRCLK</td>
+</tr>
+<tr>
+<td>BCLK</td>
+<td>SAI0_BCLK</td>
+<td></td>
+</tr>
+<tr>
+<td>DIN</td>
+<td>SAI0_TXD</td>
+<td></td>
+</tr>
+<tr>
+<td>GAIN</td>
+<td>フローティング</td>
+<td>既定 9 dB</td>
+</tr>
+<tr>
+<td>SD</td>
+<td>VIN</td>
+<td>常時 ON（GPIO でミュート切替したい場合は別ピンへ）</td>
+</tr>
+</tbody>
+</table>
+<h2>ビルド・実行</h2>
+<pre><code>cd firmware/projects/07_speaker_test
+# MCUXpresso for VS Code → Import Project → debug preset → build → run
+</code></pre>
+<h2>既知の TODO</h2>
+<ul>
+<li><code>pins/pin_mux.c</code> の SAI0 ピン Alt 値は <strong>MCUXpresso Pins tool で確認必須</strong></li>
+<li>連続再生（DMA リング）に切り替えるときは <code>sai_speaker_start_streaming</code> を実装</li>
+</ul>
+
+</main>
+
+</body>
+</html>

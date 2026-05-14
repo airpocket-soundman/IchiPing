@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>06_mic_test — INMP441 マイク疎通 — IchiPing</title>
+<link rel="stylesheet" href="../../../docs/style.css">
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../../../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../../../index.html">トップ</a>
+      <a href="../../../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="../../../docs/spec.html">仕様書 (spec)</a>
+      <a href="../../../docs/nn_design.html">NN 設計</a>
+      <a href="../../../docs/mcu_deployment.html">MCU デプロイ</a>
+      <a href="../../../docs/bringup.html">実機ブリングアップ</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="../../../hardware/wiring.html">配線テーブル</a>
+      <a href="../../../hardware/bom.html">BOM (部品表)</a>
+      <a href="../../../hardware/display_options.html">ディスプレイ候補</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../../../firmware/README.html">firmware ガイド</a>
+      <a href="../../../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ファーム別デモ</div>
+      <a href="../01_dummy_emitter/README.html">01 dummy_emitter</a>
+      <a href="../02_servo_test/README.html">02 servo_test</a>
+      <a href="../03_ili9341_test/README.html">03 ili9341_test</a>
+      <a href="../04_lvgl_test/README.html">04 lvgl_test</a>
+      <a href="../05_usb_cdc_emitter/README.html">05 usb_cdc_emitter</a>
+      <a href="../06_mic_test/README.html" class="current">06 mic_test</a>
+      <a href="../07_speaker_test/README.html">07 speaker_test</a>
+      <a href="../08_mic_speaker_test/README.html">08 mic_speaker_test</a>
+      <a href="../09_audio_stream/README.html">09 audio_stream</a>
+      <a href="../10_collector/README.html">10 collector</a>
+      <a href="../../host_build/README.html">host_build</a>
+      <a href="../../../pc/training/README.html">pc/training (NN 学習)</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="../../../docs/vscode_setup.html">VS Code セットアップ</a>
+      <a href="../../../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a><br>
+    <a href="https://github.com/airpocket-soundman/digikey_project">正本 digikey_project</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../../../index.html">← IchiPing トップ</a>
+    ／ <a href="../../README.html">firmware</a>
+    ／ <a href="../">projects</a>
+    ／ 06_mic_test
+  </div>
+</header>
+
+<main>
+
+<h1>06_mic_test — INMP441 マイク疎通</h1>
+<p>INMP441（I²S MEMS, 24-bit）を SAI1 RX に繋ぎ、0.5 秒ごとに窓を取って <strong>peak / RMS / DC / zero-crossing rate</strong> を OpenSDA UART に PRINTF する。実音を PC まで届ける前の <strong>配線とクロックの 1 段目検証</strong>用。</p>
+<h2>期待する出力</h2>
+<pre><code>IchiPing 06_mic_test  ─  INMP441 on SAI1 RX @ 16000 Hz
+[   1] peak=   42  rms=    8  dc=   +1  zcr=  120Hz   ← 静かな部屋
+[   2] peak=  280  rms=   52  dc=   +1  zcr= 1820Hz   ← 拍手すると跳ね上がる
+[   3] peak=14820  rms= 3200  dc=   +2  zcr= 4400Hz   ← 喋ると上がる
+</code></pre>
+<p>判定:
+- 全て 0 → SD（データ線）が来ていない、または BCLK/WS が止まっている
+- peak が常に 32767 / -32768 に張り付く → ゲイン過大か L/R 線が浮いている
+- DC が ±10 以上ずれ続ける → INMP441 起動直後の DC 過渡（最初の数秒で収束する）</p>
+<h2>配線（<a href="../../hardware/wiring.md">../../hardware/wiring.md</a> §2 参照）</h2>
+<table>
+<thead>
+<tr>
+<th>INMP441</th>
+<th>FRDM-MCXN947</th>
+<th>備考</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>VDD</td>
+<td>3V3</td>
+<td></td>
+</tr>
+<tr>
+<td>GND</td>
+<td>GND</td>
+<td></td>
+</tr>
+<tr>
+<td>L/R</td>
+<td>GND</td>
+<td>Left チャネル選択</td>
+</tr>
+<tr>
+<td>WS</td>
+<td>SAI1_FS (LRCLK)</td>
+<td>pin_mux.c の <code>SAI1_RX_InitPins</code> で確定</td>
+</tr>
+<tr>
+<td>SCK</td>
+<td>SAI1_BCLK</td>
+<td>同上</td>
+</tr>
+<tr>
+<td>SD</td>
+<td>SAI1_RXD</td>
+<td>同上</td>
+</tr>
+</tbody>
+</table>
+<h2>ビルド・実行</h2>
+<pre><code>cd firmware/projects/06_mic_test
+# MCUXpresso for VS Code → Import Project → debug preset → build → run
+</code></pre>
+<p>OpenSDA 仮想 COM を <strong>115200 8N1</strong> で開き、上のログを観察。</p>
+<h2>既知の TODO</h2>
+<ul>
+<li><code>pins/pin_mux.c</code> の SAI ピン Alt 値は <strong>MCUXpresso Pins tool で必ず確認</strong>（プレースホルダ）</li>
+<li><code>cm33_core0/app.h</code> の <code>BOARD_MIC_SAI_CLK_ATTACH</code> も SDK バージョンによってシンボル名が違うので確認</li>
+<li>EDMA リング版が必要になったら <code>sai_mic.c</code> の <code>sai_mic_start_streaming</code> を実装</li>
+</ul>
+
+</main>
+
+</body>
+</html>

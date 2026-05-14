@@ -93,7 +93,7 @@
     <tr><td>マイク</td><td><b>INMP441</b></td><td>I²S MEMS, 24-bit。DC オフセット問題なしで chirp/RIR に好適</td></tr>
     <tr><td>スピーカ駆動</td><td>MAX98357A I²S DAC</td><td>Class-D 3.2 W</td></tr>
     <tr><td>サーボ駆動</td><td>PCA9685 + SG90 ×5</td><td>I²C, 16ch PWM</td></tr>
-    <tr><td>表示</td><td>SSD1306 OLED 128×64</td><td>I²C 0x3C</td></tr>
+    <tr><td>表示</td><td>ILI9341 2.4" TFT 240×320</td><td>SPI (FC3 LPSPI), RGB565。SH1106/SSD1306 OLED から差替え（<a href="hardware/display_options.html">採用根拠</a>）</td></tr>
     <tr><td>補助センサ</td><td>BMP585 気圧</td><td>I²C 0.1 Pa 分解能</td></tr>
     <tr><td>ストレージ</td><td>microSD</td><td>SPI / FatFs</td></tr>
     <tr><td>通信</td><td>USB-C CDC（第一案）／ ESP32-WROOM UART（任意）</td><td>v0.1 は OpenSDA UART 921600bps</td></tr>
@@ -124,7 +124,7 @@
 │   ├── wiring.svg               視覚配線図（バス色分け）
 │   ├── netlist.csv              機械可読ネットリスト
 │   ├── bom.html / bom.csv       部品表（DigiKey M1 想定、必須計 ~$252）
-│   └── display_options.html     ディスプレイ候補比較（SH1106 推奨）
+│   └── display_options.html     ディスプレイ候補比較（ILI9341 採用根拠）
 ├── firmware/                    MCUXpresso 用 C コード
 │   ├── README.html / README.md
 │   ├── include/

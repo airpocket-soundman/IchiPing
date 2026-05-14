@@ -13,7 +13,7 @@
 | マイク | **INMP441**（I²S MEMS, 24-bit） — DC オフセット問題がなく chirp/RIR に好適 |
 | スピーカ駆動 | MAX98357A I²S DAC + Class-D アンプ 3.2 W |
 | サーボ駆動 | PCA9685（I²C, 16ch PWM）→ SG90 ×5 |
-| 表示 | SSD1306 OLED 128×64（I²C） |
+| 表示 | ILI9341 2.4" TFT 240×320 RGB565（SPI, FC3 LPSPI）。SH1106/SSD1306 OLED から差替え（[採用根拠](hardware/display_options.html)） |
 | 補助センサ | BMP585 気圧（I²C, 0.1 Pa） |
 | ストレージ | microSD（SPI, FatFs） |
 | 通信 | USB-C CDC（PC 直結、第一案）／ ESP32-WROOM UART（任意） |
@@ -137,7 +137,7 @@ python verify.py --in ../captures/loopback.bin --strict
 - [ ] v0.3: PowerQuad FFT で RIR 抽出、microSD への HDF5 保存
 - [ ] v0.4: PCA9685 + SG90 ×5 を実装、3 部屋模型での自動データ収集
 - [ ] v0.5: 1D CNN autoencoder（INT8）で全閉/開状態の二値分類
-- [ ] v1.0: OLED 表示 + EXEC ボタンによる手動デモモード完成
+- [ ] v1.0: TFT (ILI9341) 表示 + EXEC ボタンによる手動デモモード完成
 - [ ] v2.0: ML63Q2557 + Solist-AI への移植（ROHM EDGE HACK 提出版）
 
 ## ライセンス
