@@ -9,7 +9,7 @@
 1. **正本（digikey_project）に変更が入っていないか調べる**
 
    ```
-   d:/GitHub/digikey_project/details/C4-IchiPing.html   ← IchiPing 仕様の正本
+   d:/GitHub/digikey_project/details/C4-DoorBaro.html   ← IchiPing 仕様の正本
    d:/GitHub/digikey_project/ideas.md   §C4 セクション
    d:/GitHub/digikey_project/ideas_brief.md   C4 行
    d:/GitHub/digikey_project/digikey_plan.md   採用ボード方針
@@ -17,13 +17,13 @@
 
    推奨コマンド:
    ```bash
-   git -C d:/GitHub/digikey_project log --oneline -20 -- details/C4-IchiPing.html ideas.md ideas_brief.md
+   git -C d:/GitHub/digikey_project log --oneline -20 -- details/C4-DoorBaro.html ideas.md ideas_brief.md
    ```
 
 2. **本リポの複製版と差分があるか調べる**
 
    ```bash
-   diff d:/GitHub/digikey_project/details/C4-IchiPing.html d:/GitHub/IchiPing/docs/spec.html
+   diff d:/GitHub/digikey_project/details/C4-DoorBaro.html d:/GitHub/IchiPing/docs/spec.html
    ```
 
    差分があった場合、それは正本側で更新が入ったまま IchiPing に伝播していない状態です。
@@ -40,7 +40,7 @@
 
 | 正本の変更箇所 | IchiPing 側で更新するもの |
 |---|---|
-| `details/C4-IchiPing.html` 全般 | `docs/spec.html` を上書きコピー（**例外 1**: 本文中の `../ideas.html` 等、正本リポ内兄弟ファイルへの相対リンクは、IchiPing 側では絶対 URL `https://github.com/airpocket-soundman/digikey_project/blob/main/...` に置換する。**例外 2**: `<head>` 内に `<link rel="stylesheet" href="style.css">` を `</style>` の後に追記して共通サイドバー CSS を読み込ませる。**本文・図・コードブロック・`<style>` の中身は完全一致を維持**） |
+| `details/C4-DoorBaro.html` 全般 | `docs/spec.html` を上書きコピー（**例外 1**: 本文中の `../ideas.html` 等、正本リポ内兄弟ファイルへの相対リンクは、IchiPing 側では絶対 URL `https://github.com/airpocket-soundman/digikey_project/blob/main/...` に置換する。**例外 2**: `<head>` 内に `<link rel="stylesheet" href="style.css">` を `</style>` の後に追記して共通サイドバー CSS を読み込ませる。**本文・図・コードブロック・`<style>` の中身は完全一致を維持**） |
 | §6 ハードウェア BOM の部品変更 | `hardware/wiring.svg`、`hardware/wiring.md`、`hardware/netlist.csv`、`README.md` の BOM 表 |
 | §3 信号処理パイプラインの変更 | `firmware/projects/01_dummy_emitter/main.c` の `ICHP_SAMPLE_RATE`、`ICHP_SAMPLE_COUNT`、`firmware/shared/source/dummy_audio.c`、`pc/receiver.py` |
 | フレーム形式の変更（サンプル形・ラベル種類） | `firmware/shared/include/ichiping_frame.h`（正本）+ `pc/receiver.py` の `HEADER_FMT` を同時更新 |
@@ -60,7 +60,7 @@ hardware/wiring.{svg,md,csv} と firmware/README.md を更新。
 実装中に判明した知見が**アイデア記述レベル**の更新を要する場合、digikey_project も同期更新してください。
 
 例:
-- 部品選定が現場の都合で変わった → `digikey_project/details/C4-IchiPing.html` §6 を更新
+- 部品選定が現場の都合で変わった → `digikey_project/details/C4-DoorBaro.html` §6 を更新
 - 検出スコープ・手法が変わった → 同 §1〜§4 を更新
 - 一行説明が変わった → `digikey_project/{ideas.md, ideas.html, ideas_brief.md}` の C4 行を更新
 
@@ -70,7 +70,7 @@ hardware/wiring.{svg,md,csv} と firmware/README.md を更新。
 
 | 本リポ | 正本（digikey_project） |
 |---|---|
-| `docs/spec.html` | `details/C4-IchiPing.html`（**完全コピー** — 単純な複製管理） |
+| `docs/spec.html` | `details/C4-DoorBaro.html`（**完全コピー** — 単純な複製管理） |
 | `README.md` のロードマップ | `ideas.md` §C4 + `digikey_plan.md` |
 | `hardware/wiring.svg` 配線図 | 正本にはなし（IchiPing 側で発生・維持） |
 | `firmware/*` ファーム | 正本にはなし |
@@ -85,6 +85,8 @@ hardware/wiring.{svg,md,csv} と firmware/README.md を更新。
 - 現名: **IchiPing**（能動 chirp + マイク 1 個 + 1D CNN — 「イチ」哲学）
 
 旧名で書かれた参照を見つけたら IchiPing に統一してください。詳細経緯は `docs/spec.html` §0「このページの位置づけ」。
+
+**ただし digikey_project 側（正本）は `C4-DoorBaro.html` というファイル名のまま維持する**。digikey_project はアイデアカタログとして "C4 DoorBaro / WindowGuard" の原案表記を保ち、IchiPing はその C4 の実装版（リネーム後）として独立リポで動く、という建付け。digikey_project 側のファイル名・カタログ表記（`ideas.html`、`ideas.md` 等の "DoorBaro" 表記含む）を IchiPing に揃えてリネームしないこと。
 
 ## 🔧 主要な技術的前提
 
@@ -168,13 +170,13 @@ PY
 - HTML ドキュメントでは外部 `.svg` 参照 or インライン `<svg>` どちらでも OK
 - 既存ドキュメントを編集する際、ASCII 図を見つけたら **その編集ついでに SVG に置換**する
 
-理由: ASCII 図は文字数で構造を表現するため画面幅／フォント幅で容易に崩れる。仕様書（正本 `details/C4-IchiPing.html`）が全面 SVG で書かれているため、本リポも同じ表現規約に揃える。
+理由: ASCII 図は文字数で構造を表現するため画面幅／フォント幅で容易に崩れる。仕様書（正本 `details/C4-DoorBaro.html`）が全面 SVG で書かれているため、本リポも同じ表現規約に揃える。
 
 `docs/style.css` の色変数（`--accent`, `--accent-2`, `--warn`, `--pink`）を SVG 内でも使うとテーマ統一できる。
 
 ## 🚫 やらないこと
 
-- `docs/spec.html` を IchiPing 側だけで編集する（→ 正本 `details/C4-IchiPing.html` 側で編集して同期させる）
+- `docs/spec.html` を IchiPing 側だけで編集する（→ 正本 `details/C4-DoorBaro.html` 側で編集して同期させる）
 - 正本変更の確認を省略していきなり実装に入る
 - 「最近正本見たから今回はスキップ」と判断する（**毎タスク開始時に必ず確認**。前回の確認はキャッシュではない）
 - **ドキュメント内に ASCII アート / 罫線図を書く**（→ SVG にする）

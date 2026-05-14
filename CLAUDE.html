@@ -69,16 +69,16 @@
 </div>
 
 <h2>1. 正本（digikey_project）に変更が入っていないか調べる</h2>
-<pre><code>d:/GitHub/digikey_project/details/C4-IchiPing.html   ← IchiPing 仕様の正本
+<pre><code>d:/GitHub/digikey_project/details/C4-DoorBaro.html   ← IchiPing 仕様の正本
 d:/GitHub/digikey_project/ideas.md                   §C4 セクション
 d:/GitHub/digikey_project/ideas_brief.md             C4 行
 d:/GitHub/digikey_project/digikey_plan.md            採用ボード方針</code></pre>
 
 <p>推奨コマンド:</p>
-<pre><code>git -C d:/GitHub/digikey_project log --oneline -20 -- details/C4-IchiPing.html ideas.md ideas_brief.md</code></pre>
+<pre><code>git -C d:/GitHub/digikey_project log --oneline -20 -- details/C4-DoorBaro.html ideas.md ideas_brief.md</code></pre>
 
 <h2>2. 本リポの複製版と差分があるか調べる</h2>
-<pre><code>diff d:/GitHub/digikey_project/details/C4-IchiPing.html d:/GitHub/IchiPing/docs/spec.html</code></pre>
+<pre><code>diff d:/GitHub/digikey_project/details/C4-DoorBaro.html d:/GitHub/IchiPing/docs/spec.html</code></pre>
 <p>差分があった場合、それは正本側で更新が入ったまま IchiPing に伝播していない状態。</p>
 
 <h2>3. 差分があれば伝播してから本来のタスクに入る</h2>
@@ -96,7 +96,7 @@ d:/GitHub/digikey_project/digikey_plan.md            採用ボード方針</code
   </thead>
   <tbody>
     <tr>
-      <td><code>details/C4-IchiPing.html</code> 全般</td>
+      <td><code>details/C4-DoorBaro.html</code> 全般</td>
       <td><code>docs/spec.html</code> を上書きコピー（<b>例外 1</b>: 本文中の <code>../ideas.html</code> など正本リポ内兄弟ファイルへの相対リンクは IchiPing 側では <code>https://github.com/airpocket-soundman/digikey_project/blob/main/...</code> の絶対 URL に置換。<b>例外 2</b>: <code>&lt;head&gt;</code> 内、<code>&lt;/style&gt;</code> の<b>後</b>に <code>&lt;link rel="stylesheet" href="style.css"&gt;</code> を追記して共通サイドバー CSS を読み込ませる。<b>本文・図・コードブロック・<code>&lt;style&gt;</code> の中身は完全一致を維持</b>）</td>
     </tr>
     <tr>
@@ -131,7 +131,7 @@ hardware/wiring.{svg,md,csv} と firmware/README.md を更新。</code></pre>
 <h2>🔁 逆方向（IchiPing → 正本）の更新</h2>
 <p>実装中に判明した知見が<b>アイデア記述レベル</b>の更新を要する場合、digikey_project も同期更新する。</p>
 <ul>
-  <li>部品選定が現場の都合で変わった → <code>digikey_project/details/C4-IchiPing.html</code> §6 を更新</li>
+  <li>部品選定が現場の都合で変わった → <code>digikey_project/details/C4-DoorBaro.html</code> §6 を更新</li>
   <li>検出スコープ・手法が変わった → 同 §1〜§4 を更新</li>
   <li>一行説明が変わった → <code>digikey_project/{ideas.md, ideas.html, ideas_brief.md}</code> の C4 行を更新</li>
 </ul>
@@ -146,7 +146,7 @@ hardware/wiring.{svg,md,csv} と firmware/README.md を更新。</code></pre>
     <tr><th>本リポ</th><th>正本（digikey_project）</th></tr>
   </thead>
   <tbody>
-    <tr><td><code>docs/spec.html</code></td><td><code>details/C4-IchiPing.html</code>（<b>完全コピー</b> — 単純な複製管理）</td></tr>
+    <tr><td><code>docs/spec.html</code></td><td><code>details/C4-DoorBaro.html</code>（<b>完全コピー</b> — 単純な複製管理）</td></tr>
     <tr><td><code>README.md</code> のロードマップ</td><td><code>ideas.md</code> §C4 + <code>digikey_plan.md</code></td></tr>
     <tr><td><code>hardware/wiring.svg</code> 配線図</td><td>正本にはなし（IchiPing 側で発生・維持）</td></tr>
     <tr><td><code>firmware/*</code> ファーム</td><td>正本にはなし</td></tr>
@@ -164,6 +164,8 @@ hardware/wiring.{svg,md,csv} と firmware/README.md を更新。</code></pre>
   <li>現名: <b>IchiPing</b>（能動 chirp + マイク 1 個 + 1D CNN — 「イチ」哲学）</li>
 </ul>
 <p>旧名で書かれた参照を見つけたら IchiPing に統一する。詳細経緯は <a href="docs/spec.html">docs/spec.html</a> §0「このページの位置づけ」。</p>
+
+<p><b>ただし digikey_project 側（正本）は <code>C4-DoorBaro.html</code> というファイル名のまま維持する</b>。digikey_project はアイデアカタログとして "C4 DoorBaro / WindowGuard" の原案表記を保ち、IchiPing はその C4 の実装版（リネーム後）として独立リポで動く、という建付け。digikey_project 側のファイル名・カタログ表記（<code>ideas.html</code>、<code>ideas.md</code> 等の "DoorBaro" 表記含む）を IchiPing に揃えてリネームしないこと。</p>
 
 <h2>🔧 主要な技術的前提</h2>
 <p>これらは正本の C4 spec §6 から確定済で、変えるならユーザー確認が必要:</p>
@@ -250,14 +252,14 @@ PY</code></pre>
   <li>既存ドキュメントを編集する際、ASCII 図を見つけたら <b>その編集ついでに SVG に置換</b>する</li>
 </ul>
 <div class="callout">
-  <strong>理由:</strong> ASCII 図は文字数で構造を表現するため画面幅／フォント幅で容易に崩れる。仕様書（正本 <code>details/C4-IchiPing.html</code>）が全面 SVG で書かれているため、本リポも同じ表現規約に揃える。
+  <strong>理由:</strong> ASCII 図は文字数で構造を表現するため画面幅／フォント幅で容易に崩れる。仕様書（正本 <code>details/C4-DoorBaro.html</code>）が全面 SVG で書かれているため、本リポも同じ表現規約に揃える。
   <code>docs/style.css</code> の色変数（<code>--accent</code>, <code>--accent-2</code>, <code>--warn</code>, <code>--pink</code>）を SVG 内でも使うとテーマ統一できる。
 </div>
 
 <h2 style="color: var(--blocked);">🚫 やらないこと</h2>
 <div class="callout danger">
   <ul style="margin: 0;">
-    <li><code>docs/spec.html</code> を IchiPing 側だけで編集する（→ 正本 <code>details/C4-IchiPing.html</code> 側で編集して同期させる）</li>
+    <li><code>docs/spec.html</code> を IchiPing 側だけで編集する（→ 正本 <code>details/C4-DoorBaro.html</code> 側で編集して同期させる）</li>
     <li>正本変更の確認を省略していきなり実装に入る</li>
     <li>「最近正本見たから今回はスキップ」と判断する（<b>毎タスク開始時に必ず確認</b>。前回の確認はキャッシュではない）</li>
     <li><b>ドキュメント内に ASCII アート／罫線図を書く</b>（→ SVG にする）</li>
