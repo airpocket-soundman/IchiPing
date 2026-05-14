@@ -15,6 +15,10 @@ include(${SdkRootDirPath}/CMakeLists.txt)
 
 mcux_add_source(
     SOURCES main.c
+            virtual_com.c
+            virtual_com.h
+            usb_device_descriptor.c
+            usb_device_descriptor.h
             ../../shared/source/ichiping_frame.c
             ../../shared/source/dummy_audio.c
 )
@@ -26,9 +30,17 @@ mcux_add_include(
              ../../shared/include
 )
 
-# USB device stack (CDC ACM) lives under the SDK's middleware/usb. The
-# usb_device_descriptor.c, virtual_com.c, usb_device_config.h, usb_phy.c
-# from the SDK's usb_device_cdc_vcom example must be added here too; see
-# README for the exact copy list.
+# Match the SDK usb_device_cdc_vcom/bm example's build flags. USB_STACK_BM
+# selects the bare-metal stack flavour; the 0x2000-byte heap/stack are sized
+# for the CDC class's internal buffers and descriptor parsing.
+mcux_add_macro(
+    CC "-DUSB_STACK_BM"
+)
+mcux_add_armgcc_configuration(
+    LD "-Xlinker --defsym=__heap_size__=0x2000"
+)
+mcux_add_armgcc_configuration(
+    LD "-Xlinker --defsym=__stack_size__=0x2000"
+)
 
 mcux_convert_binary(BINARY ${APPLICATION_BINARY_DIR}/${MCUX_SDK_PROJECT_NAME}.bin)

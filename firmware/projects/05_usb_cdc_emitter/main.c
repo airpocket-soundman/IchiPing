@@ -45,17 +45,27 @@
 #include "board.h"
 #include "fsl_debug_console.h"
 
-/* These three headers come from the SDK USB stack — keep the example's
- * versions unmodified. */
+/* SDK USB stack headers. Order matters: usb_device_descriptor.h defines
+ * USB_CDC_VCOM_INTERFACE_COUNT / USB_CDC_VCOM_BULK_IN_ENDPOINT etc., which
+ * virtual_com.h then references inside its struct definitions. */
 #include "usb_device_config.h"
 #include "usb.h"
 #include "usb_device.h"
+#include "usb_device_class.h"
+#include "usb_device_cdc_acm.h"
+#include "usb_device_descriptor.h"
+#include "virtual_com.h"
 
-/* Provided by the cdc_vcom example, NOT by this file. */
+/* BOARD_InitHardware lives in this project's hardware_init.c (copied from the
+ * cdc_vcom example's bm/ folder). It calls BOARD_InitBootPins, OD power mode,
+ * BOARD_InitBootClocks, BOARD_InitDebugConsole, and ext clocking — exactly
+ * the sequence the USB FS controller needs. */
+extern void BOARD_InitHardware(void);
+
+/* Provided by virtual_com.c (now patched for IchiPing). */
 extern void USB_DeviceApplicationInit(void);
 extern void USB_DeviceTask(void *handle);
-extern usb_status_t USB_DeviceCdcAcmSend(class_handle_t handle,
-                                         uint8_t ep, uint8_t *buffer, uint32_t length);
+extern usb_cdc_vcom_struct_t s_cdcVcom;
 
 /* Shared frame format + dummy audio (linked from firmware/shared/source). */
 #include "ichiping_frame.h"
@@ -64,7 +74,7 @@ extern usb_status_t USB_DeviceCdcAcmSend(class_handle_t handle,
 /* ----- ICHP framing knobs (identical to 01_dummy_emitter for parity) ----- */
 #define ICHP_SAMPLE_RATE     16000u
 #define ICHP_SAMPLE_COUNT    32000u                                   /* 2 s @ 16 kHz */
-#define ICHP_FRAME_PERIOD_MS 1000u                                    /* USB lets us run faster */
+#define ICHP_FRAME_PERIOD_MS 100u                                     /* USB FS limit probe: aim ~10 fps */
 #define ICHP_BULK_IN_EP      USB_CDC_VCOM_BULK_IN_ENDPOINT            /* defined by the SDK example */
 
 /* Buffers — placed in regular SRAM. The MCXN947 has plenty for this. */
@@ -97,9 +107,7 @@ static void random_servo_angles(uint16_t seq, float out[5]) {
 }
 
 int main(void) {
-    BOARD_InitBootPins();
-    BOARD_InitBootClocks();
-    BOARD_InitDebugConsole();
+    BOARD_InitHardware();
     systick_init_1ms();
     dummy_audio_seed(0xC4C4C4C4u);
 
@@ -134,9 +142,10 @@ int main(void) {
             servo_deg, s_audio_buf);
 
         if (frame_size > 0) {
-            /* CDC ACM bulk-IN endpoint. Split a 64 KB frame into 512 B
-             * chunks if your SDK version doesn't auto-fragment. Most do. */
-            usb_status_t s = USB_DeviceCdcAcmSend(NULL, ICHP_BULK_IN_EP,
+            /* CDC ACM bulk-IN endpoint. The CDC ACM class will auto-fragment
+             * into 64 B USB FS packets internally. */
+            usb_status_t s = USB_DeviceCdcAcmSend(s_cdcVcom.cdcAcmHandle,
+                                                  ICHP_BULK_IN_EP,
                                                   s_tx_buf, (uint32_t)frame_size);
             if (s != kStatus_USB_Success) {
                 PRINTF("USB send failed: 0x%x\r\n", (unsigned)s);
