@@ -36,6 +36,13 @@ firmware/host_build/*.a
 **/manifests/
 **/.west/
 
+# MCUXpresso for VS Code per-machine config (contains absolute SDK / toolchain /
+# user-home paths that differ per developer). Created by the extension's Import
+# Project wizard on first open of each project; should not live in version
+# control. See firmware/README.md "ビルド手順" for first-clone bring-up.
+firmware/projects/*/.vscode/mcuxpresso-tools.json
+firmware/projects/*/mcux_include.json
+
 # Editor / OS detritus
 .DS_Store
 Thumbs.db

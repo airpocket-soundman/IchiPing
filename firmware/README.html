@@ -98,7 +98,7 @@
 │   │   ├── CMakePresets.json             debug/release プリセット（共通）
 │   │   ├── Kconfig                       SDK Kconfig ルート（共通）
 │   │   ├── example.yml                   MCUXpresso example メタデータ
-│   │   ├── mcux_include.json             ARMGCC/SDK パス（共通、開発機固有）
+│   │   ├── mcux_include.json             ARMGCC/SDK パス（<b>開発機固有 / <code>.gitignore</code> 済み</b>）
 │   │   ├── prj.conf                      プロジェクト個別の SDK コンポーネント選択
 │   │   └── frdmmcxn947_cm33_core0/
 │   │       ├── board_files.cmake          board/clock/pins/cm33_core0 を mcux_add_*
@@ -221,7 +221,7 @@
       <td><code>SERVO_BACKEND_LU9685_I2C</code></td>
       <td>LU9685-20CU</td>
       <td>20</td>
-      <td>0x00（ジャンパで 0x00..0x1F）</td>
+      <td>0x1F（実機, ジャンパで 0x00..0x1F）</td>
       <td>チップが角度→パルス変換するので不要</td>
       <td><a href="shared/source/lu9685.c"><code>lu9685.c</code></a></td>
     </tr>
@@ -237,12 +237,16 @@
 
 <p>各 <code>projects/XX_*/</code> フォルダは <b>MCUXpresso for VS Code に直接 Import → Existing Project</b> できる状態に揃えてある（NXP の標準デモ <code>frdmmcxn947_lpspi_interrupt_b2b_transfer_master_cm33_core0</code> と同じ構造）。共通の流れは:</p>
 <ol>
-  <li><b>MCUXpresso SDK for FRDM-MCXN947</b> 11.9 以降を <code>d:/GitHub/mcuxsdk</code> 等に配置（<code>mcux_include.json</code> の <code>SdkRootDirPath</code> と一致させる）</li>
-  <li><b>arm-gnu-toolchain 14.2</b> を <code>~/.mcuxpressotools/...</code> に展開（<code>mcux_include.json</code> の <code>ARMGCC_DIR</code> と一致）</li>
-  <li>VS Code で <i>MCUXpresso → Import Project From Folder</i> → <code>firmware/projects/XX_*/</code> を指定</li>
+  <li><b>MCUXpresso SDK for FRDM-MCXN947</b> 11.9 以降を任意の場所に配置（例: <code>d:/workspace/sdks/mcuxsdk</code>）</li>
+  <li><b>arm-gnu-toolchain 14.2</b> を <code>~/.mcuxpressotools/...</code> に展開</li>
+  <li>VS Code で <i>MCUXpresso → Import Project From Folder</i> → <code>firmware/projects/XX_*/</code> を指定。<b>初回 import 時に拡張が <code>.vscode/mcuxpresso-tools.json</code> と <code>mcux_include.json</code> を生成</b>して、その開発機の SDK パス・toolchain パス・ユーザーホームを埋め込む（<b>この 2 ファイルは <code>.gitignore</code> 済み</b>、各開発機固有）</li>
   <li><i>Configure preset</i> で <code>debug</code> または <code>release</code> を選び、ビルド</li>
   <li>OpenSDA 経由で書込（GDB / Run target）</li>
 </ol>
+
+<blockquote>
+  <b><code>mcux_include.json</code> / <code>.vscode/mcuxpresso-tools.json</code> がリポに無いのは仕様</b>。これらは absolute path で SDK・toolchain・user-home を指すため共有不能。クローン直後は import wizard を 1 回回せば各プロジェクトで自動生成される。SDK や toolchain の置き場を変更した場合は、wizard で再生成するか、これら 2 ファイルを直接編集する。
+</blockquote>
 
 <p>各プロジェクトの個別事情（02 の I²C 変更、04 の LVGL ソース追加、05 の USB stack 追加）と <b>確認方法（シリアルだけで OK か、PC 側スクリプトが必要か）</b> は対応する README に書いてある:</p>
 

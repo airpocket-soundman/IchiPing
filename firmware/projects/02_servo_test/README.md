@@ -91,13 +91,19 @@ Phase 2 solo sweep:
 
 ### C. I²C スキャン
 
-サーボが 1 個も動かない場合、起動ログの `PCA9685 init OK @ 50 Hz` か `init FAILED (no ACK)` を確認:
+`main.c` の `i2c_scan()` が起動直後に 0x01..0x77 を ACK 確認する。出力例:
+
+```
+I2C scan (0x01..0x77):
+  ACK at 0x1F
+I2C scan: 1 device(s) responded
+```
 
 - PCA9685: A0..A5 の I²C アドレス選択ピンを確認、デフォルト 0x40。プルアップ 4.7 kΩ × 2 が SDA/SCL に必要
-- LU9685: ジャンパで設定された I²C アドレス（0x00..0x1F）を `main.c` の `SERVO_DEFAULT_ADDR` 引数で指定
+- LU9685: ジャンパで 0x00..0x1F の範囲（**実機は 0x1F**）。スキャンの ACK 結果と `firmware/shared/include/lu9685.h` の `LU9685_DEFAULT_ADDR` が一致しているか確認
 
 ## トラブルシュート
 
 - **PCA9685 が応答しない**: A0..A5 の I²C アドレス選択ピンの位置を確認、デフォルト 0x40
-- **LU9685 が応答しない**: ジャンパで設定された I²C アドレス（0x00..0x1F）を確認、0x00 は General Call と被るので 0x01 以上にずらすのが安全
+- **LU9685 が ACK は返すのにサーボが 0V で動かない**: 典型的に `LU9685_DEFAULT_ADDR` が 0x00 になっているケース。LU9685 は I²C General Call (0x00) にオプトイン応答するので LPI2C は `kStatus_Success` を返すが、コマンドは broadcast 扱いになり PWM は立たない。`i2c_scan()` の出力で実アドレスを確認し、`lu9685.h` の `LU9685_DEFAULT_ADDR` をそれに合わせる
 - **サーボがガタつく**: V+ の 5V 電源容量不足。USB バスパワーでは足りないので外部 5V 電源 + 1000 µF を必ず
