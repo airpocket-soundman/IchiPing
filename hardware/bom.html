@@ -162,19 +162,19 @@
     </tr>
     <tr>
       <td>ストレージ</td>
-      <td>microSD ソケット (SPI)</td>
-      <td>1</td>
+      <td>microSD ソケット (SPI) <span style="color:#aaa;">— 本計画では未採用</span></td>
+      <td>—</td>
       <td>$2.95</td>
       <td>DigiKey: Adafruit 254</td>
-      <td>FatFs 用 4 線 SPI</td>
+      <td>当初 v1 仕様には載っていたが、学習データの永続化は PC 側（receiver.py / collector_client.py）で WAV + CSV 保存する方針に変更。配線・FatFs 工程をスキップできる利点が大きいので削除。将来 MCU 側ローカル蓄積が必要になったら復活させる</td>
     </tr>
     <tr>
       <td>ストレージ</td>
-      <td>microSD 64 GB Class 10</td>
-      <td>1</td>
+      <td>microSD 64 GB Class 10 <span style="color:#aaa;">— 本計画では未採用</span></td>
+      <td>—</td>
       <td>$12.95</td>
       <td>DigiKey: SanDisk Ultra</td>
-      <td>~100 セッション分の学習データバッファ</td>
+      <td>同上、未採用</td>
     </tr>
   </tbody>
 </table>

@@ -10,7 +10,7 @@
 |---|---|---|---|
 | OpenSDA debug UART | LPUART4 | FC4 | （固定） |
 | サーボ I²C + センサ I²C | LPI2C2 | FC2 | **ESP32 LPUART2 と排他**（FC2 は I²C 専用化） |
-| TFT + microSD SPI | LPSPI1 | FC1 | — |
+| TFT SPI | LPSPI1 | FC1 | — (microSD は本計画では未採用) |
 | 音響 I²S 全二重 | SAI1 (= I2S1) | — (SAI 系) | — |
 | USB CDC | USB1 HS | — (USB 系) | target USB-C (J21) |
 
@@ -45,22 +45,21 @@
 
 > **排他**: FC2 を I²C 専用化したため、J1.2 (D0) / J1.4 (D1) の `FC2_UART` は使えません。将来 ESP32-WROOM を繋ぐなら、I²C を FC3（mikroBUS J5 経由）に移すか LPI2C ペリフェラルを別 FC に再割当が必要。
 
-### TFT + microSD SPI 系（J2 ヘッダ・LPSPI1 / FC1）
+### TFT SPI 系（J2 + J4 ヘッダ・LPSPI1 / FC1）
 
 | デバイス | デバイス端子 | MCU pin | Alt | SDK 信号名 | ヘッダ | SJ |
 |---|---|---|---|---|---|---|
-| ILI9341 + microSD | MOSI ← | P0_24 | Alt2 | `FC1_SPI_SDO` | **J2.8 (D11)** | **SJ7=1-2** |
-| ILI9341 + microSD | SCK ← | P0_25 | Alt2 | `FC1_SPI_SCK` | **J2.12 (D13)** | — |
-| microSD | MISO → | P0_26 | Alt2 | `FC1_SPI_SDI` | **J2.10 (D12)** | — |
-| microSD | CS ← (HW) | P0_27 | Alt2 | `FC1_SPI_PCS` | **J2.6 (D10)** | **SJ6=1-2** (LED_GREEN 失う) |
+| ILI9341 | MOSI ← | P0_24 | Alt2 | `FC1_SPI_SDO` | **J2.8 (D11)** | **SJ7=1-2** (デフォルト) |
+| ILI9341 | SCK ← | P0_25 | Alt2 | `FC1_SPI_SCK` | **J2.12 (D13)** | — |
+| ILI9341 | MISO → | P0_26 | Alt2 | `FC1_SPI_SDI` | **J2.10 (D12)** | — | (ILI 書込専用なので未接続でも OK、ピンは muxed) |
 | ILI9341 | CS ← (GPIO) | P0_14 | Alt0 | GPIO | **J4.6 (A2)** | — |
 | ILI9341 | RESET ← | P0_22 | Alt0 | GPIO | **J4.8 (A3)** | — |
-| ILI9341 | DC ← | P0_15 | Alt0 | GPIO | **J4.10 (A4)** | SJ8=1-2 デフォルト |
-| ILI9341 | BL ← | P0_23 | Alt0 | GPIO | **J4.12 (A5)** | SJ9=1-2 デフォルト |
+| ILI9341 | DC ← | P0_15 | Alt0 | GPIO | **J4.10 (A4)** | SJ8=1-2 (デフォルト) |
+| ILI9341 | BL ← | P0_23 | Alt0 | GPIO | **J4.12 (A5)** | SJ9=1-2 (デフォルト) |
 
-> ILI9341 と microSD は **MOSI/SCK バスを共有**、CS で排他選択。同時アクセスは不可だが、IchiPing の動作フェーズ（推論表示 vs SD 書込）は時分割で問題なし。
+> **microSD は本計画では採用しない**。学習データの永続化は PC 側（receiver.py / collector_client.py）が担当する。よって **D10 (P0_27 = `FC1_SPI_PCS`) は SJ6=2-3 デフォルトのまま**、`LED_GREEN` として残せる。後で microSD が必要になったら SJ6=1-2 + D10 を HW PCS or GPIO CS として追加。
 >
-> ILI9341 の CS は HW PCS（D10）ではなく **A2 の GPIO 手動制御**にしているのは、HW PCS が常時 LOW にしかできず複数 SPI スレーブを扱えないため。microSD CS だけが D10 の HW PCS を使う想定。
+> ILI9341 の CS は HW PCS（D10）ではなく **A2 の GPIO 手動制御**にしているのは、(1) HW PCS は LPSPI セッション毎にしか制御できず ILI の連続バーストに不向きで、(2) D10 を GPIO のまま空けておけば microSD を後付けする時にも干渉しないため。
 
 ### GPIO 入力（J1 + J2 ヘッダ・UI とセンサ）
 
@@ -83,7 +82,7 @@
 | **PWR LED**（緑、常時 ON） | 外付け（3V3 → 330Ω → LED → GND）。MCU GPIO 不要 |
 | **推論中 LED**（橙） | D2 (P0_29) GPIO 出力で能動駆動 |
 | LED_RED (P0_10) | D9 として SJ5 デフォルト経路を使えば点灯可能。未使用なら GPIO もしくは LED として活用余地あり |
-| LED_GREEN (P0_27) | **microSD CS 用に犠牲**（SJ6=1-2）。v0.1 で microSD 未使用なら SJ6=2-3 で復活可能 |
+| LED_GREEN (P0_27) | **常時使用可**（microSD 不採用、SJ6=2-3 デフォルトのまま）。GPIO 出力で点灯制御も可能 |
 | LED_BLUE (P1_2) | **トグル: 扉 AB と共用**。点灯はトグル状態に依存 |
 
 ### USB CDC + OpenSDA UART（オンボード固定）
@@ -99,7 +98,7 @@
 
 | SJ | 必要設定 | 用途 | 出荷時デフォルト | 動作の影響 |
 |---|---|---|---|---|
-| SJ6 | **1-2** | D10 = SPI_PCS（microSD CS HW 駆動用） | 1-2 (デフォルト) | LED_GREEN 不可 |
+| SJ6 | **2-3** (デフォルト) | D10 = LED_GREEN（microSD 採用しないため） | 2-3 (デフォルト) | microSD を採用するなら 1-2 に切替えて D10 = SPI_PCS |
 | SJ7 | **1-2** | D11 = SPI_SDO | 1-2 (デフォルト) | — |
 | SJ8 | 1-2 | A4 = GPIO（ILI9341 DC） | 1-2 (デフォルト) | — |
 | SJ9 | 1-2 | A5 = GPIO（ILI9341 BL） | 1-2 (デフォルト) | Wakeup_B 機能不使用 |
@@ -115,7 +114,7 @@
 | 衝突 | 理由 | 解消方法 |
 |---|---|---|
 | FC2 I²C (PCA9685) vs FC2 UART (ESP32-WROOM) | FlexComm 2 は一度に 1 ペリフェラルのみ | ESP32 は v1 では未採用。必要なら I²C を FC3 へ移行 |
-| D10 SPI_PCS vs LED_GREEN | 同じ P0_27 ピン | microSD 不要なら SJ6=2-3 で LED_GREEN 復活 |
+| D10 SPI_PCS vs LED_GREEN | 同じ P0_27 ピン | 本計画は microSD 不採用なので SJ6=2-3 で LED_GREEN を維持。将来 microSD 採用時のみ問題化 |
 | D6 GPIO vs LED_BLUE | 同じ P1_2 ピン | トグル: 扉 AB のステートで LED 点灯。実用上は無視 |
 | D5 GPIO vs SAI1_MCLK | 同じ P1_21 ピン | IchiPing は MCLK 不使用 → 影響なし |
 | D9 (P0_10) vs LED_RED | 同じピン | v1 で D9 未使用なら LED_RED 自由 |
@@ -130,7 +129,7 @@
 ✅ LU9685 サーボドライバ代替（同じ I²C バス、addr 違いで両立可）
 ✅ BMP585 気圧センサ（同じ I²C バス）
 ✅ ILI9341 TFT（LPSPI1: 2 pin + GPIO 4 pin）
-✅ microSD（LPSPI1 を ILI9341 と共有 + CS 1 pin）
+⏸️ microSD は本計画では未採用（PC 側 receiver.py / collector_client.py で代替）
 ✅ SG90 サーボ ×5（PCA9685 経由、ヘッダ占有なし）
 ✅ トグルスイッチ ×5 + EXEC ボタン（J1 D3..D7 + J2 D8）
 ✅ 推論中 LED（D2）

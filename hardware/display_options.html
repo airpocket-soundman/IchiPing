@@ -65,7 +65,7 @@
   <div class="meta">
     <span class="meta-stat done"><span class="num">5</span> 候補比較</span>
     <span class="meta-stat active"><span class="num">ILI9341 2.4"</span> 採用決定</span>
-    <span class="meta-stat"><span class="num">SPI</span> microSD と共有</span>
+    <span class="meta-stat"><span class="num">SPI</span> LPSPI1 (FC1) 専有</span>
   </div>
 </header>
 
@@ -137,7 +137,7 @@
       <td><b>ILI9341 ★採用</b></td>
       <td><b>2.4–2.8" / 240×320</b></td>
       <td>TFT RGB565 フルカラー</td>
-      <td>SPI（microSD と共有）</td>
+      <td>SPI（LPSPI1 / FC1 専有）</td>
       <td>4 共有 + CS/DC/RES/BL = 4 専用</td>
       <td>~$13</td>
       <td>★★★★★ デモ映え圧倒的</td>
@@ -181,8 +181,8 @@
     </tr>
     <tr>
       <td><b>SPI 共存性</b></td>
-      <td>FC3 SPI を microSD と <b>同一バスで共有</b>（CS のみ分離）。同時アクセス不可だが、本プロジェクトでは
-        推論／表示と SD 書込は別フェーズなので問題なし</td>
+      <td>LPSPI1 (FC1) を <b>ILI9341 単独で占有</b>。本計画では microSD を採用しないので排他制御も不要。
+        将来 microSD を追加するなら同一バスに CS を増やして接続可能（時分割アクセス）</td>
     </tr>
     <tr>
       <td><b>価格</b></td>
@@ -290,7 +290,7 @@
 <table>
   <thead><tr><th>シナリオ</th><th>移行候補</th></tr></thead>
   <tbody>
-    <tr><td>カラー表示でデモ動画の訴求力を上げたい</td><td>SSD1351（SPI、microSD と FC3 を取り合うので CS 2 本目）</td></tr>
+    <tr><td>カラー表示でデモ動画の訴求力を上げたい</td><td>SSD1351（SPI、ILI9341 と同じ LPSPI1 に CS 2 本目で同居可）</td></tr>
     <tr><td>14 状態の階層表示を fancy にしたい</td><td>SSD1327 1.5" 128×128 グレースケール（I²C 維持）</td></tr>
     <tr><td>ROHM v2 で別 MCU に移植時</td><td>同じ SH1106 でドライバを M0+ 用に書き直すだけ。バス変更不要</td></tr>
   </tbody>

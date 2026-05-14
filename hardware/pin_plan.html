@@ -86,10 +86,10 @@
 <td><strong>ESP32 LPUART2 と排他</strong>（FC2 は I²C 専用化）</td>
 </tr>
 <tr>
-<td>TFT + microSD SPI</td>
+<td>TFT SPI</td>
 <td>LPSPI1</td>
 <td>FC1</td>
-<td>—</td>
+<td>— (microSD は本計画では未採用)</td>
 </tr>
 <tr>
 <td>音響 I²S 全二重</td>
@@ -283,7 +283,7 @@
 <blockquote>
 <p><strong>排他</strong>: FC2 を I²C 専用化したため、J1.2 (D0) / J1.4 (D1) の <code>FC2_UART</code> は使えません。将来 ESP32-WROOM を繋ぐなら、I²C を FC3（mikroBUS J5 経由）に移すか LPI2C ペリフェラルを別 FC に再割当が必要。</p>
 </blockquote>
-<h3>TFT + microSD SPI 系（J2 ヘッダ・LPSPI1 / FC1）</h3>
+<h3>TFT SPI 系（J2 + J4 ヘッダ・LPSPI1 / FC1）</h3>
 <table>
 <thead>
 <tr>
@@ -298,16 +298,16 @@
 </thead>
 <tbody>
 <tr>
-<td>ILI9341 + microSD</td>
+<td>ILI9341</td>
 <td>MOSI ←</td>
 <td>P0_24</td>
 <td>Alt2</td>
 <td><code>FC1_SPI_SDO</code></td>
 <td><strong>J2.8 (D11)</strong></td>
-<td><strong>SJ7=1-2</strong></td>
+<td><strong>SJ7=1-2</strong> (デフォルト)</td>
 </tr>
 <tr>
-<td>ILI9341 + microSD</td>
+<td>ILI9341</td>
 <td>SCK ←</td>
 <td>P0_25</td>
 <td>Alt2</td>
@@ -316,22 +316,13 @@
 <td>—</td>
 </tr>
 <tr>
-<td>microSD</td>
+<td>ILI9341</td>
 <td>MISO →</td>
 <td>P0_26</td>
 <td>Alt2</td>
 <td><code>FC1_SPI_SDI</code></td>
 <td><strong>J2.10 (D12)</strong></td>
-<td>—</td>
-</tr>
-<tr>
-<td>microSD</td>
-<td>CS ← (HW)</td>
-<td>P0_27</td>
-<td>Alt2</td>
-<td><code>FC1_SPI_PCS</code></td>
-<td><strong>J2.6 (D10)</strong></td>
-<td><strong>SJ6=1-2</strong> (LED_GREEN 失う)</td>
+<td>— (ILI 書込専用なので未接続でも OK、ピンは muxed)</td>
 </tr>
 <tr>
 <td>ILI9341</td>
@@ -358,7 +349,7 @@
 <td>Alt0</td>
 <td>GPIO</td>
 <td><strong>J4.10 (A4)</strong></td>
-<td>SJ8=1-2 デフォルト</td>
+<td>SJ8=1-2 (デフォルト)</td>
 </tr>
 <tr>
 <td>ILI9341</td>
@@ -367,13 +358,13 @@
 <td>Alt0</td>
 <td>GPIO</td>
 <td><strong>J4.12 (A5)</strong></td>
-<td>SJ9=1-2 デフォルト</td>
+<td>SJ9=1-2 (デフォルト)</td>
 </tr>
 </tbody>
 </table>
 <blockquote>
-<p>ILI9341 と microSD は <strong>MOSI/SCK バスを共有</strong>、CS で排他選択。同時アクセスは不可だが、IchiPing の動作フェーズ（推論表示 vs SD 書込）は時分割で問題なし。</p>
-<p>ILI9341 の CS は HW PCS（D10）ではなく <strong>A2 の GPIO 手動制御</strong>にしているのは、HW PCS が常時 LOW にしかできず複数 SPI スレーブを扱えないため。microSD CS だけが D10 の HW PCS を使う想定。</p>
+<p><strong>microSD は本計画では採用しない</strong>。学習データの永続化は PC 側（receiver.py / collector_client.py）が担当する。よって <strong>D10 (P0_27 = <code>FC1_SPI_PCS</code>) は SJ6=2-3 デフォルトのまま</strong>、<code>LED_GREEN</code> として残せる。後で microSD が必要になったら SJ6=1-2 + D10 を HW PCS or GPIO CS として追加。</p>
+<p>ILI9341 の CS は HW PCS（D10）ではなく <strong>A2 の GPIO 手動制御</strong>にしているのは、(1) HW PCS は LPSPI セッション毎にしか制御できず ILI の連続バーストに不向きで、(2) D10 を GPIO のまま空けておけば microSD を後付けする時にも干渉しないため。</p>
 </blockquote>
 <h3>GPIO 入力（J1 + J2 ヘッダ・UI とセンサ）</h3>
 <table>
@@ -454,7 +445,7 @@
 </tr>
 <tr>
 <td>LED_GREEN (P0_27)</td>
-<td><strong>microSD CS 用に犠牲</strong>（SJ6=1-2）。v0.1 で microSD 未使用なら SJ6=2-3 で復活可能</td>
+<td><strong>常時使用可</strong>（microSD 不採用、SJ6=2-3 デフォルトのまま）。GPIO 出力で点灯制御も可能</td>
 </tr>
 <tr>
 <td>LED_BLUE (P1_2)</td>
@@ -499,10 +490,10 @@
 <tbody>
 <tr>
 <td>SJ6</td>
-<td><strong>1-2</strong></td>
-<td>D10 = SPI_PCS（microSD CS HW 駆動用）</td>
-<td>1-2 (デフォルト)</td>
-<td>LED_GREEN 不可</td>
+<td><strong>2-3</strong> (デフォルト)</td>
+<td>D10 = LED_GREEN（microSD 採用しないため）</td>
+<td>2-3 (デフォルト)</td>
+<td>microSD を採用するなら 1-2 に切替えて D10 = SPI_PCS</td>
 </tr>
 <tr>
 <td>SJ7</td>
@@ -574,7 +565,7 @@
 <tr>
 <td>D10 SPI_PCS vs LED_GREEN</td>
 <td>同じ P0_27 ピン</td>
-<td>microSD 不要なら SJ6=2-3 で LED_GREEN 復活</td>
+<td>本計画は microSD 不採用なので SJ6=2-3 で LED_GREEN を維持。将来 microSD 採用時のみ問題化</td>
 </tr>
 <tr>
 <td>D6 GPIO vs LED_BLUE</td>
@@ -601,7 +592,7 @@
 ✅ LU9685 サーボドライバ代替（同じ I²C バス、addr 違いで両立可）
 ✅ BMP585 気圧センサ（同じ I²C バス）
 ✅ ILI9341 TFT（LPSPI1: 2 pin + GPIO 4 pin）
-✅ microSD（LPSPI1 を ILI9341 と共有 + CS 1 pin）
+⏸️ microSD は本計画では未採用（PC 側 receiver.py / collector_client.py で代替）
 ✅ SG90 サーボ ×5（PCA9685 経由、ヘッダ占有なし）
 ✅ トグルスイッチ ×5 + EXEC ボタン（J1 D3..D7 + J2 D8）
 ✅ 推論中 LED（D2）

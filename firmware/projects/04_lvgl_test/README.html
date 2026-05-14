@@ -112,7 +112,7 @@
 #define LV_TICK_CUSTOM      0
 #define LV_MEM_SIZE         (48 * 1024)</code></pre>
   </li>
-  <li><b>Config Tools の Pins ツール</b> は <a href="../03_ili9341_test/README.html">03_ili9341_test</a> と同じ（D11/D13 → LPSPI3、A2..A5 → GPIO 出力）</li>
+  <li><b>Pins tool 不要</b> — pin_mux.c は <a href="../03_ili9341_test/README.html">03_ili9341_test</a> と同じ <b>LPSPI1 (FC1) on D11/D13 + GPIO on A2..A5</b> を既に設定済</li>
   <li>ビルド → OpenSDA で書込</li>
 </ol>
 

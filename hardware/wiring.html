@@ -71,7 +71,7 @@
   <tbody>
     <tr><td>I²S (full-duplex)</td><td>SAI1</td><td>INMP441 マイク（RX）＋ MAX98357A スピーカ（TX）</td><td>—</td><td>J1 SAI 列（PIO3_16/17/20/21）</td></tr>
     <tr><td>I²C</td><td>LPI2C2 (FC2)</td><td>PCA9685 / LU9685 / BMP585</td><td>0x40 / 0x1F (jumper 0x00–0x1F) / 0x47</td><td><b>D18 (SDA, PIO4_0), D19 (SCL, PIO4_1)</b></td></tr>
-    <tr><td>SPI（ILI9341 + microSD）</td><td>LPSPI?</td><td>microSD（FatFs）＋ ILI9341 TFT</td><td>CS=D10 / 別 GPIO</td><td>D10–D13 ※FC は要確認</td></tr>
+    <tr><td>SPI</td><td>LPSPI1 (FC1)</td><td>ILI9341 TFT</td><td>CS=A2 (GPIO 駆動)</td><td>D11/D12/D13 (J2.8/10/12), A2/A3/A4/A5 (J4.6/8/10/12)</td></tr>
     <tr><td>UART</td><td>LPUART4 (FC4)</td><td>OpenSDA 仮想 COM（v0.1 デバッグ／フレーム送信）</td><td>—</td><td>オンボード MCU-Link</td></tr>
     <tr><td>UART</td><td>LPUART2 (FC2)</td><td>ESP32-WROOM（任意, 将来）</td><td>—</td><td>D0, D1</td></tr>
     <tr><td>USB</td><td>USB0</td><td>PC（CDC データ転送）</td><td>—</td><td>オンボード USB-C</td></tr>
@@ -129,39 +129,33 @@
   複数デバイス（PCA9685 + BMP585 を同時に）下げる、または 400 kHz 動作時は外付け 4.7 kΩ × 2 を追加すること。
 </div>
 
-<h3>2.3 SPI（microSD + ILI9341, <b>FC は要確認</b>）</h3>
+<h3>2.3 SPI（ILI9341 TFT のみ, LPSPI1 / FC1）</h3>
+
+<p>FRDM-MCXN947 Board User Manual Table 18（Arduino J2）と Table 20（J4）に基づく確定構成。出典: <a href="../docs/pdf/FRDM-MCXN947BoardUserManual.pdf">docs/pdf/FRDM-MCXN947BoardUserManual.pdf</a>。</p>
+
 <table>
   <thead>
-    <tr><th>Arduino</th><th>MCU pin</th><th>SDK 機能</th><th>デバイス端子</th><th>備考</th></tr>
+    <tr><th>Arduino</th><th>J ピン</th><th>MCU pin</th><th>Alt</th><th>SDK 信号</th><th>ILI9341 端子</th><th>ソルダージャンパ</th><th>備考</th></tr>
   </thead>
   <tbody>
-    <tr><td>D10</td><td>TODO</td><td><code>FC?_SPI_CS</code></td><td>microSD CS</td><td></td></tr>
-    <tr><td>D11</td><td>TODO</td><td><code>FC?_SPI_MOSI</code></td><td>microSD MOSI / ILI9341 SDI</td><td>バス共有</td></tr>
-    <tr><td>D12</td><td>TODO</td><td><code>FC?_SPI_MISO</code></td><td>microSD MISO</td><td>ILI9341 は書込のみで MISO 未接続</td></tr>
-    <tr><td>D13</td><td>TODO</td><td><code>FC?_SPI_SCK</code></td><td>microSD SCK / ILI9341 SCK</td><td></td></tr>
-    <tr><td><b>A2</b></td><td>TODO GPIO</td><td>—</td><td>ILI9341 CS</td><td>microSD と排他選択</td></tr>
-    <tr><td><b>A3</b></td><td>TODO GPIO</td><td>—</td><td>ILI9341 RESET</td><td>Hard reset (init 時)</td></tr>
-    <tr><td><b>A4</b></td><td>TODO GPIO</td><td>—</td><td>ILI9341 DC</td><td>Data/Command 切替</td></tr>
-    <tr><td><b>A5</b></td><td>TODO GPIO</td><td>—</td><td>ILI9341 LED/BL</td><td>バックライト</td></tr>
+    <tr><td>D11</td><td>J2.8</td><td>P0_24</td><td>Alt2 (FC1)</td><td><code>FC1_SPI_SDO</code></td><td>SDI / MOSI</td><td><b>SJ7: 1-2</b> (default)</td><td>LPSPI1 master out</td></tr>
+    <tr><td>D12</td><td>J2.10</td><td>P0_26</td><td>Alt2 (FC1)</td><td><code>FC1_SPI_SDI</code></td><td>SDO / MISO（未接続）</td><td>—</td><td>ILI9341 は書込のみ。pin はムックスしておくが結線不要</td></tr>
+    <tr><td>D13</td><td>J2.12</td><td>P0_25</td><td>Alt2 (FC1)</td><td><code>FC1_SPI_SCK</code></td><td>SCK</td><td>—</td><td>LPSPI1 クロック</td></tr>
+    <tr><td><b>A2</b></td><td>J4.6</td><td>P0_14</td><td>Alt0 (GPIO)</td><td><code>ARD_A2</code></td><td>CS</td><td>—</td><td>マニュアル CS（ハード PCS 非使用）</td></tr>
+    <tr><td><b>A3</b></td><td>J4.8</td><td>P0_22</td><td>Alt0 (GPIO)</td><td><code>ARD_A3</code></td><td>RESET</td><td>—</td><td>Hard reset (init 時 LOW パルス)</td></tr>
+    <tr><td><b>A4</b></td><td>J4.10</td><td>P0_15</td><td>Alt0 (GPIO)</td><td><code>ARD_A4</code></td><td>DC</td><td><b>SJ8: 1-2</b> (default)</td><td>Data/Command 切替</td></tr>
+    <tr><td><b>A5</b></td><td>J4.12</td><td>P0_23</td><td>Alt0 (GPIO)</td><td><code>ARD_A5</code></td><td>LED/BL</td><td><b>SJ9: 1-2</b> (default)</td><td>バックライト。SJ9=2-3 だと Wakeup ピンに切替わる</td></tr>
   </tbody>
 </table>
-<div class="callout warn">
-  <b>未確認</b>: FRDM-MCXN947 で Arduino D11/D13 がどの LP_FLEXCOMM に割り付くかは SDK 標準サンプルからは特定できなかった
-  （SDK の LPSPI 例は J7 Pmod 等の専用パッドを使う）。
-  <b>MCUXpresso Pins tool で D11/D12/D13 の pin_signal 列を見て、<code>FCx_Px</code> の x を確定してから</b>
-  <a href="../firmware/projects/03_ili9341_test/frdmmcxn947_cm33_core0/cm33_core0/app.h"><code>03_ili9341_test/app.h</code></a> と
-  <a href="../firmware/projects/03_ili9341_test/frdmmcxn947_cm33_core0/pins/pin_mux.c"><code>pin_mux.c</code></a>
-  を更新してください。<br><br>
-  暫定の経験則:
-  <ul>
-    <li>D12 の pin は <b>LED Green と共用</b>（<code>BOARD_LED_GREEN_GPIO_PIN = 27</code>）の可能性がある → MISO 機能と LED 表示の二者択一</li>
-    <li>SW2 が <code>GPIO0 P23</code> (= A5 候補) を使っているので、<b>A5 を ILI9341 BL に取ると SW2 が効かなくなる</b>可能性</li>
-  </ul>
+
+<div class="callout">
+  <p><b>microSD は本計画では採用しない</b>。よって D10 (P0_27 / <code>FC1_SPI_PCS</code>) は <b>SJ6=2-3 のまま (default)</b> で LED_GREEN として残せる。学習データは PC 側（receiver.py / collector_client.py）で受けて保存するので、ボード側ストレージ不要。</p>
+  <p><b>重要 1</b>: 旧 wiring.html は "FC? / LPSPI?" と "TODO" を残していたが、実機は <b>LPSPI1 (= FC1)</b> で確定。出典は Board User Manual Table 18。</p>
+  <p><b>重要 2</b>: A5 (P0_23) は <b>SJ9=1-2 (default)</b> が必要。SJ9=2-3 にすると Wakeup ピンとして使われて GPIO 出力できない。</p>
+  <p><b>検証ソース</b>: SDK の <code>examples/_boards/frdmmcxn947/driver_examples/lpspi/polling_b2b_transfer/master/pin_mux.c</code> も同じ PORT0_24/25/26 + Alt2 を使用。</p>
 </div>
-<p>
-  ILI9341 と microSD を <b>同一 SPI バス</b>に乗せ、CS で排他選択。同時アクセスは出来ないが、
-  本プロジェクトでは推論／表示と SD への書込は別フェーズで行うため問題なし。
-</p>
+
+<p>全体ピン配置とコンフリクト解析は <a href="pin_plan.html">pin_plan.html</a> に集約。</p>
 
 <h3>2.4 UART（ESP32, FC2）</h3>
 <table>
@@ -195,31 +189,35 @@
     <tr><th>Arduino</th><th>用途</th><th>ハード</th></tr>
   </thead>
   <tbody>
-    <tr><td>D2</td><td>BMP585 INT（任意）</td><td>センサからのイベント割込</td></tr>
-    <tr><td>D3</td><td>microSD CD（任意）</td><td>カード挿抜検出</td></tr>
-    <tr><td>D4</td><td>トグル: 窓 a</td><td>SPST → GND</td></tr>
-    <tr><td>D5</td><td>トグル: 窓 b</td><td>SPST → GND</td></tr>
-    <tr><td>D6</td><td>トグル: 窓 c</td><td>SPST → GND</td></tr>
-    <tr><td>D7</td><td>トグル: 扉 AB</td><td>SPST → GND</td></tr>
-    <tr><td>D8</td><td>トグル: 扉 BC</td><td>SPST → GND</td></tr>
-    <tr><td>D9</td><td>EXEC ボタン</td><td>モーメンタリ SPST → GND</td></tr>
+    <tr><td>D2</td><td>推論中 LED（出力）</td><td>GPIO 出力 330Ω 直列、橙 LED</td></tr>
+    <tr><td>D3</td><td>トグル: 窓 a</td><td>SPST → GND</td></tr>
+    <tr><td>D4</td><td>トグル: 窓 b</td><td>SPST → GND</td></tr>
+    <tr><td>D5</td><td>トグル: 窓 c</td><td>SPST → GND</td></tr>
+    <tr><td>D6</td><td>トグル: 扉 AB</td><td>SPST → GND</td></tr>
+    <tr><td>D7</td><td>トグル: 扉 BC</td><td>SPST → GND</td></tr>
+    <tr><td>D8</td><td>EXEC ボタン</td><td>モーメンタリ SPST → GND</td></tr>
+    <tr><td>D9</td><td>BMP585 INT（任意）</td><td>センサからのイベント割込（v0.3 以降）</td></tr>
   </tbody>
 </table>
 
-<h3>2.7 GPIO 出力（A0/A1 は 330Ω 直列、A2..A5 は直駆動）</h3>
+<h3>2.7 GPIO 出力</h3>
 <table>
   <thead>
     <tr><th>Arduino</th><th>用途</th><th>デバイス</th></tr>
   </thead>
   <tbody>
-    <tr><td>A0</td><td>PWR LED</td><td>緑 LED、電源 ON で常時点灯</td></tr>
-    <tr><td>A1</td><td>推論中 LED</td><td>橙 LED、推論サイクル実行中点灯</td></tr>
+    <tr><td>—</td><td>PWR LED</td><td>外付け（3V3 直結 + 330Ω + 緑 LED → GND）、GPIO 不要で常時点灯。A0/A1 は ADC 専用ピンで GPIO 駆動不可</td></tr>
+    <tr><td><b>D2</b></td><td>推論中 LED</td><td>橙 LED、推論サイクル実行中点灯（GPIO 出力、330Ω 直列）</td></tr>
     <tr><td><b>A2</b></td><td><b>ILI9341 CS</b></td><td>TFT chip select（GPIO 直駆動、330Ω 不要）</td></tr>
     <tr><td><b>A3</b></td><td><b>ILI9341 RESET</b></td><td>TFT hard reset 線（GPIO 直駆動）</td></tr>
     <tr><td><b>A4</b></td><td><b>ILI9341 DC</b></td><td>TFT data/command 切替（GPIO 直駆動）</td></tr>
     <tr><td><b>A5</b></td><td><b>ILI9341 BL</b></td><td>バックライト制御（GPIO ON/OFF か PWM 減光）</td></tr>
   </tbody>
 </table>
+
+<div class="callout">
+  <p><b>A0/A1 は ADC 専用ピン</b>（Board User Manual Table 20 で <code>ARD_A0=ADC0_A0</code>、<code>ARD_A1=ADC0_B0</code> と確定）で、GPIO 機能は持っていません。LED 駆動用には使えないので、PWR LED は外付け（電源直結）、推論中 LED は D2 に変更しました。</p>
+</div>
 
 <h3>2.8 USB（PC データ転送）</h3>
 <table>
@@ -239,7 +237,7 @@
   </thead>
   <tbody>
     <tr><td>5V</td><td>USB-C VBUS or LiPo→ブースト</td><td>MAX98357A VIN、PCA9685 V+（サーボ系）、ESP32</td></tr>
-    <tr><td>3.3V</td><td>FRDM オンボード LDO</td><td>MCU、INMP441、ILI9341、BMP585、microSD、PCA9685 VCC（ロジック）</td></tr>
+    <tr><td>3.3V</td><td>FRDM オンボード LDO</td><td>MCU、INMP441、ILI9341、BMP585、PCA9685 VCC（ロジック）</td></tr>
     <tr><td>GND</td><td>全共通</td><td>サーボ電源 GND も必ずここに集約</td></tr>
   </tbody>
 </table>
@@ -251,13 +249,13 @@
     <tr><th>種別</th><th>使用数</th><th>余裕</th></tr>
   </thead>
   <tbody>
-    <tr><td>I²S（SAI 占有）</td><td>6 ピン</td><td>SAI0/1 専有なので干渉なし</td></tr>
-    <tr><td>I²C（共有）</td><td>2 ピン</td><td>4 デバイス目以上追加可</td></tr>
-    <tr><td>SPI（microSD + ILI9341 共有）</td><td>4 ピン + 別 CS 1</td><td>CS を増やせばさらに追加可</td></tr>
-    <tr><td>UART</td><td>2 ピン</td><td>別 FC で増設可</td></tr>
-    <tr><td>GPIO IN（トグル/EXEC/INT）</td><td>8 ピン</td><td>FRDM 拡張ヘッダで余り</td></tr>
-    <tr><td>GPIO OUT（LED + ILI9341 制御線）</td><td>2 + 4 = 6 ピン</td><td>A0..A5 を全消費</td></tr>
-    <tr><td><b>合計</b></td><td><b>27 ピン</b></td><td>Arduino ヘッダ 36 本中</td></tr>
+    <tr><td>I²S（SAI1 占有）</td><td>4 ピン</td><td>SAI1 専有、TX/RX 共有クロックでサンプルロック</td></tr>
+    <tr><td>I²C（FC2）</td><td>2 ピン</td><td>4 デバイス目以上追加可</td></tr>
+    <tr><td>SPI（ILI9341 のみ）</td><td>2 ピン + GPIO 4</td><td>microSD 採用なら +1 CS。LPSPI1 (FC1)</td></tr>
+    <tr><td>UART</td><td>2 ピン</td><td>OpenSDA 経由、別 FC で増設可</td></tr>
+    <tr><td>GPIO IN（トグル/EXEC/INT）</td><td>7 ピン</td><td>D3..D9（D9 はオプションの BMP INT）</td></tr>
+    <tr><td>GPIO OUT（推論中 LED）</td><td>1 ピン</td><td>D2 のみ。PWR LED は外付け電源直結</td></tr>
+    <tr><td><b>合計</b></td><td><b>20 ピン</b></td><td>Arduino ヘッダ 36 本中、約半数</td></tr>
   </tbody>
 </table>
 
@@ -267,9 +265,9 @@
   <li><b>I²C</b> を結線 → PCA9685 (0x40) / LU9685 (0x1F) / BMP585 (0x47) を <code>i2cdetect</code> 相当のコードで全アドレス確認</li>
   <li><b>GPIO 入力</b>（トグル + EXEC）を結線 → MCU ポーリングで各ビット確認</li>
   <li><b>GPIO 出力</b>（LED）を結線 → ブリンクテスト</li>
-  <li><b>SPI microSD</b> を結線 → FatFs マウント、ファイル書き込みテスト</li>
-  <li><b>I²S DAC</b>（MAX98357A）→ 440 Hz サイン波テスト、スピーカから音が出ることを確認</li>
-  <li><b>I²S MIC</b>（INMP441）→ 16 kHz 録音 → microSD に WAV 保存、PC で再生確認</li>
+  <li><b>SPI ILI9341</b> を結線 → 03_ili9341_test ファームで 5 フェーズ描画</li>
+  <li><b>I²S DAC</b>（MAX98357A）→ 07_speaker_test で 200/1k/5k Hz + chirp を耳で確認</li>
+  <li><b>I²S MIC</b>（INMP441）→ 06_mic_test で peak/RMS/ZCR を観測（学習データの永続化は PC 側 receiver.py で WAV 保存）</li>
   <li><b>PCA9685 → SG90 ×5</b> → スイープテスト、各サーボの角度キャリブレーション</li>
   <li><b>ESP32 UART</b>（任意） → AT コマンド疎通</li>
   <li><b>USB CDC</b> → PC との双方向通信テスト（<a href="../firmware/README.html">firmware/</a> と <a href="../pc/README.html">pc/</a> のスケルトン使用）</li>

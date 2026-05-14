@@ -108,8 +108,8 @@
 │   │       ├── cm33_core0/                app.h + hardware_init.c（FlexComm 接続）
 │   │       └── pins/                      pin_mux.{c,h}（Config Tools 生成物）
 │   ├── 02_servo_test/                    PCA9685／LU9685 ＋ SG90 ×5（LPI2C2）
-│   ├── 03_ili9341_test/                  TFT 配線確認＋5 フェーズ描画（LPSPI3 + 4 GPIO）
-│   ├── 04_lvgl_test/                     LVGL v9 ＋ IchiPing 状態 UI モック（LPSPI3 + 4 GPIO）
+│   ├── 03_ili9341_test/                  TFT 配線確認＋5 フェーズ描画（LPSPI1 + 4 GPIO）
+│   ├── 04_lvgl_test/                     LVGL v9 ＋ IchiPing 状態 UI モック（LPSPI1 + 4 GPIO）
 │   ├── 05_usb_cdc_emitter/               USB CDC ACM で ICHP フレーム送信（USB1 FS）
 │   ├── 06_mic_test/                      INMP441 単体疎通（SAI1 RX, RMS/Peak PRINTF）
 │   ├── 07_speaker_test/                  MAX98357A 単体疎通（SAI0 TX, 5 種テスト音）
@@ -326,7 +326,7 @@
 
 <div class="callout warn">
   <strong>配線必須:</strong> ハードを繋ぐ前に <a href="../hardware/wiring.html">hardware/wiring.html §2</a> を一通り確認。
-  サーボ V+ は <b>外部 5V レール</b>、ILI9341 は SPI を microSD と共有、I²C プルアップは 1 セットのみ。
+  サーボ V+ は <b>外部 5V レール</b>、I²C プルアップは 1 セットのみ。microSD は本計画では未採用（学習データは PC 側で保存）。
 </div>
 
 <h2>シリアル設定</h2>

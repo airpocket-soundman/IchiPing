@@ -100,8 +100,8 @@
   </li>
   <li><b>Config Tools の Pins ツール</b>で以下を設定:
     <ul>
-      <li><b>D11</b> → <code>LPSPI3_SDO</code></li>
-      <li><b>D13</b> → <code>LPSPI3_SCK</code></li>
+      <li><b>D11</b> → <code>LPSPI1_SDO</code> (P0_24 FC1_P0, Alt2)</li>
+      <li><b>D13</b> → <code>LPSPI1_SCK</code> (P0_25 FC1_P1, Alt2)</li>
       <li><b>A2, A3, A4, A5</b> → GPIO 出力（push-pull、プルなし）</li>
       <li>必要に応じて <code>pin_mux.c</code> 内の <code>BOARD_*_PORT/_PIN</code> マクロ定義名と <code>main.c</code> 冒頭の <code>ILI_*_GPIO/PIN</code> 定義を一致させる</li>
     </ul>
@@ -112,19 +112,25 @@
 <h2>配線</h2>
 <p>詳細: <a href="../../../hardware/wiring.html">hardware/wiring.html</a> §2.3 / §2.7</p>
 <table>
-  <thead><tr><th>ILI9341</th><th>FRDM-MCXN947</th><th>機能</th></tr></thead>
+  <thead><tr><th>ILI9341</th><th>Arduino</th><th>J ピン</th><th>MCU pin</th><th>Alt</th><th>SDK 信号</th><th>SJ</th><th>備考</th></tr></thead>
   <tbody>
-    <tr><td>VCC</td><td>3V3</td><td>電源</td></tr>
-    <tr><td>GND</td><td>GND</td><td>共通グランド</td></tr>
-    <tr><td>CS</td><td>A2</td><td>Chip Select (GPIO out)</td></tr>
-    <tr><td>RESET</td><td>A3</td><td>Hard reset (GPIO out)</td></tr>
-    <tr><td>DC</td><td>A4</td><td>Data/Command 切替 (GPIO out)</td></tr>
-    <tr><td>SDI/MOSI</td><td>D11 (FC3_SPI_MOSI)</td><td>microSD と共有</td></tr>
-    <tr><td>SCK</td><td>D13 (FC3_SPI_SCK)</td><td>microSD と共有</td></tr>
-    <tr><td>LED/BL</td><td>A5</td><td>バックライト (GPIO out or PWM)</td></tr>
-    <tr><td>SDO/MISO</td><td>未接続</td><td>書込のみ</td></tr>
+    <tr><td>VCC</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>3V3（FRDM オンボード LDO）</td></tr>
+    <tr><td>GND</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>共通グランド</td></tr>
+    <tr><td><b>CS</b></td><td>A2</td><td><b>J4.6</b></td><td>P0_14</td><td>Alt0 (GPIO)</td><td><code>ARD_A2</code></td><td>—</td><td>マニュアル CS、ソフト駆動</td></tr>
+    <tr><td><b>RESET</b></td><td>A3</td><td><b>J4.8</b></td><td>P0_22</td><td>Alt0 (GPIO)</td><td><code>ARD_A3</code></td><td>—</td><td>Hard reset（init 時 LOW パルス）</td></tr>
+    <tr><td><b>DC</b></td><td>A4</td><td><b>J4.10</b></td><td>P0_15</td><td>Alt0 (GPIO)</td><td><code>ARD_A4</code></td><td><b>SJ8: 1-2</b> (default)</td><td>Data/Command 切替</td></tr>
+    <tr><td><b>SDI / MOSI</b></td><td>D11</td><td><b>J2.8</b></td><td>P0_24</td><td>Alt2 (FC1)</td><td><code>FC1_SPI_SDO</code></td><td><b>SJ7: 1-2</b> (default)</td><td>LPSPI1 master out</td></tr>
+    <tr><td><b>SCK</b></td><td>D13</td><td><b>J2.12</b></td><td>P0_25</td><td>Alt2 (FC1)</td><td><code>FC1_SPI_SCK</code></td><td>—</td><td>LPSPI1 クロック</td></tr>
+    <tr><td><b>LED / BL</b></td><td>A5</td><td><b>J4.12</b></td><td>P0_23</td><td>Alt0 (GPIO)</td><td><code>ARD_A5</code></td><td><b>SJ9: 1-2</b> (default)</td><td>バックライト。SJ9=2-3 だと Wakeup ピンに切替わる</td></tr>
+    <tr><td>SDO / MISO</td><td>D12</td><td>J2.10</td><td>P0_26</td><td>Alt2 (FC1)</td><td><code>FC1_SPI_SDI</code></td><td>—</td><td>ILI は書込専用なので未接続でも OK。本計画では microSD 不採用なので使用しないが、ピンは muxed したまま残してある</td></tr>
   </tbody>
 </table>
+
+<div class="callout">
+  <p><b>重要 1</b>: 旧 README は SPI を "FC3 / LPSPI3" と書いていたが、これは <b>誤り</b>。FRDM-MCXN947 では D10..D13 は <b>FC1</b> にルーティングされている（BUM Table 18）。<code>app.h</code> の <code>BOARD_ILI_SPI_BASE</code> も <code>LPSPI1</code> に修正済。</p>
+  <p><b>重要 2</b>: A5 (P0_23) は <b>SJ9 を default の 1-2</b> にしておく必要あり。2-3 だと Wakeup ピンに切り替わって GPIO 出力できない。</p>
+  <p><b>重要 3</b>: D10 (P0_27 = <code>FC1_SPI_PCS</code>) は SPI のハードウェア CS だが、本プロジェクトでは <b>A2 (P0_14) をマニュアル CS</b> として使うので D10 は muxed せず GPIO のまま。これにより <b>SJ6 は default 2-3 のままで LED_GREEN がオンボードで点灯可能</b>。本計画では microSD は採用しないので、D10 と LED_GREEN は引き続き SJ6=2-3 デフォルトで利用できる。</p>
+</div>
 
 <h2>動作</h2>
 <p>cycle 内で次の 5 フェーズが順に流れる:</p>
