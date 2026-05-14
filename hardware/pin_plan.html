@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IchiPing 本番用 ピン配置プラン (v1) — IchiPing</title>
+<link rel="stylesheet" href="../docs/style.css">
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../index.html">トップ</a>
+      <a href="../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="../docs/spec.html">仕様書 (spec)</a>
+      <a href="../docs/nn_design.html">NN 設計</a>
+      <a href="../docs/mcu_deployment.html">MCU デプロイ</a>
+      <a href="../docs/bringup.html">実機ブリングアップ</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="wiring.html">配線テーブル</a>
+      <a href="bom.html">BOM (部品表)</a>
+      <a href="display_options.html">ディスプレイ候補</a>
+      <a href="pin_plan.html" class="current">ピンプラン (v1 統合)</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../firmware/README.html">firmware ガイド</a>
+      <a href="../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="../docs/vscode_setup.html">VS Code セットアップ</a>
+      <a href="../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a><br>
+    <a href="https://github.com/airpocket-soundman/digikey_project">正本 digikey_project</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../index.html">← IchiPing トップ</a>
+    ／ <a href="../hardware/">hardware</a>
+    ／ pin_plan
+  </div>
+</header>
+
+<main>
+
+<h1>IchiPing 本番用 ピン配置プラン（v1, FRDM-MCXN947）</h1>
+<p>実機 <a href="../docs/pdf/FRDM-MCXN947BoardUserManual.pdf">FRDM-MCXN947 Board User Manual</a> の Tables 17–20 に基づく、<strong>全デバイス同時接続</strong>の確定ピン配置と整合性チェック表。</p>
+<p>各プロジェクト（02 servo / 06 mic / 07 speaker / 08 mic+spk / 09 stream / 10 collector / 03 TFT / 04 LVGL）の個別 <code>pin_mux.c</code> / <code>app.h</code> はこのプランに従って書かれています。</p>
+<h2>採用ペリフェラルとバス</h2>
+<table>
+<thead>
+<tr>
+<th>用途</th>
+<th>MCU 周辺</th>
+<th>占有する FC</th>
+<th>排他制約</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OpenSDA debug UART</td>
+<td>LPUART4</td>
+<td>FC4</td>
+<td>（固定）</td>
+</tr>
+<tr>
+<td>サーボ I²C + センサ I²C</td>
+<td>LPI2C2</td>
+<td>FC2</td>
+<td><strong>ESP32 LPUART2 と排他</strong>（FC2 は I²C 専用化）</td>
+</tr>
+<tr>
+<td>TFT + microSD SPI</td>
+<td>LPSPI1</td>
+<td>FC1</td>
+<td>—</td>
+</tr>
+<tr>
+<td>音響 I²S 全二重</td>
+<td>SAI1 (= I2S1)</td>
+<td>— (SAI 系)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>USB CDC</td>
+<td>USB1 HS</td>
+<td>— (USB 系)</td>
+<td>target USB-C (J21)</td>
+</tr>
+</tbody>
+</table>
+<h2>ピン割当一覧（デバイス → MCU ピン → 物理ヘッダ）</h2>
+<h3>音響系（J1 ヘッダ・SAI1）</h3>
+<table>
+<thead>
+<tr>
+<th>デバイス</th>
+<th>デバイス端子</th>
+<th>MCU pin</th>
+<th>Alt</th>
+<th>SDK 信号名</th>
+<th>ヘッダ</th>
+<th>SJ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>INMP441</td>
+<td>SCK ←</td>
+<td>P3_16</td>
+<td>Alt10</td>
+<td><code>SAI1_TX_BCLK</code></td>
+<td><strong>J1.1</strong></td>
+<td><strong>SJ11=1-2</strong></td>
+</tr>
+<tr>
+<td>INMP441</td>
+<td>WS ←</td>
+<td>P3_17</td>
+<td>Alt10</td>
+<td><code>SAI1_TX_FS</code></td>
+<td><strong>J1.3</strong></td>
+<td><strong>SJ10=2-3</strong></td>
+</tr>
+<tr>
+<td>INMP441</td>
+<td>SD →</td>
+<td>P3_21</td>
+<td>Alt10</td>
+<td><code>SAI1_RXD0</code></td>
+<td><strong>J1.15</strong></td>
+<td>—</td>
+</tr>
+<tr>
+<td>MAX98357A</td>
+<td>BCLK ←</td>
+<td>P3_16</td>
+<td>Alt10</td>
+<td><code>SAI1_TX_BCLK</code></td>
+<td><strong>J1.1</strong> (共有)</td>
+<td>（上と同じ）</td>
+</tr>
+<tr>
+<td>MAX98357A</td>
+<td>LRC ←</td>
+<td>P3_17</td>
+<td>Alt10</td>
+<td><code>SAI1_TX_FS</code></td>
+<td><strong>J1.3</strong> (共有)</td>
+<td>（上と同じ）</td>
+</tr>
+<tr>
+<td>MAX98357A</td>
+<td>DIN ←</td>
+<td>P3_20</td>
+<td>Alt10</td>
+<td><code>SAI1_TXD0</code></td>
+<td><strong>J1.5</strong></td>
+<td>—</td>
+</tr>
+<tr>
+<td>INMP441</td>
+<td>L/R</td>
+<td>—</td>
+<td>—</td>
+<td>GND 接続</td>
+<td>—</td>
+<td>（左 ch 選択）</td>
+</tr>
+<tr>
+<td>MAX98357A</td>
+<td>GAIN</td>
+<td>—</td>
+<td>—</td>
+<td>無接続</td>
+<td>—</td>
+<td>（9 dB デフォルト）</td>
+</tr>
+<tr>
+<td>MAX98357A</td>
+<td>SD</td>
+<td>—</td>
+<td>—</td>
+<td>3V3 直結</td>
+<td>—</td>
+<td>（常時 ON）</td>
+</tr>
+<tr>
+<td>INMP441 + MAX98357A</td>
+<td>VDD/VIN</td>
+<td>—</td>
+<td>—</td>
+<td>3V3 / 5V 外部</td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p><strong>BCLK/WS は同じ J1 ピンを INMP441 と MAX98357A の入力に T 字分岐</strong>で並列接続（broadcast）。DIN と SD は専用 1 本ずつ。</p>
+<h3>サーボ + センサ I²C 系（J2 ヘッダ・LPI2C2 / FC2）</h3>
+<table>
+<thead>
+<tr>
+<th>デバイス</th>
+<th>バス端子</th>
+<th>MCU pin</th>
+<th>Alt</th>
+<th>SDK 信号名</th>
+<th>ヘッダ</th>
+<th>SJ</th>
+<th>I²C アドレス</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PCA9685（既定）/ LU9685（代替）/ BMP585</td>
+<td>SDA</td>
+<td>P4_0</td>
+<td>Alt2</td>
+<td><code>FC2_I2C_SDA</code></td>
+<td><strong>J2.18 (D18)</strong></td>
+<td>SJ14=1-2 デフォルト</td>
+<td>—</td>
+</tr>
+<tr>
+<td>同上</td>
+<td>SCL</td>
+<td>P4_1</td>
+<td>Alt2</td>
+<td><code>FC2_I2C_SCL</code></td>
+<td><strong>J2.20 (D19)</strong></td>
+<td>SJ15=1-2 デフォルト</td>
+<td>—</td>
+</tr>
+<tr>
+<td>PCA9685</td>
+<td>I²C addr</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>0x40</td>
+</tr>
+<tr>
+<td>LU9685</td>
+<td>I²C addr</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td><strong>0x1F</strong>（実機, ジャンパで 0x00–0x1F）</td>
+</tr>
+<tr>
+<td>BMP585</td>
+<td>I²C addr</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>0x47</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>排他</strong>: FC2 を I²C 専用化したため、J1.2 (D0) / J1.4 (D1) の <code>FC2_UART</code> は使えません。将来 ESP32-WROOM を繋ぐなら、I²C を FC3（mikroBUS J5 経由）に移すか LPI2C ペリフェラルを別 FC に再割当が必要。</p>
+</blockquote>
+<h3>TFT + microSD SPI 系（J2 ヘッダ・LPSPI1 / FC1）</h3>
+<table>
+<thead>
+<tr>
+<th>デバイス</th>
+<th>デバイス端子</th>
+<th>MCU pin</th>
+<th>Alt</th>
+<th>SDK 信号名</th>
+<th>ヘッダ</th>
+<th>SJ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ILI9341 + microSD</td>
+<td>MOSI ←</td>
+<td>P0_24</td>
+<td>Alt2</td>
+<td><code>FC1_SPI_SDO</code></td>
+<td><strong>J2.8 (D11)</strong></td>
+<td><strong>SJ7=1-2</strong></td>
+</tr>
+<tr>
+<td>ILI9341 + microSD</td>
+<td>SCK ←</td>
+<td>P0_25</td>
+<td>Alt2</td>
+<td><code>FC1_SPI_SCK</code></td>
+<td><strong>J2.12 (D13)</strong></td>
+<td>—</td>
+</tr>
+<tr>
+<td>microSD</td>
+<td>MISO →</td>
+<td>P0_26</td>
+<td>Alt2</td>
+<td><code>FC1_SPI_SDI</code></td>
+<td><strong>J2.10 (D12)</strong></td>
+<td>—</td>
+</tr>
+<tr>
+<td>microSD</td>
+<td>CS ← (HW)</td>
+<td>P0_27</td>
+<td>Alt2</td>
+<td><code>FC1_SPI_PCS</code></td>
+<td><strong>J2.6 (D10)</strong></td>
+<td><strong>SJ6=1-2</strong> (LED_GREEN 失う)</td>
+</tr>
+<tr>
+<td>ILI9341</td>
+<td>CS ← (GPIO)</td>
+<td>P0_14</td>
+<td>Alt0</td>
+<td>GPIO</td>
+<td><strong>J4.6 (A2)</strong></td>
+<td>—</td>
+</tr>
+<tr>
+<td>ILI9341</td>
+<td>RESET ←</td>
+<td>P0_22</td>
+<td>Alt0</td>
+<td>GPIO</td>
+<td><strong>J4.8 (A3)</strong></td>
+<td>—</td>
+</tr>
+<tr>
+<td>ILI9341</td>
+<td>DC ←</td>
+<td>P0_15</td>
+<td>Alt0</td>
+<td>GPIO</td>
+<td><strong>J4.10 (A4)</strong></td>
+<td>SJ8=1-2 デフォルト</td>
+</tr>
+<tr>
+<td>ILI9341</td>
+<td>BL ←</td>
+<td>P0_23</td>
+<td>Alt0</td>
+<td>GPIO</td>
+<td><strong>J4.12 (A5)</strong></td>
+<td>SJ9=1-2 デフォルト</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>ILI9341 と microSD は <strong>MOSI/SCK バスを共有</strong>、CS で排他選択。同時アクセスは不可だが、IchiPing の動作フェーズ（推論表示 vs SD 書込）は時分割で問題なし。</p>
+<p>ILI9341 の CS は HW PCS（D10）ではなく <strong>A2 の GPIO 手動制御</strong>にしているのは、HW PCS が常時 LOW にしかできず複数 SPI スレーブを扱えないため。microSD CS だけが D10 の HW PCS を使う想定。</p>
+</blockquote>
+<h3>GPIO 入力（J1 + J2 ヘッダ・UI とセンサ）</h3>
+<table>
+<thead>
+<tr>
+<th>用途</th>
+<th>MCU pin</th>
+<th>ヘッダ</th>
+<th>デフォルト機能との衝突</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>推論中 LED</strong> out</td>
+<td>P0_29</td>
+<td>J1.6 (D2)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>トグル: 窓 a</td>
+<td>P1_23</td>
+<td>J1.8 (D3)</td>
+<td>SJ1 デフォルト OK</td>
+</tr>
+<tr>
+<td>トグル: 窓 b</td>
+<td>P0_30</td>
+<td>J1.10 (D4)</td>
+<td>SJ2 デフォルト OK</td>
+</tr>
+<tr>
+<td>トグル: 窓 c</td>
+<td>P1_21</td>
+<td>J1.12 (D5)</td>
+<td>SJ3 デフォルト OK。<strong>SAI1_MCLK / ENET と同じ pin</strong>（IchiPing は MCLK 不使用なので可）</td>
+</tr>
+<tr>
+<td>トグル: 扉 AB</td>
+<td>P1_2</td>
+<td>J1.14 (D6)</td>
+<td>SJ4 デフォルト OK。<strong>LED_BLUE と共用</strong>（トグル使用時 LED は消灯）</td>
+</tr>
+<tr>
+<td>トグル: 扉 BC</td>
+<td>P0_31</td>
+<td>J1.16 (D7)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>EXEC ボタン</td>
+<td>P0_28</td>
+<td>J2.2 (D8)</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p>5 個のトグル + EXEC ボタン + 1 個の状態 LED が J1/J2 に収まる。</p>
+<h3>LED / 状態表示</h3>
+<table>
+<thead>
+<tr>
+<th>LED</th>
+<th>駆動方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>PWR LED</strong>（緑、常時 ON）</td>
+<td>外付け（3V3 → 330Ω → LED → GND）。MCU GPIO 不要</td>
+</tr>
+<tr>
+<td><strong>推論中 LED</strong>（橙）</td>
+<td>D2 (P0_29) GPIO 出力で能動駆動</td>
+</tr>
+<tr>
+<td>LED_RED (P0_10)</td>
+<td>D9 として SJ5 デフォルト経路を使えば点灯可能。未使用なら GPIO もしくは LED として活用余地あり</td>
+</tr>
+<tr>
+<td>LED_GREEN (P0_27)</td>
+<td><strong>microSD CS 用に犠牲</strong>（SJ6=1-2）。v0.1 で microSD 未使用なら SJ6=2-3 で復活可能</td>
+</tr>
+<tr>
+<td>LED_BLUE (P1_2)</td>
+<td><strong>トグル: 扉 AB と共用</strong>。点灯はトグル状態に依存</td>
+</tr>
+</tbody>
+</table>
+<h3>USB CDC + OpenSDA UART（オンボード固定）</h3>
+<table>
+<thead>
+<tr>
+<th>用途</th>
+<th>コネクタ</th>
+<th>MCU</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OpenSDA debug + フレーム送信（v0.1）</td>
+<td>J17 (MCU-Link USB-C)</td>
+<td>LPUART4 (P1_8/P1_9, FC4 Alt2)</td>
+</tr>
+<tr>
+<td>USB CDC ACM (v0.3+ 高速ストリーム)</td>
+<td><strong>J21 (target USB-C)</strong></td>
+<td>USB1 HS controller (専用ピン、ヘッダ非経由)</td>
+</tr>
+</tbody>
+</table>
+<h2>SJ ジャンパ設定まとめ</h2>
+<p>すべて FRDM-MCXN947 出荷時デフォルトと<strong>異なる</strong>設定を要するもの、デフォルトのままでよいものを一覧化:</p>
+<table>
+<thead>
+<tr>
+<th>SJ</th>
+<th>必要設定</th>
+<th>用途</th>
+<th>出荷時デフォルト</th>
+<th>動作の影響</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SJ6</td>
+<td><strong>1-2</strong></td>
+<td>D10 = SPI_PCS（microSD CS HW 駆動用）</td>
+<td>1-2 (デフォルト)</td>
+<td>LED_GREEN 不可</td>
+</tr>
+<tr>
+<td>SJ7</td>
+<td><strong>1-2</strong></td>
+<td>D11 = SPI_SDO</td>
+<td>1-2 (デフォルト)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>SJ8</td>
+<td>1-2</td>
+<td>A4 = GPIO（ILI9341 DC）</td>
+<td>1-2 (デフォルト)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>SJ9</td>
+<td>1-2</td>
+<td>A5 = GPIO（ILI9341 BL）</td>
+<td>1-2 (デフォルト)</td>
+<td>Wakeup_B 機能不使用</td>
+</tr>
+<tr>
+<td>SJ10</td>
+<td><strong>2-3</strong></td>
+<td>J1.3 = <code>SAI1_TX_FS</code></td>
+<td>1-2 (要変更!)</td>
+<td>MC_ENC_I 不使用</td>
+</tr>
+<tr>
+<td>SJ11</td>
+<td><strong>1-2</strong></td>
+<td>J1.1 = <code>SAI1_TX_BCLK</code></td>
+<td>1-2 (デフォルト)</td>
+<td>SINC0_MBIT4 不使用</td>
+</tr>
+<tr>
+<td>SJ14</td>
+<td>1-2</td>
+<td>D18 = <code>FC2_I2C_SDA</code></td>
+<td>1-2 (デフォルト)</td>
+<td>I3C1_SDA 不使用</td>
+</tr>
+<tr>
+<td>SJ15</td>
+<td>1-2</td>
+<td>D19 = <code>FC2_I2C_SCL</code></td>
+<td>1-2 (デフォルト)</td>
+<td>I3C1_SCL 不使用</td>
+</tr>
+</tbody>
+</table>
+<p><strong>実機検証で要対応</strong>: <strong>SJ10 のみ出荷時 1-2 から 2-3 への変更が必要</strong>。他はすべてデフォルト位置のまま使える想定。SJ10 を手動で切替えないと SAI1_TX_FS が J1.3 に出てこない。</p>
+<h2>衝突マトリクス（同時に使えない組合せ）</h2>
+<table>
+<thead>
+<tr>
+<th>衝突</th>
+<th>理由</th>
+<th>解消方法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FC2 I²C (PCA9685) vs FC2 UART (ESP32-WROOM)</td>
+<td>FlexComm 2 は一度に 1 ペリフェラルのみ</td>
+<td>ESP32 は v1 では未採用。必要なら I²C を FC3 へ移行</td>
+</tr>
+<tr>
+<td>D10 SPI_PCS vs LED_GREEN</td>
+<td>同じ P0_27 ピン</td>
+<td>microSD 不要なら SJ6=2-3 で LED_GREEN 復活</td>
+</tr>
+<tr>
+<td>D6 GPIO vs LED_BLUE</td>
+<td>同じ P1_2 ピン</td>
+<td>トグル: 扉 AB のステートで LED 点灯。実用上は無視</td>
+</tr>
+<tr>
+<td>D5 GPIO vs SAI1_MCLK</td>
+<td>同じ P1_21 ピン</td>
+<td>IchiPing は MCLK 不使用 → 影響なし</td>
+</tr>
+<tr>
+<td>D9 (P0_10) vs LED_RED</td>
+<td>同じピン</td>
+<td>v1 で D9 未使用なら LED_RED 自由</td>
+</tr>
+</tbody>
+</table>
+<h2>全デバイス同時接続チェック</h2>
+<p>下記すべて同時に接続して<strong>ピン重複なし</strong>で動作可能なことを確認:</p>
+<p>✅ INMP441 マイク（SAI1: 3 pin）
+✅ MAX98357A スピーカ（SAI1: 3 pin、BCLK/WS を mic と共有）
+✅ PCA9685 サーボドライバ（LPI2C2: 2 pin）
+✅ LU9685 サーボドライバ代替（同じ I²C バス、addr 違いで両立可）
+✅ BMP585 気圧センサ（同じ I²C バス）
+✅ ILI9341 TFT（LPSPI1: 2 pin + GPIO 4 pin）
+✅ microSD（LPSPI1 を ILI9341 と共有 + CS 1 pin）
+✅ SG90 サーボ ×5（PCA9685 経由、ヘッダ占有なし）
+✅ トグルスイッチ ×5 + EXEC ボタン（J1 D3..D7 + J2 D8）
+✅ 推論中 LED（D2）
+✅ PWR LED（外付け、ヘッダ占有なし）
+✅ OpenSDA UART（J17, ヘッダ占有なし）
+✅ USB CDC（J21, ヘッダ占有なし）</p>
+<p><strong>ピン使用合計</strong>: J1 = 9 pin / J2 = 6 pin / J4 = 4 pin</p>
+<p><strong>未使用ヘッダピン</strong>（将来拡張枠）: J1.7 (P1_21 SAI1_MCLK)、J1.16 (D7) は EXEC か trigger 何かに転用可。J3 全部、J4.A0/A1 (アナログ専用) も未使用。</p>
+<h2>各プロジェクトとの対応</h2>
+<table>
+<thead>
+<tr>
+<th>プロジェクト</th>
+<th>使うピン</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>01_dummy_emitter</td>
+<td>OpenSDA UART のみ</td>
+</tr>
+<tr>
+<td>02_servo_test</td>
+<td>LPI2C2 (D18/D19)</td>
+</tr>
+<tr>
+<td>03_ili9341_test</td>
+<td>LPSPI1 (D11/D13) + 4 GPIO (A2..A5)</td>
+</tr>
+<tr>
+<td>04_lvgl_test</td>
+<td>同上</td>
+</tr>
+<tr>
+<td>05_usb_cdc_emitter</td>
+<td>USB CDC (J21)</td>
+</tr>
+<tr>
+<td>06_mic_test</td>
+<td>SAI1 RX (J1.1/J1.3/J1.15)</td>
+</tr>
+<tr>
+<td>07_speaker_test</td>
+<td>SAI1 TX (J1.1/J1.3/J1.5)</td>
+</tr>
+<tr>
+<td>08_mic_speaker_test</td>
+<td>SAI1 全二重 (J1.1/J1.3/J1.5/J1.15)</td>
+</tr>
+<tr>
+<td>09_audio_stream</td>
+<td>SAI1 RX のみ（06 と同じ）</td>
+</tr>
+<tr>
+<td>10_collector</td>
+<td>SAI1 全二重 (08 と同じ) + ASCII コマンド (OpenSDA UART)</td>
+</tr>
+<tr>
+<td>v1 統合版</td>
+<td><strong>上記すべて同時</strong></td>
+</tr>
+</tbody>
+</table>
+<h2>関連</h2>
+<ul>
+<li>配線・テーブル形式の詳細: <a href="wiring.md">wiring.md</a></li>
+<li>部品表: <a href="bom.html">bom.html</a></li>
+<li>ディスプレイ採用判断: <a href="display_options.html">display_options.html</a></li>
+<li>出典 PDF: <a href="../docs/pdf/FRDM-MCXN947BoardUserManual.pdf">docs/pdf/FRDM-MCXN947BoardUserManual.pdf</a></li>
+</ul>
+
+</main>
+
+</body>
+</html>

@@ -16,7 +16,7 @@ extern "C" {
 
 void BOARD_InitBootPins(void);
 void BOARD_InitPins(void);
-void LPSPI3_InitPins(void);
+void LPSPI1_InitPins(void);
 void ILI9341_GPIO_InitPins(void);
 
 #if defined(__cplusplus)

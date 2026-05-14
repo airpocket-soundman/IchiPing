@@ -22,32 +22,28 @@
  *
  * Wiring on FRDM-MCXN947 (Arduino headers, see hardware/wiring.md §2.3):
  *
- *   ILI9341         FRDM-MCXN947
- *   ---------       ------------
- *   VCC             3V3
- *   GND             GND
- *   CS              A2  (GPIO out)
- *   RESET           A3  (GPIO out)
- *   DC              A4  (GPIO out)
- *   SDI / MOSI      D11 (FC3_SPI_MOSI)
- *   SCK             D13 (FC3_SPI_SCK)
- *   LED / BL        A5  (GPIO out, optional PWM)
- *   SDO / MISO      n/c
- *   T_*  (touch)    n/c
+ *   ILI9341         FRDM-MCXN947     MCU pin        Note
+ *   ---------       ---------------  -------------  -------------
+ *   VCC             3V3              -              -
+ *   GND             GND              -              -
+ *   CS              A2 (J4.6)        P0_14, GPIO    -
+ *   RESET           A3 (J4.8)        P0_22, GPIO    -
+ *   DC              A4 (J4.10)       P0_15, GPIO    SJ8 default 1-2
+ *   SDI / MOSI      D11 (J2.8)       P0_24, LPSPI1  Alt2, SJ7 default 1-2
+ *   SCK             D13 (J2.12)      P0_25, LPSPI1  Alt2
+ *   LED / BL        A5 (J4.12)       P0_23, GPIO    SJ9 default 1-2
+ *   SDO / MISO      D12 (J2.10) n/c  P0_26, LPSPI1  Alt2, ILI write-only
+ *   T_*  (touch)    n/c              -              -
  *
- * Build (MCUXpresso IDE 11.9+ or MCUXpresso for VS Code):
- *   1) Import an SDK example based on `driver_examples/lpspi/polling_b2b`
- *      (or any LPSPI master polling sample) for `frdmmcxn947`.
- *   2) Replace main.c with this file, add ../firmware/source/ili9341.c,
- *      include ../firmware/include in C/C++ Build > Settings > Includes.
- *   3) In Config Tools / Pins:
- *        D11 → LPSPI3 SDO, D13 → LPSPI3 SCK
- *        A2..A5 → GPIO output, push-pull, no pull
- *   4) Build → flash via OpenSDA.
+ * Pin map verified against the FRDM-MCXN947 Board User Manual Tables 18
+ * and 20 (docs/pdf/FRDM-MCXN947BoardUserManual.pdf) and the SDK example
+ * driver_examples/lpspi/polling_b2b_transfer (master/pin_mux.c). Earlier
+ * comments here said "FC3" — that was wrong; D10..D13 actually go to FC1.
  *
- * The actual GPIO ports/pins below need to match what pin_mux.c assigns
- * for A2..A5. Adjust the BOARD_*_PORT / _PIN macros if your routing
- * differs from the example numbers below.
+ * Build:
+ *   1) Import projects/03_ili9341_test/ via MCUXpresso for VS Code.
+ *   2) configure preset = debug → build → run.
+ * No Pins tool tweaks required; pin_mux.c here matches the BUM tables.
  */
 
 #include "pin_mux.h"
@@ -56,38 +52,39 @@
 #include "fsl_debug_console.h"
 #include "fsl_lpspi.h"
 #include "fsl_gpio.h"
+#include "app.h"
 
 #include "ili9341.h"
 
-/* ----- SPI / GPIO configuration ----- */
+/* ----- SPI / GPIO configuration -----
+ * Defaults come from app.h (BOARD_ILI_SPI_BASE = LPSPI1, etc.). Override
+ * with -D in CMakeLists if you need to retarget. */
 
 #ifndef ILI_SPI_BASE
-#define ILI_SPI_BASE        LPSPI3                 /* FC3 on FRDM-MCXN947 */
+#define ILI_SPI_BASE        BOARD_ILI_SPI_BASE
 #endif
 #ifndef ILI_SPI_CLK_FREQ
-#define ILI_SPI_CLK_FREQ    CLOCK_GetLPFlexCommClkFreq(3)
+#define ILI_SPI_CLK_FREQ    BOARD_ILI_SPI_CLK_FREQ
 #endif
 #define ILI_SPI_BAUD_HZ     20000000U              /* 20 MHz — comfortable headroom */
 
-/* These four GPIO routings depend on pin_mux.c. Update to match your
- * Config Tools output. Defaults assume the A2..A5 Arduino pins are
- * mapped to GPIO0 P0_24..P0_27 (one of several valid routings on the
- * FRDM-MCXN947); change to suit. */
+/* GPIO routings come from app.h, which is verified against the
+ * FRDM-MCXN947 Board User Manual Table 20. */
 #ifndef ILI_CS_GPIO
-#define ILI_CS_GPIO         GPIO0
-#define ILI_CS_PIN          24U
+#define ILI_CS_GPIO         BOARD_ILI_CS_GPIO
+#define ILI_CS_PIN          BOARD_ILI_CS_PIN
 #endif
 #ifndef ILI_RES_GPIO
-#define ILI_RES_GPIO        GPIO0
-#define ILI_RES_PIN         25U
+#define ILI_RES_GPIO        BOARD_ILI_RES_GPIO
+#define ILI_RES_PIN         BOARD_ILI_RES_PIN
 #endif
 #ifndef ILI_DC_GPIO
-#define ILI_DC_GPIO         GPIO0
-#define ILI_DC_PIN          26U
+#define ILI_DC_GPIO         BOARD_ILI_DC_GPIO
+#define ILI_DC_PIN          BOARD_ILI_DC_PIN
 #endif
 #ifndef ILI_BL_GPIO
-#define ILI_BL_GPIO         GPIO0
-#define ILI_BL_PIN          27U
+#define ILI_BL_GPIO         BOARD_ILI_BL_GPIO
+#define ILI_BL_PIN          BOARD_ILI_BL_PIN
 #endif
 
 /* ----- SysTick ----- */
