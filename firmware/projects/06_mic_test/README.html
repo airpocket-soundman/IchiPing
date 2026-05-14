@@ -86,12 +86,17 @@
 - 全て 0 → SD（データ線）が来ていない、または BCLK/WS が止まっている
 - peak が常に 32767 / -32768 に張り付く → ゲイン過大か L/R 線が浮いている
 - DC が ±10 以上ずれ続ける → INMP441 起動直後の DC 過渡（最初の数秒で収束する）</p>
-<h2>配線（<a href="../../hardware/wiring.md">../../hardware/wiring.md</a> §2 参照）</h2>
+<h2>配線（実機準拠 — SAI<b>1</b>, J1 ヘッダ）</h2>
+<p>FRDM-MCXN947 Board User Manual Table 17（Arduino compatible header J1 pinout）に従う。出典: <a href="../../../docs/pdf/FRDM-MCXN947BoardUserManual.pdf">docs/pdf/FRDM-MCXN947BoardUserManual.pdf</a> p20-21。</p>
 <table>
 <thead>
 <tr>
 <th>INMP441</th>
-<th>FRDM-MCXN947</th>
+<th>J1 ピン</th>
+<th>MCU pin (GPIO)</th>
+<th>Alt</th>
+<th>SDK 信号</th>
+<th>ソルダージャンパ</th>
 <th>備考</th>
 </tr>
 </thead>
@@ -99,35 +104,57 @@
 <tr>
 <td>VDD</td>
 <td>3V3</td>
-<td></td>
+<td>—</td><td>—</td><td>—</td><td>—</td>
+<td>INMP441 は 1.8–3.3 V 駆動</td>
 </tr>
 <tr>
 <td>GND</td>
 <td>GND</td>
+<td>—</td><td>—</td><td>—</td><td>—</td>
 <td></td>
 </tr>
 <tr>
 <td>L/R</td>
 <td>GND</td>
-<td>Left チャネル選択</td>
+<td>—</td><td>—</td><td>—</td><td>—</td>
+<td><b>Left チャネル選択</b>。VDD に繋ぐと Right になり、現在のドライバ（<code>kSAI_MonoLeft</code>）では音が取れない</td>
 </tr>
 <tr>
-<td>WS</td>
-<td>SAI1_FS (LRCLK)</td>
-<td>pin_mux.c の <code>SAI1_RX_InitPins</code> で確定</td>
+<td><b>SCK</b></td>
+<td><b>J1.1</b></td>
+<td>P3_16</td>
+<td>Alt10</td>
+<td><code>SAI1_TX_BCLK</code></td>
+<td><b>SJ11: 1-2</b> (P3_16 を選択)</td>
+<td>ビットクロック。MCU が master。SJ11 が 2-3 だと P4_5 (SINC0) に切替わるので注意</td>
 </tr>
 <tr>
-<td>SCK</td>
-<td>SAI1_BCLK</td>
-<td>同上</td>
+<td><b>WS</b></td>
+<td><b>J1.3</b></td>
+<td>P3_17</td>
+<td>Alt10</td>
+<td><code>SAI1_TX_FS</code></td>
+<td><b>SJ10: 2-3</b> (P3_17 を選択)</td>
+<td>LRCLK / WS。同上、MCU master</td>
 </tr>
 <tr>
-<td>SD</td>
-<td>SAI1_RXD</td>
-<td>同上</td>
+<td><b>SD</b></td>
+<td><b>J1.15</b></td>
+<td>P3_21</td>
+<td>Alt10</td>
+<td><code>SAI1_RXD0</code></td>
+<td>— (直結)</td>
+<td>INMP441 → MCU データ</td>
 </tr>
 </tbody>
 </table>
+
+<blockquote>
+<p><b>クロック構成の補足</b>: 06 単体運用でも BCLK/FS は <b>TX フレーマ (master)</b> が生成し、RX フレーマは <b>sync モード</b>で TX のクロックを内部共有する設計（<code>firmware/shared/source/sai_mic.c</code> の <code>sai_mic_init</code>）。これは <a href="../07_speaker_test/README.html">07_speaker_test</a> / <a href="../08_mic_speaker_test/README.html">08_mic_speaker_test</a> と <b>同じ配線で動かす</b>ためで、後者でマイクとスピーカに BCLK/FS を 1 セットで供給できる。</p>
+<p>したがって配線上は <code>SAI1_RX_BCLK</code> (P3_18, J1.9) や <code>SAI1_RX_FS</code> (P3_19, J1.13) を使う必要は<b>ない</b>。INMP441 の SCK と WS は J1.1 / J1.3 から取る。</p>
+<p><b>SJ10/SJ11 注意</b>: FRDM-MCXN947 出荷時のデフォルト位置によっては SAI1 信号が別ペリフェラル（SINC0 / モータ制御）にルーティングされていることがある。Board User Manual Table 17 の SJ 設定を確認。</p>
+</blockquote>
+
 <h2>ビルド・実行</h2>
 <pre><code>cd firmware/projects/06_mic_test
 # MCUXpresso for VS Code → Import Project → debug preset → build → run

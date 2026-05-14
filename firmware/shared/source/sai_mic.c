@@ -34,20 +34,42 @@ status_t sai_mic_init(sai_mic_t *mic, const sai_mic_config_t *cfg)
     if (!mic || !cfg) return kStatus_InvalidArgument;
     mic->cfg = *cfg;
 
-    sai_transceiver_t saiConfig;
-    SAI_GetClassicI2SConfig(&saiConfig,
+    I2S_Type *base = (I2S_Type *)mic->cfg.sai_base;
+
+    /* TX framer drives BCLK + FS on the SAI1_TX_BCLK / SAI1_TX_FS pins
+     * (PIO3_16 / PIO3_17 in our pin_mux). We never feed data into TXFIFO
+     * — only the clocks are needed so INMP441 has something to latch on.
+     * The shared-master pattern matches 07_speaker_test and 08_mic_speaker_test
+     * so the same wiring works across all three projects. */
+    sai_transceiver_t txConfig;
+    SAI_GetClassicI2SConfig(&txConfig,
                             kSAI_WordWidth16bits,
                             kSAI_MonoLeft,
                             kSAI_Channel0Mask);
-    saiConfig.syncMode    = kSAI_ModeAsync;
-    saiConfig.masterSlave = kSAI_Master;
-    SAI_RxSetConfig((I2S_Type *)mic->cfg.sai_base, &saiConfig);
-
-    SAI_RxSetBitClockRate((I2S_Type *)mic->cfg.sai_base,
+    txConfig.syncMode    = kSAI_ModeAsync;
+    txConfig.masterSlave = kSAI_Master;
+    SAI_TxSetConfig(base, &txConfig);
+    SAI_TxSetBitClockRate(base,
                           mic->cfg.sai_clk_hz,
                           mic->cfg.sample_rate_hz,
                           /* bit width */ 32U,
                           /* channels  */ 2U);
+
+    /* RX framer in sync mode picks BCLK + FS from the TX framer internally
+     * — we don't need SAI1_RX_BCLK / SAI1_RX_FS pins muxed at all. INMP441's
+     * data line comes in on SAI1_RXD0 (PIO3_21). */
+    sai_transceiver_t rxConfig;
+    SAI_GetClassicI2SConfig(&rxConfig,
+                            kSAI_WordWidth16bits,
+                            kSAI_MonoLeft,
+                            kSAI_Channel0Mask);
+    rxConfig.syncMode    = kSAI_ModeSync;
+    rxConfig.masterSlave = kSAI_Slave;
+    SAI_RxSetConfig(base, &rxConfig);
+
+    /* Start the TX framer so BCLK / FS run continuously. RX is then enabled
+     * per-capture inside sai_mic_record_blocking(). */
+    SAI_TxEnable(base, true);
 
     mic->initialised = 1;
     return kStatus_Success;
