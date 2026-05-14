@@ -13,7 +13,7 @@
 #define _APP_H_
 
 #define BOARD_SAI_BASE       I2S1
-#define BOARD_SAI_CLK_ATTACH kAUDIO_PLL_to_SAI1
+#define BOARD_SAI_CLK_ATTACH kFRO_HF_to_SAI1   /* 48 MHz FRO, divided inside SAI driver */
 #define BOARD_SAI_CLK_DIV    kCLOCK_DivSai1Clk
 #define BOARD_SAI_CLK_FREQ   CLOCK_GetSaiClkFreq(1u)
 

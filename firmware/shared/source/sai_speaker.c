@@ -58,15 +58,18 @@ status_t sai_speaker_play_blocking(sai_speaker_t *spk,
         };
         status_t s = SAI_TransferSendBlocking(base, &xfer);
         if (s != kStatus_Success) {
-            SAI_TxEnable(base, false);
             return s;
         }
     }
 
-    /* Flush the FIFO before disabling, otherwise the last few samples get
-     * cut by the auto-shutdown. */
+    /* Flush the FIFO so the last few samples actually clock out before this
+     * call returns. We *do not* SAI_TxEnable(false) here: in 08_mic_speaker_test
+     * the mic uses RX-sync mode and depends on TX-side BCLK/FS continuing to
+     * run for sai_mic_record_blocking to pick up samples. The TX framer
+     * outputs zeros (FIFO underflow) between play calls; that just yields
+     * silence on the speaker, which is the desired idle state. Explicit
+     * shutdown is done via sai_speaker_stop(). */
     while (!(SAI_TxGetStatusFlag(base) & kSAI_FIFOEmptyFlag)) { __NOP(); }
-    SAI_TxEnable(base, false);
     return kStatus_Success;
 }
 

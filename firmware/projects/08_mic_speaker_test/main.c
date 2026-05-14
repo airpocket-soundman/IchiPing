@@ -1,8 +1,10 @@
 /*
  * IchiPing — Mic + Speaker (impulse-response) test firmware.
  *
- * Plays the IchiPing 200 → 8 kHz chirp through the MAX98357A (SAI0 TX)
- * AND simultaneously records the response through the INMP441 (SAI1 RX).
+ * Plays the IchiPing 200 → 8 kHz chirp through the MAX98357A (SAI1 TX)
+ * AND simultaneously records the response through the INMP441 (SAI1 RX
+ * in sync mode — shares the TX framer's BCLK/FS so the samples are
+ * clock-locked, which is required for meaningful impulse-response capture).
  * The captured window is shipped to the PC as a single ICHP audio frame
  * (re-using the existing pc/receiver.py pipeline) tagged with seq 0/1/2...
  *
@@ -15,9 +17,13 @@
  *   - Record window is 2.5 s (chirp + 500 ms tail for late reflections)
  *   - Run forever
  *
- * Wiring is the union of 06_mic_test and 07_speaker_test:
- *   INMP441   → SAI1 RX
- *   MAX98357A → SAI0 TX
+ * Wiring is the union of 06_mic_test and 07_speaker_test (same J1 pins,
+ * no rewiring needed when stepping up from 06/07 → 08):
+ *   INMP441 SCK / WS / SD  ← J1.1 (P3_16) / J1.3 (P3_17) / J1.15 (P3_21)
+ *   MAX98357A BCLK / LRC / DIN ← J1.1 (P3_16) / J1.3 (P3_17) / J1.5 (P3_20)
+ * BCLK and LRC are shared between INMP441 and MAX98357A — both driven by
+ * SAI1's TX framer. SJ10 must be 2-3 and SJ11 must be 1-2 for these
+ * J1 pins to actually carry the SAI1 signals (see User Manual Table 17).
  *
  * PC side:
  *   python receiver.py --port COMx --baud 921600 --out captures/08
@@ -75,7 +81,7 @@ int main(void)
     BOARD_InitHardware();
     systick_init_1ms();
 
-    PRINTF("\r\nIchiPing 08_mic_speaker_test  ─  SAI0 TX chirp + SAI1 RX capture\r\n");
+    PRINTF("\r\nIchiPing 08_mic_speaker_test  ─  SAI1 TX chirp + SAI1 RX capture\r\n");
     PRINTF("  Fs=%u, chirp=%u samp, window=%u samp, cycle=%u ms\r\n",
            (unsigned)IRTEST_SAMPLE_RATE, (unsigned)IRTEST_CHIRP_SAMP,
            (unsigned)IRTEST_TOTAL_SAMP,  (unsigned)IRTEST_CYCLE_MS);

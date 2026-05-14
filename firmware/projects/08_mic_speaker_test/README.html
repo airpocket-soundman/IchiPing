@@ -98,11 +98,35 @@ python receiver.py --port COM7 --baud 921600 --out ../captures/08
 <h2>既知の TODO</h2>
 <ul>
 <li>現状の <code>play_blocking → record_blocking</code> は <strong>直列実行</strong>（chirp 終わってから録音開始）。本来は EDMA で <strong>同時並行</strong>にする必要がある（chirp と reflections の時間軸を揃えるため）。</li>
-<li>SAI0/SAI1 を別 PLL で駆動すると <strong>サンプルクロックがずれる</strong>。両方とも同じ PLL ソースに揃えるべき。<code>hardware_init.c</code> のクロック接続は要確認。</li>
 <li>INMP441 と MAX98357A は <strong>物理的に離す</strong>こと（直接振動結合で <code>room IR</code> ではなく機構的な振動を計測してしまう）。</li>
 </ul>
-<h2>配線</h2>
-<p><a href="../06_mic_test/README.md">06_mic_test</a> + <a href="../07_speaker_test/README.md">07_speaker_test</a> の和集合。両方とも 5V / GND を共通化、SAI BCLK/FS は別系統。</p>
+
+<h2>配線（実機準拠 — SAI1 全二重, J1 ヘッダ）</h2>
+<p><a href="../06_mic_test/README.html">06_mic_test</a> + <a href="../07_speaker_test/README.html">07_speaker_test</a> の <b>完全な和集合</b>。BCLK / LRC は <b>両デバイスで物理的に同じ J1 ピンを共有</b>（クロック源は SAI1 の TX フレーマ 1 個、サンプル間でドリフトしない）。出典: <a href="../../../docs/pdf/FRDM-MCXN947BoardUserManual.pdf">docs/pdf/FRDM-MCXN947BoardUserManual.pdf</a> Table 17。</p>
+
+<table>
+<thead>
+<tr><th>信号</th><th>INMP441</th><th>MAX98357A</th><th>J1 ピン</th><th>MCU pin</th><th>Alt</th><th>SDK 信号</th><th>SJ</th></tr>
+</thead>
+<tbody>
+<tr><td>BCLK</td><td>SCK</td><td>BCLK</td><td><b>J1.1</b></td><td>P3_16</td><td>Alt10</td><td><code>SAI1_TX_BCLK</code></td><td><b>SJ11: 1-2</b></td></tr>
+<tr><td>LRC / WS</td><td>WS</td><td>LRC</td><td><b>J1.3</b></td><td>P3_17</td><td>Alt10</td><td><code>SAI1_TX_FS</code></td><td><b>SJ10: 2-3</b></td></tr>
+<tr><td>録音データ</td><td>SD</td><td>—</td><td><b>J1.15</b></td><td>P3_21</td><td>Alt10</td><td><code>SAI1_RXD0</code></td><td>—</td></tr>
+<tr><td>再生データ</td><td>—</td><td>DIN</td><td><b>J1.5</b></td><td>P3_20</td><td>Alt10</td><td><code>SAI1_TXD0</code></td><td>—</td></tr>
+<tr><td>VDD / VIN</td><td>3V3</td><td><b>外部 5V レール</b></td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>GND</td><td>GND</td><td>GND</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>L/R</td><td>GND (Left)</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>GAIN</td><td>—</td><td>フローティング (9 dB)</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+<tr><td>SD</td><td>—</td><td>VIN 直結（常時 ON）</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+</tbody>
+</table>
+
+<blockquote>
+<p><b>クロック構成</b>: TX フレーマが master（BCLK/FS を P3_16/P3_17 に出す）、RX フレーマは <code>kSAI_ModeSync</code> で TX のクロックを内部共有。<code>shared/source/sai_mic.c</code> + <code>sai_speaker.c</code> で同じ SAI1 ベースを共有しているので、<code>sai_mic_init</code> と <code>sai_speaker_init</code> を続けて呼ぶと同じ TX 設定が確立される（idempotent）。</p>
+<p><b>重要 (注意したハマり)</b>: <code>sai_speaker_play_blocking</code> は完了時に <b>TX を disable しない</b>実装に変更済。disable してしまうと続けて呼ぶ <code>sai_mic_record_blocking</code> で RX が無音になる（sync mode は TX クロックに依存しているため）。明示停止は <code>sai_speaker_stop</code> で。</p>
+<p><b>SJ10/SJ11</b>: 出荷時のデフォルトが SAI1 経路かは要確認。SJ11 が 2-3 だと P4_5 (SINC0)、SJ10 が 1-2 だと P4_13 (MC_ENC_I) にルーティングされる。</p>
+<p><b>電源</b>: 外部 5V レールに <b>1000 µF 電解</b>を入れて MAX98357A の inrush を吸収。INMP441 の VDD（3V3）は MCU 3V3 から取って OK（電流 &lt; 2 mA）。GND は外部 5V のグランドと共通バーで 1 点接地。</p>
+</blockquote>
 
 </main>
 

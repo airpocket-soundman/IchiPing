@@ -33,9 +33,28 @@ python receiver.py --port COM7 --baud 921600 --out ../captures/08
 ## 既知の TODO
 
 - 現状の `play_blocking → record_blocking` は **直列実行**（chirp 終わってから録音開始）。本来は EDMA で **同時並行**にする必要がある（chirp と reflections の時間軸を揃えるため）。
-- SAI0/SAI1 を別 PLL で駆動すると **サンプルクロックがずれる**。両方とも同じ PLL ソースに揃えるべき。`hardware_init.c` のクロック接続は要確認。
 - INMP441 と MAX98357A は **物理的に離す**こと（直接振動結合で `room IR` ではなく機構的な振動を計測してしまう）。
 
-## 配線
+## 配線（実機準拠 — SAI1 全二重, J1 ヘッダ）
 
-[06_mic_test](../06_mic_test/README.md) + [07_speaker_test](../07_speaker_test/README.md) の和集合。両方とも 5V / GND を共通化、SAI BCLK/FS は別系統。
+[06_mic_test](../06_mic_test/README.md) + [07_speaker_test](../07_speaker_test/README.md) の **完全な和集合**。BCLK / LRC は **両デバイスで物理的に同じ J1 ピンを共有**（クロック源は SAI1 の TX フレーマ 1 個、サンプル間でドリフトしない）。出典: [docs/pdf/FRDM-MCXN947BoardUserManual.pdf](../../../docs/pdf/FRDM-MCXN947BoardUserManual.pdf) Table 17。
+
+| 信号 | INMP441 | MAX98357A | J1 ピン | MCU pin | Alt | SDK 信号 | ソルダージャンパ |
+|---|---|---|---|---|---|---|---|
+| BCLK | SCK | BCLK | **J1.1** | P3_16 | Alt10 | `SAI1_TX_BCLK` | **SJ11: 1-2** |
+| LRC / WS | WS | LRC | **J1.3** | P3_17 | Alt10 | `SAI1_TX_FS` | **SJ10: 2-3** |
+| 録音データ | SD | — | **J1.15** | P3_21 | Alt10 | `SAI1_RXD0` | — |
+| 再生データ | — | DIN | **J1.5** | P3_20 | Alt10 | `SAI1_TXD0` | — |
+| VDD / VIN | 3V3 | **外部 5V レール** | — | — | — | — | — |
+| GND | GND | GND | — | — | — | — | — |
+| L/R | GND（Left 選択） | — | — | — | — | — | — |
+| GAIN | — | フローティング (9 dB) | — | — | — | — | — |
+| SD | — | VIN 直結（常時 ON） | — | — | — | — | — |
+
+> **クロック構成**: TX フレーマが master（BCLK/FS を P3_16/P3_17 に出す）、RX フレーマは `kSAI_ModeSync` で TX のクロックを内部共有。`shared/source/sai_mic.c` + `sai_speaker.c` で同じ SAI1 ベースを共有しているので、`sai_mic_init` と `sai_speaker_init` を続けて呼ぶと同じ TX 設定が確立される（idempotent）。
+>
+> **重要 (注意したハマり)**: `sai_speaker_play_blocking` は完了時に **TX を disable しない**実装に変更済。disable してしまうと続けて呼ぶ `sai_mic_record_blocking` で RX が無音になる（sync mode は TX クロックに依存しているため）。明示停止は `sai_speaker_stop` で。
+>
+> **SJ10/SJ11**: 出荷時のデフォルトが SAI1 経路かは要確認。SJ11 が 2-3 だと P4_5 (SINC0)、SJ10 が 1-2 だと P4_13 (MC_ENC_I) にルーティングされる。
+>
+> **電源**: 外部 5V レールに **1000 µF 電解**を入れて MAX98357A の inrush を吸収。INMP441 の VDD（3V3）は MCU 3V3 から取って OK（電流 < 2 mA）。GND は外部 5V のグランドと共通バーで 1 点接地。
