@@ -25,15 +25,15 @@ FRDM-MCXN947 Board User Manual Table 17（Arduino compatible header J1 pinout）
 | VDD | 3V3 | — | — | — | — | INMP441 は 1.8–3.3 V 駆動 |
 | GND | GND | — | — | — | — | |
 | L/R | GND | — | — | — | — | **Left チャネル選択**。VDD に繋ぐと Right になり、現在のドライバ（kSAI_MonoLeft）では音が取れない |
-| **SCK** | **J1.1** | P3_16 | Alt10 | `SAI1_TX_BCLK` | **SJ11: 1-2** (P3_16 を選択) | ビットクロック。MCU が master。SJ11 が 2-3 だと P4_5 (SINC0) に切替わるので注意 |
-| **WS** | **J1.3** | P3_17 | Alt10 | `SAI1_TX_FS` | **SJ10: 2-3** (P3_17 を選択) | LRCLK / WS。同上、MCU master |
+| **SCK** | **J1.1** | P3_16 | Alt10 | `SAI1_TX_BCLK` | SJ11: 1-2 (デフォルト) | ビットクロック。MCU が master。SJ11 を 2-3 に動かすと P4_5 (SINC0) に切替わるが、IchiPing はデフォルトの 1-2 のまま使う |
+| **WS** | **J1.11** | P3_17 | Alt10 | `SAI1_TX_FS` | — (SJ なし、直結) | LRCLK / WS。J1.11 は P3_17 が直結されているのでジャンパ操作不要 |
 | **SD** | **J1.15** | P3_21 | Alt10 | `SAI1_RXD0` | — (直結) | INMP441 → MCU データ |
 
+> **WS の J1 ピン番号について**: BUM Table 17 では P3_17 / `SAI1_TX_FS` が **J1.3 (SJ10=2-3 が必要)** と **J1.11 (SJ なし、デフォルト)** の両方に出てくる。IchiPing は出荷時の SJ 位置だけで動く構成にしたいので、**J1.11 を採用**してジャンパ操作を不要にしている。`docs/pdf/FRDM-MCXN947BoardUserManual.pdf` p20-21 の Table 17 参照。
+>
 > **クロック構成の補足**: 06 単体運用でも BCLK/FS は **TX フレーマ (master)** が生成し、RX フレーマは **sync モード**で TX のクロックを内部共有する設計（`firmware/shared/source/sai_mic.c` の `sai_mic_init`）。これは 07_speaker_test / 08_mic_speaker_test と **同じ配線で動かす**ためで、後者でマイクとスピーカに BCLK/FS を 1 セットで供給できる。
 >
-> したがって配線上は SAI1_RX_BCLK (P3_18, J1.9) や SAI1_RX_FS (P3_19, J1.13) を使う必要は**ない**。INMP441 の SCK と WS は J1.1 / J1.3 から取る。
->
-> **SJ10/SJ11 注意**: FRDM-MCXN947 出荷時のデフォルト位置によっては SAI1 信号が別ペリフェラル（SINC0 / モータ制御）にルーティングされていることがある。Board User Manual Table 17 の SJ 設定を確認。
+> したがって配線上は SAI1_RX_BCLK (P3_18, J1.9) や SAI1_RX_FS (P3_19, J1.13) を使う必要は**ない**。INMP441 の SCK と WS は J1.1 / J1.11 から取る。
 
 ## ビルド・実行
 

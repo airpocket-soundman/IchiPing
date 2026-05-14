@@ -109,8 +109,8 @@ python receiver.py --port COM7 --baud 921600 --out ../captures/08
 <tr><th>信号</th><th>INMP441</th><th>MAX98357A</th><th>J1 ピン</th><th>MCU pin</th><th>Alt</th><th>SDK 信号</th><th>SJ</th></tr>
 </thead>
 <tbody>
-<tr><td>BCLK</td><td>SCK</td><td>BCLK</td><td><b>J1.1</b></td><td>P3_16</td><td>Alt10</td><td><code>SAI1_TX_BCLK</code></td><td><b>SJ11: 1-2</b></td></tr>
-<tr><td>LRC / WS</td><td>WS</td><td>LRC</td><td><b>J1.3</b></td><td>P3_17</td><td>Alt10</td><td><code>SAI1_TX_FS</code></td><td><b>SJ10: 2-3</b></td></tr>
+<tr><td>BCLK</td><td>SCK</td><td>BCLK</td><td><b>J1.1</b></td><td>P3_16</td><td>Alt10</td><td><code>SAI1_TX_BCLK</code></td><td>SJ11: 1-2 (デフォルト)</td></tr>
+<tr><td>LRC / WS</td><td>WS</td><td>LRC</td><td><b>J1.11</b></td><td>P3_17</td><td>Alt10</td><td><code>SAI1_TX_FS</code></td><td>— (SJ なし、直結)</td></tr>
 <tr><td>録音データ</td><td>SD</td><td>—</td><td><b>J1.15</b></td><td>P3_21</td><td>Alt10</td><td><code>SAI1_RXD0</code></td><td>—</td></tr>
 <tr><td>再生データ</td><td>—</td><td>DIN</td><td><b>J1.5</b></td><td>P3_20</td><td>Alt10</td><td><code>SAI1_TXD0</code></td><td>—</td></tr>
 <tr><td>VDD / VIN</td><td>3V3</td><td><b>外部 5V レール</b></td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
@@ -124,7 +124,7 @@ python receiver.py --port COM7 --baud 921600 --out ../captures/08
 <blockquote>
 <p><b>クロック構成</b>: TX フレーマが master（BCLK/FS を P3_16/P3_17 に出す）、RX フレーマは <code>kSAI_ModeSync</code> で TX のクロックを内部共有。<code>shared/source/sai_mic.c</code> + <code>sai_speaker.c</code> で同じ SAI1 ベースを共有しているので、<code>sai_mic_init</code> と <code>sai_speaker_init</code> を続けて呼ぶと同じ TX 設定が確立される（idempotent）。</p>
 <p><b>重要 (注意したハマり)</b>: <code>sai_speaker_play_blocking</code> は完了時に <b>TX を disable しない</b>実装に変更済。disable してしまうと続けて呼ぶ <code>sai_mic_record_blocking</code> で RX が無音になる（sync mode は TX クロックに依存しているため）。明示停止は <code>sai_speaker_stop</code> で。</p>
-<p><b>SJ10/SJ11</b>: 出荷時のデフォルトが SAI1 経路かは要確認。SJ11 が 2-3 だと P4_5 (SINC0)、SJ10 が 1-2 だと P4_13 (MC_ENC_I) にルーティングされる。</p>
+<p><b>SJ 設定</b>: 出荷時デフォルトのままで OK。SJ11 はデフォルト 1-2 で J1.1 = <code>SAI1_TX_BCLK</code>、SJ10 はデフォルト 1-2 のまま (J1.3 = <code>MC_ENC_I</code> 未使用)。<code>SAI1_TX_FS</code> は J1.3 ではなく <b>J1.11</b> から取ることでジャンパ操作を完全に不要にしている。BUM Table 17 を参照。</p>
 <p><b>電源</b>: 外部 5V レールに <b>1000 µF 電解</b>を入れて MAX98357A の inrush を吸収。INMP441 の VDD（3V3）は MCU 3V3 から取って OK（電流 &lt; 2 mA）。GND は外部 5V のグランドと共通バーで 1 点接地。</p>
 </blockquote>
 

@@ -26,15 +26,15 @@ FRDM-MCXN947 Board User Manual Table 17（Arduino compatible header J1 pinout）
 |---|---|---|---|---|---|---|
 | VIN | **外部 5V レール** | — | — | — | — | 3V3 では音量取れない。1000 µF 電解で平滑化推奨 |
 | GND | GND（外部 5V と共通バー） | — | — | — | — | サーボ・スピーカ・MCU すべて 1 点接地 |
-| **BCLK** | **J1.1** | P3_16 | Alt10 | `SAI1_TX_BCLK` | **SJ11: 1-2** (P3_16 を選択) | ビットクロック。SJ11 が 2-3 だと P4_5 (SINC0) に切替わるので注意 |
-| **LRC** | **J1.3** | P3_17 | Alt10 | `SAI1_TX_FS` | **SJ10: 2-3** (P3_17 を選択) | LRCLK / WS |
+| **BCLK** | **J1.1** | P3_16 | Alt10 | `SAI1_TX_BCLK` | SJ11: 1-2 (デフォルト) | ビットクロック。SJ11 を 2-3 に動かすと P4_5 (SINC0) に切替わるが、IchiPing はデフォルトの 1-2 のまま使う |
+| **LRC** | **J1.11** | P3_17 | Alt10 | `SAI1_TX_FS` | — (SJ なし、直結) | LRCLK / WS。J1.11 は P3_17 が直結されているのでジャンパ操作不要 |
 | **DIN** | **J1.5** | P3_20 | Alt10 | `SAI1_TXD0` | — (直結) | TX データ |
 | GAIN | フローティング | — | — | — | — | 既定 9 dB。3/6/9/12/15 dB は GAIN ピンの状態で切替 |
 | SD | VIN（3V3 直結） | — | — | — | — | 常時 ON。GPIO でミュート切替したい場合は別ピンへ |
 
 > **重要 1**: ファームは **SAI1**（`I2S1`）を使用。README 旧版に "SAI0_*" と書かれていたのは誤り。`frdmmcxn947_cm33_core0/cm33_core0/app.h` の `BOARD_SPK_SAI_BASE = I2S1` が正本。
 >
-> **重要 2**: BCLK と LRC は **ソルダージャンパで経路が分岐**しているピンです。FRDM-MCXN947 出荷時のデフォルトが SAI1 側になっているか確認してください。SJ11 が 2-3 / SJ10 が 1-2 の状態だと信号が出ません。
+> **重要 2**: LRC は当初 J1.3 (SJ10=2-3 が必要) で計画していたが、BUM Table 17 によれば **J1.11 にも同じ P3_17 / `SAI1_TX_FS` が SJ 無しで直結**されているため、IchiPing は J1.11 を採用。FRDM-MCXN947 出荷時のジャンパ位置のまま動く構成になっている。SJ11 (J1.1 = BCLK 用) もデフォルトの 1-2 で OK。
 >
 > **重要 3**: SAI1 は INMP441（マイク, RX 側）と共用ペリフェラル。08_mic_speaker_test / 10_collector では同じ SAI1 を全二重で使うので、**J1.7 (`SAI1_MCLK`)** / **J1.9 (`SAI1_RX_BCLK`)** / **J1.13 (`SAI1_RX_FS`)** / **J1.15 (`SAI1_RXD0`)** も合わせて配線済にしておくと後の bring-up が楽。
 

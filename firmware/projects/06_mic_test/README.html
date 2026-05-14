@@ -125,17 +125,17 @@
 <td>P3_16</td>
 <td>Alt10</td>
 <td><code>SAI1_TX_BCLK</code></td>
-<td><b>SJ11: 1-2</b> (P3_16 を選択)</td>
-<td>ビットクロック。MCU が master。SJ11 が 2-3 だと P4_5 (SINC0) に切替わるので注意</td>
+<td>SJ11: 1-2 (デフォルト)</td>
+<td>ビットクロック。MCU が master。SJ11 を 2-3 に動かすと P4_5 (SINC0) に切替わるが、IchiPing はデフォルトの 1-2 のまま使う</td>
 </tr>
 <tr>
 <td><b>WS</b></td>
-<td><b>J1.3</b></td>
+<td><b>J1.11</b></td>
 <td>P3_17</td>
 <td>Alt10</td>
 <td><code>SAI1_TX_FS</code></td>
-<td><b>SJ10: 2-3</b> (P3_17 を選択)</td>
-<td>LRCLK / WS。同上、MCU master</td>
+<td>— (SJ なし、直結)</td>
+<td>LRCLK / WS。J1.11 は P3_17 が直結されているのでジャンパ操作不要</td>
 </tr>
 <tr>
 <td><b>SD</b></td>
@@ -151,8 +151,8 @@
 
 <blockquote>
 <p><b>クロック構成の補足</b>: 06 単体運用でも BCLK/FS は <b>TX フレーマ (master)</b> が生成し、RX フレーマは <b>sync モード</b>で TX のクロックを内部共有する設計（<code>firmware/shared/source/sai_mic.c</code> の <code>sai_mic_init</code>）。これは <a href="../07_speaker_test/README.html">07_speaker_test</a> / <a href="../08_mic_speaker_test/README.html">08_mic_speaker_test</a> と <b>同じ配線で動かす</b>ためで、後者でマイクとスピーカに BCLK/FS を 1 セットで供給できる。</p>
-<p>したがって配線上は <code>SAI1_RX_BCLK</code> (P3_18, J1.9) や <code>SAI1_RX_FS</code> (P3_19, J1.13) を使う必要は<b>ない</b>。INMP441 の SCK と WS は J1.1 / J1.3 から取る。</p>
-<p><b>SJ10/SJ11 注意</b>: FRDM-MCXN947 出荷時のデフォルト位置によっては SAI1 信号が別ペリフェラル（SINC0 / モータ制御）にルーティングされていることがある。Board User Manual Table 17 の SJ 設定を確認。</p>
+<p>したがって配線上は <code>SAI1_RX_BCLK</code> (P3_18, J1.9) や <code>SAI1_RX_FS</code> (P3_19, J1.13) を使う必要は<b>ない</b>。INMP441 の SCK と WS は J1.1 / J1.11 から取る。</p>
+<p><b>WS の J1 ピン番号について</b>: BUM Table 17 では P3_17 / <code>SAI1_TX_FS</code> が <b>J1.3 (SJ10=2-3 が必要)</b> と <b>J1.11 (SJ なし、デフォルト)</b> の両方に出てくる。IchiPing は出荷時の SJ 位置だけで動く構成にしたいので、<b>J1.11 を採用</b>してジャンパ操作を不要にしている。<a href="../../../docs/pdf/FRDM-MCXN947BoardUserManual.pdf">docs/pdf/FRDM-MCXN947BoardUserManual.pdf</a> p20-21 の Table 17 参照。</p>
 </blockquote>
 
 <h2>ビルド・実行</h2>

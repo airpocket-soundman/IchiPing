@@ -206,7 +206,7 @@ python collector_client.py --port COM7 --out ../captures/10
 <li>LPUART RX FIFO が浅いので、長文コマンド（label に空白を含む 30 字超）は流す前に MCU 側ループを通すマージンを取ること。</li>
 </ul>
 <h2>配線</h2>
-<p><a href="../08_mic_speaker_test/README.html">08_mic_speaker_test</a> と完全に同じ（<b>SAI1 全二重</b>, J1 ヘッダ、SJ10=2-3 / SJ11=1-2）。J1.1 BCLK / J1.3 LRC / J1.5 DIN / J1.15 SD。</p>
+<p><a href="../08_mic_speaker_test/README.html">08_mic_speaker_test</a> と完全に同じ（<b>SAI1 全二重</b>, J1 ヘッダ）。<b>J1.1 BCLK / J1.11 LRC / J1.5 DIN / J1.15 SD</b>、すべて FRDM-MCXN947 出荷時のジャンパ位置 (SJ11=1-2, SJ10=1-2) のまま動く。</p>
 
 </main>
 

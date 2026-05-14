@@ -19,11 +19,12 @@
  *
  * Wiring is the union of 06_mic_test and 07_speaker_test (same J1 pins,
  * no rewiring needed when stepping up from 06/07 → 08):
- *   INMP441 SCK / WS / SD  ← J1.1 (P3_16) / J1.3 (P3_17) / J1.15 (P3_21)
- *   MAX98357A BCLK / LRC / DIN ← J1.1 (P3_16) / J1.3 (P3_17) / J1.5 (P3_20)
+ *   INMP441 SCK / WS / SD  ← J1.1 (P3_16) / J1.11 (P3_17) / J1.15 (P3_21)
+ *   MAX98357A BCLK / LRC / DIN ← J1.1 (P3_16) / J1.11 (P3_17) / J1.5 (P3_20)
  * BCLK and LRC are shared between INMP441 and MAX98357A — both driven by
- * SAI1's TX framer. SJ10 must be 2-3 and SJ11 must be 1-2 for these
- * J1 pins to actually carry the SAI1 signals (see User Manual Table 17).
+ * SAI1's TX framer. All four signals come out of the board with the
+ * factory-default solder jumpers (SJ11=1-2 for J1.1, J1.11 has no SJ),
+ * so no jumper changes are required (see User Manual Table 17).
  *
  * PC side:
  *   python receiver.py --port COMx --baud 921600 --out captures/08

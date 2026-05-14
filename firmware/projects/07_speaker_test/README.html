@@ -121,17 +121,17 @@
 <td>P3_16</td>
 <td>Alt10</td>
 <td><code>SAI1_TX_BCLK</code></td>
-<td><b>SJ11: 1-2</b> (P3_16 を選択)</td>
-<td>ビットクロック。SJ11 が 2-3 だと P4_5 (SINC0) に切替わるので注意</td>
+<td>SJ11: 1-2 (デフォルト)</td>
+<td>ビットクロック。SJ11 を 2-3 に動かすと P4_5 (SINC0) に切替わるが、IchiPing はデフォルトの 1-2 のまま使う</td>
 </tr>
 <tr>
 <td><b>LRC</b></td>
-<td><b>J1.3</b></td>
+<td><b>J1.11</b></td>
 <td>P3_17</td>
 <td>Alt10</td>
 <td><code>SAI1_TX_FS</code></td>
-<td><b>SJ10: 2-3</b> (P3_17 を選択)</td>
-<td>LRCLK / WS</td>
+<td>— (SJ なし、直結)</td>
+<td>LRCLK / WS。J1.11 は P3_17 が直結されているのでジャンパ操作不要</td>
 </tr>
 <tr>
 <td><b>DIN</b></td>
@@ -159,7 +159,7 @@
 
 <blockquote>
 <p><b>重要 1</b>: ファームは <b>SAI1</b>（<code>I2S1</code>）を使用。README 旧版に "SAI0_*" と書かれていたのは誤り。<code>frdmmcxn947_cm33_core0/cm33_core0/app.h</code> の <code>BOARD_SPK_SAI_BASE = I2S1</code> が正本。</p>
-<p><b>重要 2</b>: BCLK と LRC は <b>ソルダージャンパで経路が分岐</b>しているピンです。FRDM-MCXN947 出荷時のデフォルトが SAI1 側になっているか確認してください。SJ11 が 2-3 / SJ10 が 1-2 の状態だと信号が出ません。</p>
+<p><b>重要 2</b>: LRC は当初 J1.3 (SJ10=2-3 が必要) で計画していたが、BUM Table 17 によれば <b>J1.11 にも同じ P3_17 / <code>SAI1_TX_FS</code> が SJ 無しで直結</b>されているため、IchiPing は J1.11 を採用。FRDM-MCXN947 出荷時のジャンパ位置のまま動く構成になっている。SJ11 (J1.1 = BCLK 用) もデフォルトの 1-2 で OK。</p>
 <p><b>重要 3</b>: SAI1 は INMP441（マイク, RX 側）と共用ペリフェラル。<a href="../08_mic_speaker_test/README.html">08_mic_speaker_test</a> / <a href="../10_collector/README.html">10_collector</a> では同じ SAI1 を全二重で使うので、<b>J1.7 (<code>SAI1_MCLK</code>)</b> / <b>J1.9 (<code>SAI1_RX_BCLK</code>)</b> / <b>J1.13 (<code>SAI1_RX_FS</code>)</b> / <b>J1.15 (<code>SAI1_RXD0</code>)</b> も合わせて配線済にしておくと後の bring-up が楽。</p>
 </blockquote>
 

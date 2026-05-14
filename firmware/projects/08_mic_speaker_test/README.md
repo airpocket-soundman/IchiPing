@@ -41,8 +41,8 @@ python receiver.py --port COM7 --baud 921600 --out ../captures/08
 
 | 信号 | INMP441 | MAX98357A | J1 ピン | MCU pin | Alt | SDK 信号 | ソルダージャンパ |
 |---|---|---|---|---|---|---|---|
-| BCLK | SCK | BCLK | **J1.1** | P3_16 | Alt10 | `SAI1_TX_BCLK` | **SJ11: 1-2** |
-| LRC / WS | WS | LRC | **J1.3** | P3_17 | Alt10 | `SAI1_TX_FS` | **SJ10: 2-3** |
+| BCLK | SCK | BCLK | **J1.1** | P3_16 | Alt10 | `SAI1_TX_BCLK` | SJ11: 1-2 (デフォルト) |
+| LRC / WS | WS | LRC | **J1.11** | P3_17 | Alt10 | `SAI1_TX_FS` | — (SJ なし、直結) |
 | 録音データ | SD | — | **J1.15** | P3_21 | Alt10 | `SAI1_RXD0` | — |
 | 再生データ | — | DIN | **J1.5** | P3_20 | Alt10 | `SAI1_TXD0` | — |
 | VDD / VIN | 3V3 | **外部 5V レール** | — | — | — | — | — |
@@ -55,6 +55,6 @@ python receiver.py --port COM7 --baud 921600 --out ../captures/08
 >
 > **重要 (注意したハマり)**: `sai_speaker_play_blocking` は完了時に **TX を disable しない**実装に変更済。disable してしまうと続けて呼ぶ `sai_mic_record_blocking` で RX が無音になる（sync mode は TX クロックに依存しているため）。明示停止は `sai_speaker_stop` で。
 >
-> **SJ10/SJ11**: 出荷時のデフォルトが SAI1 経路かは要確認。SJ11 が 2-3 だと P4_5 (SINC0)、SJ10 が 1-2 だと P4_13 (MC_ENC_I) にルーティングされる。
+> **SJ 設定**: 出荷時デフォルトのままで OK。SJ11 はデフォルト 1-2 で J1.1 = `SAI1_TX_BCLK`、SJ10 はデフォルト 1-2 のまま (J1.3 = `MC_ENC_I` 未使用)。`SAI1_TX_FS` は J1.3 ではなく **J1.11** から取ることでジャンパ操作を完全に不要にしている。BUM Table 17 を参照。
 >
 > **電源**: 外部 5V レールに **1000 µF 電解**を入れて MAX98357A の inrush を吸収。INMP441 の VDD（3V3）は MCU 3V3 から取って OK（電流 < 2 mA）。GND は外部 5V のグランドと共通バーで 1 点接地。

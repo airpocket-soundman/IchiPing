@@ -85,4 +85,4 @@ python collector_client.py --port COM7 --plan plan.json --out ../captures/10
 
 ## 配線
 
-[08_mic_speaker_test](../08_mic_speaker_test/README.md) と完全に同じ（**SAI1 全二重**, J1 ヘッダ、SJ10=2-3 / SJ11=1-2）。J1.1 BCLK / J1.3 LRC / J1.5 DIN / J1.15 SD。
+[08_mic_speaker_test](../08_mic_speaker_test/README.md) と完全に同じ（**SAI1 全二重**, J1 ヘッダ）。**J1.1 BCLK / J1.11 LRC / J1.5 DIN / J1.15 SD**、すべて FRDM-MCXN947 出荷時のジャンパ位置 (SJ11=1-2, SJ10=1-2) のまま動く。

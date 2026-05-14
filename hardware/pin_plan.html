@@ -127,7 +127,7 @@
 <td>Alt10</td>
 <td><code>SAI1_TX_BCLK</code></td>
 <td><strong>J1.1</strong></td>
-<td><strong>SJ11=1-2</strong></td>
+<td>SJ11=1-2 (デフォルト)</td>
 </tr>
 <tr>
 <td>INMP441</td>
@@ -135,8 +135,8 @@
 <td>P3_17</td>
 <td>Alt10</td>
 <td><code>SAI1_TX_FS</code></td>
-<td><strong>J1.3</strong></td>
-<td><strong>SJ10=2-3</strong></td>
+<td><strong>J1.11</strong></td>
+<td>— (SJ なし、直結)</td>
 </tr>
 <tr>
 <td>INMP441</td>
@@ -162,7 +162,7 @@
 <td>P3_17</td>
 <td>Alt10</td>
 <td><code>SAI1_TX_FS</code></td>
-<td><strong>J1.3</strong> (共有)</td>
+<td><strong>J1.11</strong> (共有)</td>
 <td>（上と同じ）</td>
 </tr>
 <tr>
@@ -517,36 +517,29 @@
 <td>Wakeup_B 機能不使用</td>
 </tr>
 <tr>
-<td>SJ10</td>
-<td><strong>2-3</strong></td>
-<td>J1.3 = <code>SAI1_TX_FS</code></td>
-<td>1-2 (要変更!)</td>
-<td>MC_ENC_I 不使用</td>
-</tr>
-<tr>
 <td>SJ11</td>
-<td><strong>1-2</strong></td>
+<td>1-2 (デフォルト)</td>
 <td>J1.1 = <code>SAI1_TX_BCLK</code></td>
 <td>1-2 (デフォルト)</td>
 <td>SINC0_MBIT4 不使用</td>
 </tr>
 <tr>
 <td>SJ14</td>
-<td>1-2</td>
+<td>1-2 (デフォルト)</td>
 <td>D18 = <code>FC2_I2C_SDA</code></td>
 <td>1-2 (デフォルト)</td>
 <td>I3C1_SDA 不使用</td>
 </tr>
 <tr>
 <td>SJ15</td>
-<td>1-2</td>
+<td>1-2 (デフォルト)</td>
 <td>D19 = <code>FC2_I2C_SCL</code></td>
 <td>1-2 (デフォルト)</td>
 <td>I3C1_SCL 不使用</td>
 </tr>
 </tbody>
 </table>
-<p><strong>実機検証で要対応</strong>: <strong>SJ10 のみ出荷時 1-2 から 2-3 への変更が必要</strong>。他はすべてデフォルト位置のまま使える想定。SJ10 を手動で切替えないと SAI1_TX_FS が J1.3 に出てこない。</p>
+<p><strong>実機検証で要対応</strong>: <strong>なし</strong> — IchiPing v1 は FRDM-MCXN947 出荷時のジャンパ位置だけで全機能が動く構成にしてある。<code>SAI1_TX_FS</code> は当初 J1.3 (SJ10=2-3 が必要) で計画していたが、<strong>J1.11 が同信号をデフォルト位置で出している</strong>のでこちらを使う。SJ10 はデフォルト 1-2 のままで J1.3 = MC_ENC_I (未使用) のまま放置。</p>
 <h2>衝突マトリクス（同時に使えない組合せ）</h2>
 <table>
 <thead>
@@ -632,15 +625,15 @@
 </tr>
 <tr>
 <td>06_mic_test</td>
-<td>SAI1 RX (J1.1/J1.3/J1.15)</td>
+<td>SAI1 RX (J1.1/J1.11/J1.15)</td>
 </tr>
 <tr>
 <td>07_speaker_test</td>
-<td>SAI1 TX (J1.1/J1.3/J1.5)</td>
+<td>SAI1 TX (J1.1/J1.11/J1.5)</td>
 </tr>
 <tr>
 <td>08_mic_speaker_test</td>
-<td>SAI1 全二重 (J1.1/J1.3/J1.5/J1.15)</td>
+<td>SAI1 全二重 (J1.1/J1.11/J1.5/J1.15)</td>
 </tr>
 <tr>
 <td>09_audio_stream</td>

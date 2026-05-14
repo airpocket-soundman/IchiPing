@@ -20,11 +20,11 @@
 
 | デバイス | デバイス端子 | MCU pin | Alt | SDK 信号名 | ヘッダ | SJ |
 |---|---|---|---|---|---|---|
-| INMP441 | SCK ← | P3_16 | Alt10 | `SAI1_TX_BCLK` | **J1.1** | **SJ11=1-2** |
-| INMP441 | WS ← | P3_17 | Alt10 | `SAI1_TX_FS` | **J1.3** | **SJ10=2-3** |
+| INMP441 | SCK ← | P3_16 | Alt10 | `SAI1_TX_BCLK` | **J1.1** | SJ11=1-2 (デフォルト) |
+| INMP441 | WS ← | P3_17 | Alt10 | `SAI1_TX_FS` | **J1.11** | — (SJ なし、直結) |
 | INMP441 | SD → | P3_21 | Alt10 | `SAI1_RXD0` | **J1.15** | — |
 | MAX98357A | BCLK ← | P3_16 | Alt10 | `SAI1_TX_BCLK` | **J1.1** (共有) | （上と同じ） |
-| MAX98357A | LRC ← | P3_17 | Alt10 | `SAI1_TX_FS` | **J1.3** (共有) | （上と同じ） |
+| MAX98357A | LRC ← | P3_17 | Alt10 | `SAI1_TX_FS` | **J1.11** (共有) | （上と同じ） |
 | MAX98357A | DIN ← | P3_20 | Alt10 | `SAI1_TXD0` | **J1.5** | — |
 | INMP441 | L/R | — | — | GND 接続 | — | （左 ch 選択） |
 | MAX98357A | GAIN | — | — | 無接続 | — | （9 dB デフォルト） |
@@ -102,12 +102,11 @@
 | SJ7 | **1-2** | D11 = SPI_SDO | 1-2 (デフォルト) | — |
 | SJ8 | 1-2 | A4 = GPIO（ILI9341 DC） | 1-2 (デフォルト) | — |
 | SJ9 | 1-2 | A5 = GPIO（ILI9341 BL） | 1-2 (デフォルト) | Wakeup_B 機能不使用 |
-| SJ10 | **2-3** | J1.3 = `SAI1_TX_FS` | 1-2 (要変更!) | MC_ENC_I 不使用 |
-| SJ11 | **1-2** | J1.1 = `SAI1_TX_BCLK` | 1-2 (デフォルト) | SINC0_MBIT4 不使用 |
-| SJ14 | 1-2 | D18 = `FC2_I2C_SDA` | 1-2 (デフォルト) | I3C1_SDA 不使用 |
-| SJ15 | 1-2 | D19 = `FC2_I2C_SCL` | 1-2 (デフォルト) | I3C1_SCL 不使用 |
+| SJ11 | 1-2 (デフォルト) | J1.1 = `SAI1_TX_BCLK` | 1-2 (デフォルト) | SINC0_MBIT4 不使用 |
+| SJ14 | 1-2 (デフォルト) | D18 = `FC2_I2C_SDA` | 1-2 (デフォルト) | I3C1_SDA 不使用 |
+| SJ15 | 1-2 (デフォルト) | D19 = `FC2_I2C_SCL` | 1-2 (デフォルト) | I3C1_SCL 不使用 |
 
-**実機検証で要対応**: **SJ10 のみ出荷時 1-2 から 2-3 への変更が必要**。他はすべてデフォルト位置のまま使える想定。SJ10 を手動で切替えないと SAI1_TX_FS が J1.3 に出てこない。
+**実機検証で要対応**: **なし** — IchiPing v1 は FRDM-MCXN947 出荷時のジャンパ位置だけで全機能が動く構成にしてある。`SAI1_TX_FS` は当初 J1.3 (SJ10=2-3 が必要) で計画していたが、**J1.11 が同信号をデフォルト位置で出している**のでこちらを使う。SJ10 はデフォルト 1-2 のままで J1.3 = MC_ENC_I (未使用) のまま放置。
 
 ## 衝突マトリクス（同時に使えない組合せ）
 
@@ -150,9 +149,9 @@
 | 03_ili9341_test | LPSPI1 (D11/D13) + 4 GPIO (A2..A5) |
 | 04_lvgl_test | 同上 |
 | 05_usb_cdc_emitter | USB CDC (J21) |
-| 06_mic_test | SAI1 RX (J1.1/J1.3/J1.15) |
-| 07_speaker_test | SAI1 TX (J1.1/J1.3/J1.5) |
-| 08_mic_speaker_test | SAI1 全二重 (J1.1/J1.3/J1.5/J1.15) |
+| 06_mic_test | SAI1 RX (J1.1/J1.11/J1.15) |
+| 07_speaker_test | SAI1 TX (J1.1/J1.11/J1.5) |
+| 08_mic_speaker_test | SAI1 全二重 (J1.1/J1.11/J1.5/J1.15) |
 | 09_audio_stream | SAI1 RX のみ（06 と同じ） |
 | 10_collector | SAI1 全二重 (08 と同じ) + ASCII コマンド (OpenSDA UART) |
 | v1 統合版 | **上記すべて同時** |
