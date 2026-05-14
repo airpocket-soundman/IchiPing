@@ -159,37 +159,37 @@
     </tr>
     <tr>
       <td>6</td>
-      <td><a href="projects/06_mic_test/"><code>projects/06_mic_test</code></a></td>
+      <td><a href="projects/06_mic_test/README.html"><code>projects/06_mic_test</code></a></td>
       <td>INMP441 単体疎通 — PRINTF だけで RMS/Peak/ZCR 観測</td>
       <td><code>sai/sai_interrupt_record</code></td>
     </tr>
     <tr>
       <td>7</td>
-      <td><a href="projects/07_speaker_test/"><code>projects/07_speaker_test</code></a></td>
+      <td><a href="projects/07_speaker_test/README.html"><code>projects/07_speaker_test</code></a></td>
       <td>MAX98357A 単体疎通 — 200/1k/5k Hz + chirp 再生</td>
       <td><code>sai/sai_interrupt_play</code></td>
     </tr>
     <tr>
       <td>8</td>
-      <td><a href="projects/08_mic_speaker_test/"><code>projects/08_mic_speaker_test</code></a></td>
+      <td><a href="projects/08_mic_speaker_test/README.html"><code>projects/08_mic_speaker_test</code></a></td>
       <td>TX chirp ＋ RX キャプチャの閉ループ（室内インパルス応答）</td>
       <td><code>sai/sai_*</code> + <code>lpuart</code></td>
     </tr>
     <tr>
       <td>9</td>
-      <td><a href="projects/09_audio_stream/"><code>projects/09_audio_stream</code></a></td>
+      <td><a href="projects/09_audio_stream/README.html"><code>projects/09_audio_stream</code></a></td>
       <td>実マイク連続ストリーミング（01 の real audio 版）</td>
       <td><code>sai/sai_*</code> + <code>lpuart</code></td>
     </tr>
     <tr>
       <td>10</td>
-      <td><a href="projects/10_collector/"><code>projects/10_collector</code></a></td>
+      <td><a href="projects/10_collector/README.html"><code>projects/10_collector</code></a></td>
       <td>PC 双方向制御の学習データ採取（窓 / 励起 / 反復 / ラベル）</td>
       <td><code>sai/sai_*</code> + <code>lpuart</code> ＋ PC <code>collector_client.py</code></td>
     </tr>
   </tbody>
 </table>
-<p>詳細なインポート手順は <b>各プロジェクトの README.md</b> を参照。</p>
+<p>詳細なインポート手順は <b>各プロジェクトの README.html / README.md</b> を参照。</p>
 
 <h3>サーボドライバの選択</h3>
 <p>
@@ -284,6 +284,36 @@
       <td><a href="projects/05_usb_cdc_emitter/README.html">README.html</a></td>
       <td><a href="projects/05_usb_cdc_emitter/README.md">README.md</a></td>
       <td><b>PC で <code>receiver.py</code> 起動必須</b>（仮想 COM, バイナリ）</td>
+    </tr>
+    <tr>
+      <td>06_mic_test</td>
+      <td><a href="projects/06_mic_test/README.html">README.html</a></td>
+      <td><a href="projects/06_mic_test/README.md">README.md</a></td>
+      <td>シリアルモニタで PRINTF 統計を眺める（PC スクリプト不要）</td>
+    </tr>
+    <tr>
+      <td>07_speaker_test</td>
+      <td><a href="projects/07_speaker_test/README.html">README.html</a></td>
+      <td><a href="projects/07_speaker_test/README.md">README.md</a></td>
+      <td>スピーカで耳判定（PC スクリプト不要）</td>
+    </tr>
+    <tr>
+      <td>08_mic_speaker_test</td>
+      <td><a href="projects/08_mic_speaker_test/README.html">README.html</a></td>
+      <td><a href="projects/08_mic_speaker_test/README.md">README.md</a></td>
+      <td><b><code>receiver.py</code> 起動必須</b>。<code>captures/</code> に room IR WAV</td>
+    </tr>
+    <tr>
+      <td>09_audio_stream</td>
+      <td><a href="projects/09_audio_stream/README.html">README.html</a></td>
+      <td><a href="projects/09_audio_stream/README.md">README.md</a></td>
+      <td><b><code>receiver.py</code> 起動必須</b>。実マイク音を連続記録</td>
+    </tr>
+    <tr>
+      <td>10_collector</td>
+      <td><a href="projects/10_collector/README.html">README.html</a></td>
+      <td><a href="projects/10_collector/README.md">README.md</a></td>
+      <td><b><code>collector_client.py</code> で PC 側から制御</b></td>
     </tr>
     <tr>
       <td>host_build</td>
