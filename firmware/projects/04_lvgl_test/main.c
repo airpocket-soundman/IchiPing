@@ -36,6 +36,7 @@
 #include "fsl_debug_console.h"
 #include "fsl_lpspi.h"
 #include "fsl_gpio.h"
+#include "app.h"
 
 #if __has_include("lvgl.h")
 #  include "lvgl.h"
@@ -46,24 +47,32 @@
 #include "ili9341.h"
 #include "lv_port.h"
 
-/* ----- Pin / SPI config (must match main_ili9341_test.c) ----- */
+/* Defined in frdmmcxn947_cm33_core0/cm33_core0/hardware_init.c. Attaches
+ * FRO12M → FLEXCOMM1 (LPSPI1) and FLEXCOMM4 (debug UART). Without it the
+ * first LPSPI transfer returns kStatus_InvalidArgument (=4). See the same
+ * fix in 03_ili9341_test/main.c. */
+extern void BOARD_InitHardware(void);
+
+/* ----- Pin / SPI config (must match 03_ili9341_test/main.c) -----
+ * All values come from app.h, which is verified against the FRDM-MCXN947
+ * Board User Manual Tables 18 and 20. */
 #ifndef ILI_SPI_BASE
-#define ILI_SPI_BASE        LPSPI3
+#define ILI_SPI_BASE        BOARD_ILI_SPI_BASE
 #endif
 #ifndef ILI_SPI_CLK_FREQ
-#define ILI_SPI_CLK_FREQ    CLOCK_GetLPFlexCommClkFreq(3)
+#define ILI_SPI_CLK_FREQ    BOARD_ILI_SPI_CLK_FREQ
 #endif
 #define ILI_SPI_BAUD_HZ     20000000U
 
 #ifndef ILI_CS_GPIO
-#define ILI_CS_GPIO  GPIO0
-#define ILI_CS_PIN   24U
-#define ILI_RES_GPIO GPIO0
-#define ILI_RES_PIN  25U
-#define ILI_DC_GPIO  GPIO0
-#define ILI_DC_PIN   26U
-#define ILI_BL_GPIO  GPIO0
-#define ILI_BL_PIN   27U
+#define ILI_CS_GPIO         BOARD_ILI_CS_GPIO
+#define ILI_CS_PIN          BOARD_ILI_CS_PIN
+#define ILI_RES_GPIO        BOARD_ILI_RES_GPIO
+#define ILI_RES_PIN         BOARD_ILI_RES_PIN
+#define ILI_DC_GPIO         BOARD_ILI_DC_GPIO
+#define ILI_DC_PIN          BOARD_ILI_DC_PIN
+#define ILI_BL_GPIO         BOARD_ILI_BL_GPIO
+#define ILI_BL_PIN          BOARD_ILI_BL_PIN
 #endif
 
 /* ----- SysTick: feed LVGL ----- */
@@ -194,9 +203,7 @@ static void demo_step(uint32_t step) {
 /* ----- Application ----- */
 
 int main(void) {
-    BOARD_InitBootPins();
-    BOARD_InitBootClocks();
-    BOARD_InitDebugConsole();
+    BOARD_InitHardware();  /* see comment on the extern declaration above */
     gpio_outputs_init();
 
     PRINTF("\r\nIchiPing LVGL test  ─  ILI9341 + LVGL v9 partial render\r\n");

@@ -56,6 +56,15 @@
 
 #include "ili9341.h"
 
+/* Defined in frdmmcxn947_cm33_core0/cm33_core0/hardware_init.c. Does the
+ * FRO12M → FLEXCOMM1 (LPSPI1) and FLEXCOMM4 (debug UART) clock attaches
+ * that BOARD_InitBootClocks() alone does not perform. Without this,
+ * CLOCK_GetLPFlexCommClkFreq(1) returns 0, the LPSPI baud divider lands
+ * on garbage, and TCR[FRAMESZ] readback drifts → first SWRESET write
+ * fails LPSPI_CheckTransferArgument and ili9341_init returns
+ * kStatus_InvalidArgument (=4). */
+extern void BOARD_InitHardware(void);
+
 /* ----- SPI / GPIO configuration -----
  * Defaults come from app.h (BOARD_ILI_SPI_BASE = LPSPI1, etc.). Override
  * with -D in CMakeLists if you need to retarget. */
@@ -66,7 +75,7 @@
 #ifndef ILI_SPI_CLK_FREQ
 #define ILI_SPI_CLK_FREQ    BOARD_ILI_SPI_CLK_FREQ
 #endif
-#define ILI_SPI_BAUD_HZ     20000000U              /* 20 MHz — comfortable headroom */
+#define ILI_SPI_BAUD_HZ     1000000U               /* 1 MHz — diagnostic speed; raise to 20 MHz once stable */
 
 /* GPIO routings come from app.h, which is verified against the
  * FRDM-MCXN947 Board User Manual Table 20. */
@@ -103,6 +112,35 @@ static void gpio_outputs_init(void) {
     GPIO_PinInit(ILI_RES_GPIO, ILI_RES_PIN, &out);
     GPIO_PinInit(ILI_DC_GPIO,  ILI_DC_PIN,  &out);
     GPIO_PinInit(ILI_BL_GPIO,  ILI_BL_PIN,  &out);
+}
+
+/* Diagnostic: wiggle each control GPIO so a multimeter on the corresponding
+ * Arduino header pin can confirm 0 V <-> 3.3 V switching. Run before
+ * ili9341_init so a bad jumper / wrong physical wire shows up as a flat
+ * line at one rail instead of a square wave. Marked unused so it stays
+ * compiled-in but doesn't trip -Werror=unused-function until we wire the
+ * call in from main(). */
+static void pin_wiggle_test(void) __attribute__((unused));
+static void pin_wiggle_test(void) {
+    struct { GPIO_Type *port; uint32_t pin; const char *label; } lines[] = {
+        { ILI_CS_GPIO,  ILI_CS_PIN,  "CS  (A2 / J4.6)"  },
+        { ILI_RES_GPIO, ILI_RES_PIN, "RES (A3 / J4.8)"  },
+        { ILI_DC_GPIO,  ILI_DC_PIN,  "DC  (A4 / J4.10)" },
+    };
+    PRINTF("\r\n=== Pin wiggle test ===\r\n");
+    PRINTF("Probe each Arduino header pin with a multimeter; you should\r\n");
+    PRINTF("see HIGH (~3.3 V) for 1.5 s then LOW (~0 V) for 1.5 s.\r\n");
+    for (size_t i = 0; i < sizeof(lines)/sizeof(lines[0]); i++) {
+        PRINTF("  %s: HIGH...\r\n", lines[i].label);
+        GPIO_PinWrite(lines[i].port, lines[i].pin, 1u);
+        delay_ms(1500);
+        PRINTF("  %s: LOW...\r\n", lines[i].label);
+        GPIO_PinWrite(lines[i].port, lines[i].pin, 0u);
+        delay_ms(1500);
+        /* Leave idle at HIGH (deasserted) for CS/RES/DC. */
+        GPIO_PinWrite(lines[i].port, lines[i].pin, 1u);
+    }
+    PRINTF("=== Pin wiggle test done ===\r\n\r\n");
 }
 
 /* ----- Phases ----- */
@@ -202,9 +240,12 @@ static void phase_pixel_sweep(ili9341_t *d) {
 /* ----- Application ----- */
 
 int main(void) {
-    BOARD_InitBootPins();
-    BOARD_InitBootClocks();
-    BOARD_InitDebugConsole();
+    /* BOARD_InitHardware (in hardware_init.c) attaches FRO12M to FLEXCOMM1
+     * BEFORE BOARD_InitBootPins/Clocks/DebugConsole. Without that attach the
+     * LPSPI1 register block on the FlexComm1 base never gets PSELID=LPSPI,
+     * so LPSPI_MasterInit silently writes the wrong layout and the first
+     * LPSPI_MasterTransferBlocking fails with kStatus_InvalidArgument (=4). */
+    BOARD_InitHardware();
     systick_init_1ms();
     gpio_outputs_init();
 

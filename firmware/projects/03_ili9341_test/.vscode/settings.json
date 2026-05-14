@@ -10,5 +10,5 @@
   "cmake.useCMakePresets": "always",
   "cmake.buildTask": true,
   "cmake.skipConfigureIfCachePresent": true,
-  "cmake.sourceDirectory": "${workspaceFolder}/"
+  "cmake.sourceDirectory": "${workspaceFolder}"
 }

@@ -122,10 +122,6 @@ static status_t write_data(ili9341_t *d, const uint8_t *buf, size_t n) {
     return s;
 }
 
-static status_t write_data_u8(ili9341_t *d, uint8_t v) {
-    return write_data(d, &v, 1u);
-}
-
 static status_t write_cmd_with_data(ili9341_t *d, uint8_t cmd,
                                     const uint8_t *data, size_t n) {
     status_t s = write_cmd(d, cmd);
