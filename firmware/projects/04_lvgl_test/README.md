@@ -26,12 +26,12 @@ ILI9341 + LVGL v9 で IchiPing 状態 UI のモックを描画するファーム
    #define LV_TICK_CUSTOM      0
    #define LV_MEM_SIZE         (48 * 1024)
    ```
-9. **Config Tools の Pins ツール** はテスト 1 と同じ（D11/D13 → LPSPI3、A2..A5 → GPIO 出力）
+9. **Pins tool 不要** — pin_mux.c は [03_ili9341_test](../03_ili9341_test/) と同じ LPSPI1 (FC1) on D11/D13 + GPIO on A2..A5 を既に設定済
 10. ビルド → OpenSDA で書込
 
 ## 配線
 
-[03_ili9341_test/README.md](../03_ili9341_test/README.md) と完全に同じ。配線はテスト 1 から変更不要。
+[03_ili9341_test/README.md](../03_ili9341_test/README.md) と完全に同じ（**LPSPI1 / FC1 on J2.8/12, GPIO on J4.6/8/10/12**, SJ7/8/9 default 1-2）。配線はテスト 03 から変更不要。
 
 ## 動作
 
