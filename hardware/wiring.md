@@ -32,7 +32,7 @@ INMP441（マイク）と MAX98357A（スピーカ）を **同一 SAI1 ペリフ
 | PIO3_21 | **Alt10** | `SAI1_RXD0`    | INMP441 SD                   | RX data | MIC → MCU |
 | PIO1_21 | **Alt10** | `SAI1_MCLK` (任意) | (外部 codec 用)            | MCLK | MCU → ext |
 
-INMP441 の `L/R` ピンは **GND に接続**（左チャネル選択）。MAX98357A の `GAIN` は無接続（9 dB デフォルト）、`SD` は 3.3V 直結（常時 ON）。
+INMP441 の `L/R` ピンは **GND に接続**（左チャネル選択）。MAX98357A の `GAIN` は **GND 直結 (3 dB)** — デモ用 0.25 W スピーカを焼かないための保護。v1+ で 1〜3 W スピーカに上げるならフローティング (9 dB) に戻す。`SD` は 3.3V 直結（常時 ON）。
 
 > SAI 検証出典: [d:/GitHub/mcuxsdk/.../driver_examples/sai/edma_transfer/pin_mux.c](../../mcuxsdk/mcuxsdk/examples/_boards/frdmmcxn947/driver_examples/sai/edma_transfer/pin_mux.c) 同等構成で動作実績あり。
 

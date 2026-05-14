@@ -29,7 +29,7 @@ FRDM-MCXN947 Board User Manual Table 17（Arduino compatible header J1 pinout）
 | **BCLK** | **J1.1** | P3_16 | Alt10 | `SAI1_TX_BCLK` | SJ11: 1-2 (デフォルト) | ビットクロック。SJ11 を 2-3 に動かすと P4_5 (SINC0) に切替わるが、IchiPing はデフォルトの 1-2 のまま使う |
 | **LRC** | **J1.11** | P3_17 | Alt10 | `SAI1_TX_FS` | — (SJ なし、直結) | LRCLK / WS。J1.11 は P3_17 が直結されているのでジャンパ操作不要 |
 | **DIN** | **J1.5** | P3_20 | Alt10 | `SAI1_TXD0` | — (直結) | TX データ |
-| GAIN | フローティング | — | — | — | — | 既定 9 dB。3/6/9/12/15 dB は GAIN ピンの状態で切替 |
+| GAIN | **GND 直結 (3 dB)** | — | — | — | — | デモ用 0.25 W スピーカ保護。v1+ で 1〜3 W に上げるならフローティング (9 dB) に戻す |
 | SD | VIN（3V3 直結） | — | — | — | — | 常時 ON。GPIO でミュート切替したい場合は別ピンへ |
 
 > **重要 1**: ファームは **SAI1**（`I2S1`）を使用。README 旧版に "SAI0_*" と書かれていたのは誤り。`frdmmcxn947_cm33_core0/cm33_core0/app.h` の `BOARD_SPK_SAI_BASE = I2S1` が正本。

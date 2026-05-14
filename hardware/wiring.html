@@ -105,7 +105,7 @@
     <tr><td>PIO1_21</td><td><b>Alt10</b></td><td><code>SAI1_MCLK</code>（任意）</td><td>(外部 codec 用)</td><td>MCLK</td><td>MCU → ext</td></tr>
   </tbody>
 </table>
-<p>INMP441 の <code>L/R</code> ピンは <b>GND に接続</b>（左チャネル選択）。MAX98357A の <code>GAIN</code> は無接続（9 dB デフォルト）、<code>SD</code> は 3.3V 直結（常時 ON）。</p>
+<p>INMP441 の <code>L/R</code> ピンは <b>GND に接続</b>（左チャネル選択）。MAX98357A の <code>GAIN</code> は <b>GND 直結 (3 dB)</b> — デモ用 0.25 W スピーカを焼かないための保護。v1+ で 1〜3 W スピーカに上げるならフローティング (9 dB) に戻す。<code>SD</code> は 3.3V 直結（常時 ON）。</p>
 
 <h3>2.2 I²C（LPI2C2 / FC2, 内蔵プルアップ可）</h3>
 <div class="callout">

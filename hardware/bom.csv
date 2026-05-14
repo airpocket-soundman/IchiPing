@@ -2,8 +2,8 @@ Category,Item,Qty,Vendor,PartNumber,UnitPriceUSD,LeadTime,Required,Notes
 # === Required for v1 minimum config ===
 MCU,FRDM-MCXN947 dev board,1,DigiKey,FRDM-MCXN947,49.00,stock,YES,NPU + PowerQuad + I2S multi
 MIC,INMP441 I2S MEMS microphone breakout,1,DigiKey,Adafruit-3421 or generic,7.95,stock,YES,24-bit, no DC offset; spec.html §6 specifies INMP441
-DAC,MAX98357A I2S amplifier breakout,1,DigiKey,Adafruit-3006,5.95,stock,YES,Class-D 3.2 W @ 8 ohm
-SPEAKER,8 ohm 1-3 W fullrange driver 28-40 mm,1,DigiKey,DBL40N1B-G or similar,2.50,stock,YES,200 Hz - 10 kHz fairly flat
+DAC,MAX98357A I2S amplifier breakout,1,DigiKey,Adafruit-3006,5.95,stock,YES,Class-D 3.2 W @ 8 ohm. GAIN pin tied to GND (3 dB) to protect 0.25 W demo speaker
+SPEAKER,8 ohm 0.25 W fullrange driver 45 mm,1,generic,—,2.00,stock,YES,Demo build (30 cm scale model). v1+ deployment wants 1-3 W per spec §6
 SERVO_DRV,PCA9685 16ch PWM driver breakout,1,DigiKey,Adafruit-815,17.50,stock,YES,I2C 0x40
 SERVO,SG90 micro servo 9g,5,DigiKey,Adafruit-169,5.95,stock,YES,Window/door actuators
 DISPLAY,ILI9341 2.4-2.8 inch TFT 240x320 RGB565 SPI,1,DigiKey,Adafruit-2478 or generic,12.95,stock,YES,Replaces SH1106; full colour for demo video impact. See hardware/display_options.html

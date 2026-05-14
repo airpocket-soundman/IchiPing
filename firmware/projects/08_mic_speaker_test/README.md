@@ -48,7 +48,7 @@ python receiver.py --port COM7 --baud 921600 --out ../captures/08
 | VDD / VIN | 3V3 | **外部 5V レール** | — | — | — | — | — |
 | GND | GND | GND | — | — | — | — | — |
 | L/R | GND（Left 選択） | — | — | — | — | — | — |
-| GAIN | — | フローティング (9 dB) | — | — | — | — | — |
+| GAIN | — | **GND 直結 (3 dB)** | — | — | — | — | デモ用 0.25 W スピーカ保護。v1+ で 1〜3 W に上げるならフローティング (9 dB) に戻す |
 | SD | — | VIN 直結（常時 ON） | — | — | — | — | — |
 
 > **クロック構成**: TX フレーマが master（BCLK/FS を P3_16/P3_17 に出す）、RX フレーマは `kSAI_ModeSync` で TX のクロックを内部共有。`shared/source/sai_mic.c` + `sai_speaker.c` で同じ SAI1 ベースを共有しているので、`sai_mic_init` と `sai_speaker_init` を続けて呼ぶと同じ TX 設定が確立される（idempotent）。

@@ -111,7 +111,7 @@
     <text class="pin" x="14" y="58">VIN ── 5V</text>
     <text class="pin" x="14" y="74">GND ── GND</text>
     <text class="pin" x="14" y="90">BCLK / LRC / DIN ←─ SAI0</text>
-    <text class="pin" x="14" y="106">SPK± ── 8Ω 28mm SP</text>
+    <text class="pin" x="14" y="106">SPK± ── 8Ω 0.25W 45mm SP (デモ)</text>
   </g>
   <!-- DAC wires to MCU SAI0 TX (right side) - go around -->
   <path class="bus-i2s" d="M 640 210 L 640 250 L 798 250 L 798 146 L 794 146"/>
