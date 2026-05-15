@@ -61,9 +61,9 @@
     本ボードは <b>IchiPing リポ内に閉じた実装単位</b>のサブタスクを管理する。
   </div>
   <div class="meta">
-    <span class="meta-stat done"><span class="num">18</span> 完了</span>
+    <span class="meta-stat done"><span class="num">19</span> 完了</span>
     <span class="meta-stat active"><span class="num">4</span> 足場あり</span>
-    <span class="meta-stat pending"><span class="num">20</span> 未着手</span>
+    <span class="meta-stat pending"><span class="num">19</span> 未着手</span>
     <span class="meta-stat"><span class="num">0</span> ブロック</span>
     <span class="meta-stat"><span class="num">42</span> 全体</span>
   </div>
@@ -188,7 +188,7 @@
     <span class="phase-status">予定</span>
   </h2>
   <p class="phase-desc">
-    <code>dummy_audio_generate</code> を I²S SAI1 RX（INMP441）に置換、SAI0 TX で MAX98357A 経由 chirp を放射。完了条件：実マイクで録音した波形が PC に届き、放射 chirp が物理スピーカから出る。
+    <code>dummy_audio_generate</code> を I²S SAI1 RX（INMP441）に置換、SAI1 TX で MAX98357A 経由 chirp を放射。完了条件：実マイクで録音した波形が PC に届き、放射 chirp が物理スピーカから出る。
   </p>
   <div class="tasks">
 
@@ -222,14 +222,14 @@
       <div class="task-status"><span class="status-badge pending">未着手</span></div>
     </div>
 
-    <div class="task" data-status="pending">
+    <div class="task" data-status="completed">
       <div class="task-id">IP-0.2.4</div>
       <div class="task-body">
-        <h3 class="task-title">MAX98357A 配線 + SAI0 TX で chirp 放射</h3>
-        <p class="task-desc">SAI0 TX BCLK/SYNC/DATA を MAX98357A に接続、SD = 3.3V、GAIN 無接続。<code>dummy_audio</code> の chirp 部分を 16 kHz 16-bit PCM として再生</p>
-        <div class="task-meta"><span>担当: <b>MCU + ハード</b></span></div>
+        <h3 class="task-title">MAX98357A 配線 + SAI1 TX で chirp 放射</h3>
+        <p class="task-desc">SAI1 TX BCLK/SYNC/DATA を MAX98357A に接続、SD = 3.3V、GAIN = GND (3 dB)。200/1k/5k Hz 純音 + 200→6 kHz クリーン chirp を再生。<a href="firmware/projects/07_speaker_test/README.html">07_speaker_test</a> で <strong>2026-05-16 実機ブリングアップ完了</strong>（commit <code>385b619</code>）</p>
+        <div class="task-meta"><span>担当: <b>MCU + ハード</b></span><span>備考: SAI フレーマ救済 fix (TCR4.FCONT + 8-zero primer) と SAI_WriteBlocking バグ回避 (per-sample SAI_WriteData) を共有ドライバに組込</span></div>
       </div>
-      <div class="task-status"><span class="status-badge pending">未着手</span></div>
+      <div class="task-status"><span class="status-badge completed">完了</span></div>
     </div>
 
     <div class="task" data-status="pending">

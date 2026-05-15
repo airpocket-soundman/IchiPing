@@ -46,7 +46,7 @@ firmware/
 │   ├── 04_lvgl_test/                     LVGL v9 ＋ IchiPing 状態 UI モック（LPSPI1 + 4 GPIO）
 │   ├── 05_usb_cdc_emitter/               USB CDC ACM で ICHP フレーム送信（USB1 FS）
 │   ├── 06_mic_test/                      INMP441 単体疎通（SAI1 RX, RMS/Peak PRINTF）
-│   ├── 07_speaker_test/                  MAX98357A 単体疎通（SAI0 TX, 5 種テスト音）
+│   ├── 07_speaker_test/                  MAX98357A 単体疎通（SAI1 TX, 5 種テスト音, ✅ 実機確認済）
 │   ├── 08_mic_speaker_test/              TX chirp ＋ RX キャプチャ（室内インパルス応答）
 │   ├── 09_audio_stream/                  実音 INMP441 → ICHP フレーム連続送信（01 の real-mic 版）
 │   └── 10_collector/                     PC 双方向: PC→MCU 設定 / MCU→PC ラベル付き学習データ

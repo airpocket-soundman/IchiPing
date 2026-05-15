@@ -1,7 +1,7 @@
 /*
  * IchiPing — MAX98357A speaker test firmware.
  *
- * Plays five repeating test signals on SAI0 TX:
+ * Plays five repeating test signals on SAI1 TX:
  *   1. 200 Hz pure tone (1.0 s)            — low-end driver check
  *   2. 1 kHz pure tone   (1.0 s)            — mid-band reference
  *   3. 5 kHz pure tone   (1.0 s)            — high-end / aliasing check
@@ -16,9 +16,9 @@
  *   MAX98357A    FRDM-MCXN947
  *   VIN          5V external (NOT 3V3 — needs the 5 V rail for full SPL)
  *   GND          GND
- *   LRC          SAI0_FS
- *   BCLK         SAI0_BCLK
- *   DIN          SAI0_TXD
+ *   LRC          SAI1_TX_FS   (J1.11 / P3_17 Alt10)
+ *   BCLK         SAI1_TX_BCLK (J1.1  / P3_16 Alt10)
+ *   DIN          SAI1_TXD0    (J1.5  / P3_20 Alt10)
  *   GAIN         floating (default 9 dB) or tied per datasheet table
  *   SD           VIN (always on); pull low to mute via GPIO if desired
  *
@@ -101,7 +101,7 @@ int main(void)
     BOARD_InitHardware();
     systick_init_1ms();
 
-    PRINTF("\r\nIchiPing 07_speaker_test  --  MAX98357A on SAI0 TX @ %u Hz\r\n",
+    PRINTF("\r\nIchiPing 07_speaker_test  --  MAX98357A on SAI1 TX @ %u Hz\r\n",
            (unsigned)SPK_SAMPLE_RATE);
 
     sai_speaker_t spk;

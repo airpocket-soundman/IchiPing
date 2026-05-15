@@ -75,18 +75,23 @@
 <main>
 
 <h1>07_speaker_test — MAX98357A スピーカ疎通</h1>
-<p>MAX98357A（クラス D, I²S→アナログ）に <strong>200 Hz / 1 kHz / 5 kHz 正弦波</strong>、<strong>chirp 200→8 kHz</strong>、<strong>無音</strong> を順に流して耳で確認する。PC ソフトは不要、スピーカが鳴れば合格。</p>
+<blockquote>
+<p><b>✅ 実機ブリングアップ済 (2026-05-16, commit <code>385b619</code>)</b> — FRDM-MCXN947 + MAX98357A + 0.25 W 8 Ω 45 mm スピーカで 200/1k/5k Hz 純音と 200→6 kHz チャープが鳴ることを耳で確認。</p>
+</blockquote>
+<p>MAX98357A（クラス D, I²S→アナログ）に <strong>200 Hz / 1 kHz / 5 kHz 正弦波</strong>、<strong>200→6 kHz クリーン チャープ</strong>、<strong>無音</strong> を順に流して耳で確認する。PC ソフトは不要、スピーカが鳴れば合格。</p>
 <h2>期待する動作</h2>
-<pre><code>[cycle 1]
-  200 Hz tone        ← 低音 1秒
-  1 kHz tone         ← 中音 1秒（一番聞きやすい）
-  5 kHz tone         ← 高音 1秒（耳キンキンする）
-  chirp 200-&gt;8k      ← 推論で使うパッタリ系の音 2秒
-  silence 1 s        ← 完全に止まればクラス D シャットダウン OK
+<pre><code>[SAI] sai_clk=48000000 Hz TCSR=0x9017xxxx TCR2=0x07000016 TCR4=0x10011f3b MCR=0x40000000
+[cycle 1]
+  200 Hz tone                                ← 低音 1秒
+  1 kHz tone                                 ← 中音 1秒（一番聞きやすい）
+  5 kHz tone                                 ← 高音 1秒（耳キンキンする）
+  chirp 200-&gt;6k (clean linear, 5 ms fade)    ← 推論で使うチャープ系の音 2秒
+  silence 1 s                                ← 完全に止まればクラス D シャットダウン OK
 </code></pre>
+<p><code>[SAI]</code> 行は init 時の SAI レジスタダンプ — bit31 (TE) と bit28 (BCE) が立っていれば TX 動作中、<code>TCR4</code> bit28 (FCONT) と <code>MCR</code> bit30 (MOE) が立っていれば framer が underflow で止まらない設定。期待値は <a href="../06_mic_test/BRINGUP_NOTES.md#L24">06_mic_test/BRINGUP_NOTES.md</a> と同じ。</p>
 <p>判定:
-- 無音 → BCLK が出ていない、もしくは VIN が 3V3 のままで 5V が来ていない
-- ザザザ系のノイズ → DIN フローティング、または BCLK ↔ LRCLK の順序が逆
+- 無音 → SAI ダンプを確認。<code>TCR4</code> bit28 / <code>MCR</code> bit30 が立っていれば SAI 側 OK で、ハード側 (VIN=5V / SD=高 / GND 共通 / OUT± にスピーカ) を疑う
+- ザザザ系のノイズ → <code>SAI_WriteBlocking</code> のスタック過剰読み出しバグに当たっている可能性 (このリビジョンでは fix 済)
 - 5 kHz だけ大きく歪む → Fs と BCLK の比率が 32× になっていない（MAX98357A は 32×Fs か 64×Fs しか受け付けない）</p>
 <h2>配線（実機準拠 — SAI<b>1</b> TX, J1 ヘッダ）</h2>
 <p>FRDM-MCXN947 Board User Manual Table 17（Arduino compatible header J1 pinout）に従う。出典: <a href="../../../docs/pdf/FRDM-MCXN947BoardUserManual.pdf">docs/pdf/FRDM-MCXN947BoardUserManual.pdf</a> p20-21。</p>
@@ -167,10 +172,22 @@
 <pre><code>cd firmware/projects/07_speaker_test
 # MCUXpresso for VS Code → Import Project → debug preset → build → run
 </code></pre>
+<h2>音量調整</h2>
+<p><code>main.c</code> 冒頭の <code>SPK_GAIN</code> (現在 <code>0.15f</code> = -16 dB) で全シグナル一律にデジタル減衰している。これより下げると MAX98357A の class-D アイドル ノイズ (ジリジリ) が相対的に増えるので、更に静かにしたい場合は <b>MAX98357A の GAIN ピンを VDD or 100kΩ to GND</b> に変更してハード ゲインを 6 dB / 3 dB に落とす方が音質を保てる。</p>
+
+<h2>ブリングアップ時に踏んだ落とし穴 (記録)</h2>
+<ol>
+<li><b><code>SAI_WriteBlocking</code> がスタックを過剰読み出しする</b> — 内部で <code>(FIFO_DEPTH-watermark) * bytesPerWord</code> バイトを 1 バースト書き込みする実装。4 バイトのローカル <code>uint32_t</code> を渡すと残り 24 バイトをスタックから読んで FIFO に流す。対策: per-sample <code>SAI_WriteData</code> + <code>kSAI_FIFORequestFlag</code> 待ち</li>
+<li><b>TX フレーマが FIFO underflow で停止</b> — <code>TCR4.FCONT=1</code> を立てないと一度 underflow すると BCLK/FS が止まる。8 ワードの zero プライマも必要</li>
+<li><b><code>MCR.MOE=0</code> だと BCLK が永久 0 V</b> — MCLK ピンが入力モードに設定され、<code>TCR2.MSEL=01</code> の BCLK source が外部 MCLK を待ち続ける。<code>SAI_SetMasterClockConfig(mclkOutputEnable=true)</code> で内部 MCLK divider に切替</li>
+<li><b>SAI ピンのドライブ強度</b> — 1 MHz BCLK を J1 ヘッダ → ジャンパー線で引き回すなら <code>kPORT_HighDriveStrength</code> 必須。Low だと edge が崩れて MAX98357A が Fs を誤検出する</li>
+</ol>
+<p>これら 4 件は <a href="../../shared/source/sai_speaker.c">shared/source/sai_speaker.c</a> と <a href="../06_mic_test/BRINGUP_NOTES.md">06_mic_test/BRINGUP_NOTES.md</a> に詳細あり。</p>
+
 <h2>既知の TODO</h2>
 <ul>
-<li><code>pins/pin_mux.c</code> の SAI0 ピン Alt 値は <strong>MCUXpresso Pins tool で確認必須</strong></li>
 <li>連続再生（DMA リング）に切り替えるときは <code>sai_speaker_start_streaming</code> を実装</li>
+<li>08_mic_speaker_test で同じ SAI1 を全二重で使う際、speaker_init と mic_init を同居させても矛盾しないか確認 (TX framer は両方で master 想定で同じ設定)</li>
 </ul>
 
 </main>

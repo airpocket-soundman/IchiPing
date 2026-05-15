@@ -21,6 +21,7 @@
 | デバイス | デバイス端子 | MCU pin | Alt | SDK 信号名 | ヘッダ | SJ |
 |---|---|---|---|---|---|---|
 | INMP441 | SCK ← | P3_16 | Alt10 | `SAI1_TX_BCLK` | **J1.1** | SJ11=1-2 (デフォルト) |
+| INMP441 | SCK ← (代替) | P1_0 | Alt10 | `SAI1_TX_BCLK` | **J5.6 / J2.17** | — (SJ なし、直結) — 06_mic_test で並列に Alt10 出力済。配線が短い方を使う |
 | INMP441 | WS ← | P3_17 | Alt10 | `SAI1_TX_FS` | **J1.11** | — (SJ なし、直結) |
 | INMP441 | SD → | P3_21 | Alt10 | `SAI1_RXD0` | **J1.15** | — |
 | MAX98357A | BCLK ← | P3_16 | Alt10 | `SAI1_TX_BCLK` | **J1.1** (共有) | （上と同じ） |
@@ -30,6 +31,8 @@
 | MAX98357A | GAIN | — | — | **GND 直結** | — | デモ用 0.25 W スピーカ保護で 3 dB に固定。v1+ で 1〜3 W に上げるならフローティング (9 dB) に戻す |
 | MAX98357A | SD | — | — | 3V3 直結 | — | （常時 ON） |
 | INMP441 + MAX98357A | VDD/VIN | — | — | 3V3 / 5V 外部 | — | — |
+
+> **SAI ピンのドライブ強度**: 1 MHz BCLK + ジャンパー配線 + デバイス入力 + オシロ プローブの負荷で edge が崩れて 3.3V CMOS VIH を割ると、MAX98357A が Fs を誤検出して鳴らない / INMP441 が SCK を取りこぼす。06_mic_test / 07_speaker_test の pin_mux.c は SAI ピン全てを `kPORT_HighDriveStrength` で出している（実測 1.50 Vrms ≈ 矩形波平均値, ブリングアップ確認済）。Low ドライブで動かしたい場合は配線長を 5 cm 以下に短くするか、74LVC2G125 等のバッファを噛ませる。
 
 **BCLK/WS は同じ J1 ピンを INMP441 と MAX98357A の入力に T 字分岐**で並列接続（broadcast）。DIN と SD は専用 1 本ずつ。
 

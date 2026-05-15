@@ -121,12 +121,12 @@
 </tr>
 <tr>
 <td><b>SCK</b></td>
-<td><b>J1.1</b></td>
-<td>P3_16</td>
-<td>Alt10</td>
+<td><b>J1.1</b> <em>または</em> <b>J5.6 / J2.17</b></td>
+<td>P3_16 (J1.1) / P1_0 (J5.6・J2.17)</td>
+<td>Alt10 (両方)</td>
 <td><code>SAI1_TX_BCLK</code></td>
 <td>SJ11: 1-2 (デフォルト)</td>
-<td>ビットクロック。MCU が master。SJ11 を 2-3 に動かすと P4_5 (SINC0) に切替わるが、IchiPing はデフォルトの 1-2 のまま使う</td>
+<td>ビットクロック。MCU が master。<b>P3_16 と P1_0 の両方を Alt10 でムックスして 2 系統出している</b> — どちらに INMP441 の SCK を繋いでも良い。SJ11 を経由する J1.1 と SJ なし直結の J5.6/J2.17 のうち、配線が短い方を選ぶ。ドライブ強度は <code>kPORT_HighDriveStrength</code> (1 MHz BCLK でジャンパー配線でも edge を保つため)</td>
 </tr>
 <tr>
 <td><b>WS</b></td>

@@ -131,6 +131,15 @@
 </tr>
 <tr>
 <td>INMP441</td>
+<td>SCK ← (代替)</td>
+<td>P1_0</td>
+<td>Alt10</td>
+<td><code>SAI1_TX_BCLK</code></td>
+<td><strong>J5.6 / J2.17</strong></td>
+<td>— (SJ なし、直結) — 06_mic_test で並列に Alt10 出力済。配線が短い方を使う</td>
+</tr>
+<tr>
+<td>INMP441</td>
 <td>WS ←</td>
 <td>P3_17</td>
 <td>Alt10</td>
@@ -213,6 +222,10 @@
 </tbody>
 </table>
 <p><strong>BCLK/WS は同じ J1 ピンを INMP441 と MAX98357A の入力に T 字分岐</strong>で並列接続（broadcast）。DIN と SD は専用 1 本ずつ。</p>
+
+<blockquote>
+<p><b>SAI ピンのドライブ強度</b>: 1 MHz BCLK + ジャンパー配線 + デバイス入力 + オシロ プローブの負荷で edge が崩れて 3.3V CMOS VIH を割ると、MAX98357A が Fs を誤検出して鳴らない / INMP441 が SCK を取りこぼす。06_mic_test / 07_speaker_test の <code>pin_mux.c</code> は SAI ピン全てを <code>kPORT_HighDriveStrength</code> で出している（実測 1.50 Vrms ≈ 矩形波平均値, ブリングアップ確認済）。Low ドライブで動かしたい場合は配線長を 5 cm 以下に短くするか、74LVC2G125 等のバッファを噛ませる。</p>
+</blockquote>
 <h3>サーボ + センサ I²C 系（J2 ヘッダ・LPI2C2 / FC2）</h3>
 <table>
 <thead>

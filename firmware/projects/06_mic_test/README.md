@@ -25,7 +25,7 @@ FRDM-MCXN947 Board User Manual Table 17（Arduino compatible header J1 pinout）
 | VDD | 3V3 | — | — | — | — | INMP441 は 1.8–3.3 V 駆動 |
 | GND | GND | — | — | — | — | |
 | L/R | GND | — | — | — | — | **Left チャネル選択**。VDD に繋ぐと Right になり、現在のドライバ（kSAI_MonoLeft）では音が取れない |
-| **SCK** | **J1.1** | P3_16 | Alt10 | `SAI1_TX_BCLK` | SJ11: 1-2 (デフォルト) | ビットクロック。MCU が master。SJ11 を 2-3 に動かすと P4_5 (SINC0) に切替わるが、IchiPing はデフォルトの 1-2 のまま使う |
+| **SCK** | **J1.1** *または* **J5.6 / J2.17** | P3_16 (J1.1) / P1_0 (J5.6・J2.17) | Alt10 (両方) | `SAI1_TX_BCLK` | SJ11: 1-2 (デフォルト) | ビットクロック。MCU が master。**P3_16 と P1_0 の両方を Alt10 でムックスして 2 系統出している** — どちらに INMP441 の SCK を繋いでも良い。SJ11 を経由する J1.1 と SJ なし直結の J5.6/J2.17 のうち、配線が短い方を選ぶ。ドライブ強度は `kPORT_HighDriveStrength` (1 MHz BCLK でジャンパー配線でも edge を保つため) |
 | **WS** | **J1.11** | P3_17 | Alt10 | `SAI1_TX_FS` | — (SJ なし、直結) | LRCLK / WS。J1.11 は P3_17 が直結されているのでジャンパ操作不要 |
 | **SD** | **J1.15** | P3_21 | Alt10 | `SAI1_RXD0` | — (直結) | INMP441 → MCU データ |
 
