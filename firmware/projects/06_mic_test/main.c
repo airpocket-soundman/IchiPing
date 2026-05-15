@@ -60,7 +60,7 @@ int main(void)
     BOARD_InitHardware();
     systick_init_1ms();
 
-    PRINTF("\r\nIchiPing 06_mic_test  --  INMP441 on SAI1 RX @ %u Hz\r\n",
+    PRINTF("\r\nIchiPing 06_mic_test  --  INMP441 on SAI1 RX @ %u Hz [build hi-drive+P1_0]\r\n",
            (unsigned)MIC_SAMPLE_RATE);
 
     /* Print the SAI clock we plan to feed into the bit-clock divider so a
