@@ -249,7 +249,7 @@ int main(void) {
     systick_init_1ms();
     gpio_outputs_init();
 
-    PRINTF("\r\nIchiPing ILI9341 test  ─  240x320 RGB565 @ %u Hz SPI\r\n",
+    PRINTF("\r\nIchiPing ILI9341 test  --  240x320 RGB565 @ %u Hz SPI\r\n",
            (unsigned)ILI_SPI_BAUD_HZ);
 
     ili9341_t lcd = {

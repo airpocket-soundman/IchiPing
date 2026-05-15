@@ -138,7 +138,7 @@ int main(void) {
     systick_init_1ms();
     i2c_master_init();
 
-    PRINTF("\r\nIchiPing servo test  ─  backend=%s  addr=0x%02X  freq=%uHz  chans=%u\r\n",
+    PRINTF("\r\nIchiPing servo test  --  backend=%s  addr=0x%02X  freq=%uHz  chans=%u\r\n",
            SERVO_BACKEND_NAME,
            (unsigned)SERVO_DEFAULT_ADDR,
            (unsigned)SERVO_DEFAULT_FREQ_HZ,

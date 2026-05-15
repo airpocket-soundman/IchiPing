@@ -29,12 +29,15 @@
 #include "clock_config.h"
 #include "board.h"
 #include "fsl_debug_console.h"
+#include "fsl_sai.h"                /* for SAI1 peripheral instance macro */
 
 #include "sai_speaker.h"
 #include "dummy_audio.h"
 #include "app.h"
 
 #include <math.h>
+
+extern void BOARD_InitHardware(void);   /* defined in cm33_core0/hardware_init.c */
 
 #define SPK_SAMPLE_RATE   16000u
 #define SPK_TONE_MS       1000u
@@ -72,7 +75,7 @@ int main(void)
     BOARD_InitHardware();
     systick_init_1ms();
 
-    PRINTF("\r\nIchiPing 07_speaker_test  ─  MAX98357A on SAI0 TX @ %u Hz\r\n",
+    PRINTF("\r\nIchiPing 07_speaker_test  --  MAX98357A on SAI0 TX @ %u Hz\r\n",
            (unsigned)SPK_SAMPLE_RATE);
 
     sai_speaker_t spk;

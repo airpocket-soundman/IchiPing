@@ -19,20 +19,41 @@ status_t sai_speaker_init(sai_speaker_t *spk, const sai_speaker_config_t *cfg)
     if (!spk || !cfg) return kStatus_InvalidArgument;
     spk->cfg = *cfg;
 
+    I2S_Type *base = (I2S_Type *)spk->cfg.sai_base;
+
+    /* Enable SAI peripheral clock + release reset. Safe to call twice
+     * (08_mic_speaker_test inits both mic and speaker on the same SAI). */
+    SAI_Init(base);
+
+    /* WordWidth = 32 bits to match the bit-clock divider (Fs × 32 × 2).
+     * MAX98357A samples 32-bit slots and uses the upper 16 bits as the
+     * audio sample. MonoLeft sends our buffer to the left half-frame only;
+     * the amp picks it up on its only output channel. */
     sai_transceiver_t saiConfig;
     SAI_GetClassicI2SConfig(&saiConfig,
-                            kSAI_WordWidth16bits,
+                            kSAI_WordWidth32bits,
                             kSAI_MonoLeft,
                             kSAI_Channel0Mask);
     saiConfig.syncMode    = kSAI_ModeAsync;
     saiConfig.masterSlave = kSAI_Master;
-    SAI_TxSetConfig((I2S_Type *)spk->cfg.sai_base, &saiConfig);
+    SAI_TxSetConfig(base, &saiConfig);
 
-    SAI_TxSetBitClockRate((I2S_Type *)spk->cfg.sai_base,
+    SAI_TxSetBitClockRate(base,
                           spk->cfg.sai_clk_hz,
                           spk->cfg.sample_rate_hz,
                           /* bit width */ 32U,
                           /* channels  */ 2U);
+
+    /* Enable the internal MCLK divider (MCR.MOE=1). Default MOE=0 puts the
+     * MCLK pin in input mode and the BCLK divider's MSEL=01 source waits for
+     * an external MCLK that we don't wire — BCLK never toggles. See sai_mic.c
+     * for the full diagnosis. mclkHz == mclkSourceClkHz → 1:1 passthrough. */
+    sai_master_clock_t mclk_cfg = {
+        .mclkOutputEnable = true,
+        .mclkHz           = spk->cfg.sai_clk_hz,
+        .mclkSourceClkHz  = spk->cfg.sai_clk_hz,
+    };
+    SAI_SetMasterClockConfig(base, &mclk_cfg);
 
     spk->initialised = 1;
     return kStatus_Success;
@@ -46,20 +67,17 @@ status_t sai_speaker_play_blocking(sai_speaker_t *spk,
     I2S_Type *base = (I2S_Type *)spk->cfg.sai_base;
     SAI_TxEnable(base, true);
 
-    /* Pack each mono int16 into the upper half of a 32-bit stereo pair so
-     * the MAX98357A picks it up from the left channel. */
+    /* With kSAI_MonoLeft the FIFO consumes one 32-bit word per left-channel
+     * sample (the framer mirrors / silences the right half-frame
+     * automatically). Pack each int16 into the upper half of a 32-bit slot
+     * so MAX98357A picks it up as the audio sample. */
     for (size_t i = 0; i < n_samples; i++) {
-        uint32_t stereo[2];
-        stereo[0] = ((uint32_t)(int32_t)samples[i]) << 16;
-        stereo[1] = 0U;
-        sai_transfer_t xfer = {
-            .data     = (uint8_t *)stereo,
-            .dataSize = sizeof(stereo),
-        };
-        status_t s = SAI_TransferSendBlocking(base, &xfer);
-        if (s != kStatus_Success) {
-            return s;
-        }
+        uint32_t left = ((uint32_t)(int32_t)samples[i]) << 16;
+        SAI_WriteBlocking(base,
+                          /* channel */ 0u,
+                          /* bitWidth */ 32u,
+                          (uint8_t *)&left,
+                          (uint32_t)sizeof(left));
     }
 
     /* Flush the FIFO so the last few samples actually clock out before this

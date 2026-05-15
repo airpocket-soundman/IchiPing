@@ -22,10 +22,13 @@
 #include "board.h"
 #include "fsl_debug_console.h"
 #include "fsl_lpuart.h"
+#include "fsl_sai.h"                /* for SAI1 peripheral instance macro */
 
 #include "sai_mic.h"
 #include "ichiping_frame.h"
 #include "app.h"
+
+extern void BOARD_InitHardware(void);   /* defined in cm33_core0/hardware_init.c */
 
 #define STREAM_SAMPLE_RATE   16000u
 #define STREAM_WINDOW_SAMP   32000u    /* 2 s */
@@ -55,7 +58,7 @@ int main(void)
     BOARD_InitHardware();
     systick_init_1ms();
 
-    PRINTF("\r\nIchiPing 09_audio_stream  ─  INMP441 → ICHP frames @ %u bps\r\n",
+    PRINTF("\r\nIchiPing 09_audio_stream  --  INMP441 → ICHP frames @ %u bps\r\n",
            (unsigned)STREAM_BAUD);
 
     sai_mic_t mic;
