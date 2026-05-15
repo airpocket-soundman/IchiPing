@@ -32,7 +32,6 @@
 #include "fsl_sai.h"                /* for SAI1 peripheral instance macro */
 
 #include "sai_speaker.h"
-#include "dummy_audio.h"
 #include "app.h"
 
 #include <math.h>
@@ -40,6 +39,9 @@
 extern void BOARD_InitHardware(void);   /* defined in cm33_core0/hardware_init.c */
 
 #define SPK_SAMPLE_RATE   16000u
+#define SPK_GAIN          0.15f   /* master software attenuation (~-16 dB from full scale).
+                                   * Going much lower exposes MAX98357A class-D idle noise
+                                   * (gritty hiss). For further quietness, use the GAIN pin. */
 #define SPK_TONE_MS       1000u
 #define SPK_TONE_SAMP     ((SPK_SAMPLE_RATE * SPK_TONE_MS) / 1000u)
 #define SPK_CHIRP_MS      2000u
@@ -60,14 +62,38 @@ static void render_pure_tone(int16_t *out, size_t n, uint32_t fs, float freq_hz,
     const float two_pi_dt = 6.28318530718f * freq_hz / (float)fs;
     for (size_t i = 0; i < n; i++) {
         float s = amp * sinf(two_pi_dt * (float)i);
-        if (s > 1.0f) s = 1.0f; if (s < -1.0f) s = -1.0f;
-        out[i] = (int16_t)(s * 30000.0f);
+        if (s > 1.0f) { s = 1.0f; }
+        if (s < -1.0f) { s = -1.0f; }
+        out[i] = (int16_t)(s * 30000.0f * SPK_GAIN);
     }
 }
 
 static void render_silence(int16_t *out, size_t n)
 {
     for (size_t i = 0; i < n; i++) out[i] = 0;
+}
+
+/* Clean linear chirp f0 -> f1 across the whole buffer, with short
+ * raised-cosine fade-in/out to suppress click artefacts. Keep f1 well
+ * below Fs/2 (here 6 kHz at 16 kHz sample rate) to avoid aliasing at
+ * the upper end — going right to Nyquist sounds gritty. */
+static void render_chirp(int16_t *out, size_t n, uint32_t fs,
+                         float f0_hz, float f1_hz, float amp)
+{
+    const float two_pi = 6.28318530718f;
+    const float dur    = (float)n / (float)fs;
+    const float k      = (f1_hz - f0_hz) / dur;
+    const size_t fade  = (size_t)(0.005f * (float)fs);   /* 5 ms */
+
+    for (size_t i = 0; i < n; i++) {
+        float t     = (float)i / (float)fs;
+        float phase = two_pi * (f0_hz * t + 0.5f * k * t * t);
+        float env   = 1.0f;
+        if (i < fade)       env = 0.5f * (1.0f - cosf(3.14159265f * (float)i / (float)fade));
+        else if (i > n - fade) env = 0.5f * (1.0f - cosf(3.14159265f * (float)(n - i) / (float)fade));
+        float s = amp * env * sinf(phase);
+        out[i] = (int16_t)(s * 30000.0f * SPK_GAIN);
+    }
 }
 
 int main(void)
@@ -107,9 +133,8 @@ int main(void)
         render_pure_tone(s_buffer, SPK_TONE_SAMP, SPK_SAMPLE_RATE, 5000.0f, 0.4f);
         sai_speaker_play_blocking(&spk, s_buffer, SPK_TONE_SAMP);
 
-        PRINTF("  chirp 200->8k (the inference signal)\r\n");
-        dummy_audio_seed(0xC4C4C4C4u);
-        dummy_audio_generate(s_buffer, SPK_CHIRP_SAMP, SPK_SAMPLE_RATE);
+        PRINTF("  chirp 200->6k (clean linear, 5 ms fade)\r\n");
+        render_chirp(s_buffer, SPK_CHIRP_SAMP, SPK_SAMPLE_RATE, 200.0f, 6000.0f, 0.6f);
         sai_speaker_play_blocking(&spk, s_buffer, SPK_CHIRP_SAMP);
 
         PRINTF("  silence 1 s\r\n");

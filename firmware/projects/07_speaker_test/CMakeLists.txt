@@ -16,7 +16,6 @@ include(${SdkRootDirPath}/CMakeLists.txt)
 mcux_add_source(
     SOURCES main.c
             ../../shared/source/sai_speaker.c
-            ../../shared/source/dummy_audio.c
 )
 
 mcux_add_include(

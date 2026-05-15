@@ -31,7 +31,7 @@ void BOARD_InitPins(void)
     CLOCK_EnableClock(kCLOCK_Port1);
     const port_pin_config_t uart_cfg = {
         kPORT_PullDisable, kPORT_LowPullResistor, kPORT_FastSlewRate,
-        kPORT_PassiveFilterDisable, kPORT_OpenDrainDisable, kPORT_LowDriveStrength,
+        kPORT_PassiveFilterDisable, kPORT_OpenDrainDisable, kPORT_HighDriveStrength,
         kPORT_MuxAlt2, kPORT_InputBufferEnable, kPORT_InputNormal, kPORT_UnlockRegister,
     };
     PORT_SetPinConfig(PORT1, 8U, &uart_cfg);
@@ -43,7 +43,7 @@ void SAI1_TX_InitPins(void)
     CLOCK_EnableClock(kCLOCK_Port3);
     const port_pin_config_t sai_cfg = {
         kPORT_PullDisable, kPORT_LowPullResistor, kPORT_FastSlewRate,
-        kPORT_PassiveFilterDisable, kPORT_OpenDrainDisable, kPORT_LowDriveStrength,
+        kPORT_PassiveFilterDisable, kPORT_OpenDrainDisable, kPORT_HighDriveStrength,
         kPORT_MuxAlt10,   /* SAI1 function */
         kPORT_InputBufferEnable, kPORT_InputNormal, kPORT_UnlockRegister,
     };

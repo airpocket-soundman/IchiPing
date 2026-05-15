@@ -13,6 +13,8 @@
 
 #include "sai_speaker.h"
 #include "fsl_sai.h"
+#include "fsl_clock.h"
+#include "fsl_debug_console.h"
 
 status_t sai_speaker_init(sai_speaker_t *spk, const sai_speaker_config_t *cfg)
 {
@@ -24,6 +26,7 @@ status_t sai_speaker_init(sai_speaker_t *spk, const sai_speaker_config_t *cfg)
     /* Enable SAI peripheral clock + release reset. Safe to call twice
      * (08_mic_speaker_test inits both mic and speaker on the same SAI). */
     SAI_Init(base);
+    SAI_TxReset(base);
 
     /* WordWidth = 32 bits to match the bit-clock divider (Fs × 32 × 2).
      * MAX98357A samples 32-bit slots and uses the upper 16 bits as the
@@ -36,6 +39,12 @@ status_t sai_speaker_init(sai_speaker_t *spk, const sai_speaker_config_t *cfg)
                             kSAI_Channel0Mask);
     saiConfig.syncMode    = kSAI_ModeAsync;
     saiConfig.masterSlave = kSAI_Master;
+    /* Match the I²S Philips frame the MAX98357A expects (data MSB lands on
+     * the first BCLK after FS edge, FS active low). Same framing used by
+     * 06_mic_test so 08_mic_speaker_test shares the same TX framer. */
+    saiConfig.frameSync.frameSyncEarly           = true;
+    saiConfig.frameSync.frameSyncPolarity        = kSAI_PolarityActiveLow;
+    saiConfig.frameSync.frameSyncGenerateOnDemand = false;
     SAI_TxSetConfig(base, &saiConfig);
 
     SAI_TxSetBitClockRate(base,
@@ -55,6 +64,38 @@ status_t sai_speaker_init(sai_speaker_t *spk, const sai_speaker_config_t *cfg)
     };
     SAI_SetMasterClockConfig(base, &mclk_cfg);
 
+    /* Force TCR4.FCONT (Frame Continue) so the framer keeps emitting BCLK/FS
+     * even when the TX FIFO underflows. Without this, on this Kinetis-derived
+     * SAI IP the framer halts on the first underflow and BCLK stops — the pin
+     * shows only stray coupling on a scope (~1 V mid-rail "fuzz") and no
+     * audio reaches the MAX98357A. SDK's SAI_TxSetConfig does not expose
+     * this bit through sai_transceiver_t so we set it manually. */
+    base->TCR4 |= (1u << 28);   /* TCR4.FCONT */
+
+    /* Prime TX FIFO with zeros BEFORE enabling the framer. Some SAI IPs
+     * refuse to clock BCLK/FS until at least one word is queued. The MCXN947
+     * SAI TX FIFO is 8 entries deep. SAI_WriteData is the raw register write
+     * (no flow control) so this never blocks at init time. */
+    for (int i = 0; i < 8; i++) {
+        SAI_WriteData(base, /* channel */ 0u, 0u);
+    }
+
+    /* Start the framer now so BCLK/FS run continuously from init onward.
+     * MAX98357A auto-detects Fs from BCLK ratio and starts unmuted within
+     * a few ms — keeping clocks live across play calls avoids re-mute pops. */
+    SAI_TxEnable(base, true);
+
+    /* Diagnostic dump so the user can compare against the expected values
+     * in 06_mic_test/BRINGUP_NOTES.md. If TCSR=0x9017xxxx, TCR4 bit28 set,
+     * MCR bit30 set, the SAI half is healthy and any silence is on the
+     * MAX98357A wiring side (VIN/SD/GAIN/speaker). */
+    PRINTF("[SAI] sai_clk=%u Hz TCSR=0x%08x TCR2=0x%08x TCR4=0x%08x MCR=0x%08x\r\n",
+           (unsigned)spk->cfg.sai_clk_hz,
+           (unsigned)base->TCSR,
+           (unsigned)base->TCR2,
+           (unsigned)base->TCR4,
+           (unsigned)base->MCR);
+
     spk->initialised = 1;
     return kStatus_Success;
 }
@@ -65,19 +106,23 @@ status_t sai_speaker_play_blocking(sai_speaker_t *spk,
     if (!spk || !spk->initialised || !samples) return kStatus_InvalidArgument;
 
     I2S_Type *base = (I2S_Type *)spk->cfg.sai_base;
-    SAI_TxEnable(base, true);
+    /* Framer was enabled in sai_speaker_init() and stays running (FCONT) so
+     * BCLK/FS are already active. Do not toggle SAI_TxEnable here — that
+     * would re-trigger MAX98357A's mute/unmute sequence and pop audibly. */
 
     /* With kSAI_MonoLeft the FIFO consumes one 32-bit word per left-channel
      * sample (the framer mirrors / silences the right half-frame
      * automatically). Pack each int16 into the upper half of a 32-bit slot
-     * so MAX98357A picks it up as the audio sample. */
+     * so MAX98357A picks it up as the audio sample.
+     *
+     * NOTE: do NOT use SAI_WriteBlocking() with a single uint32_t — its
+     * internal burst length is (FIFO_DEPTH - watermark) * (bitWidth/8),
+     * typically 28 bytes, so it would read 24 bytes of stack garbage past
+     * the 4-byte local. Wait for FIFO room (FRF = below watermark) and
+     * write exactly one word per sample with SAI_WriteData(). */
     for (size_t i = 0; i < n_samples; i++) {
-        uint32_t left = ((uint32_t)(int32_t)samples[i]) << 16;
-        SAI_WriteBlocking(base,
-                          /* channel */ 0u,
-                          /* bitWidth */ 32u,
-                          (uint8_t *)&left,
-                          (uint32_t)sizeof(left));
+        while (!(SAI_TxGetStatusFlag(base) & kSAI_FIFORequestFlag)) { /* spin */ }
+        SAI_WriteData(base, 0u, ((uint32_t)(int32_t)samples[i]) << 16);
     }
 
     /* Flush the FIFO so the last few samples actually clock out before this
@@ -87,7 +132,9 @@ status_t sai_speaker_play_blocking(sai_speaker_t *spk,
      * outputs zeros (FIFO underflow) between play calls; that just yields
      * silence on the speaker, which is the desired idle state. Explicit
      * shutdown is done via sai_speaker_stop(). */
-    while (!(SAI_TxGetStatusFlag(base) & kSAI_FIFOEmptyFlag)) { __NOP(); }
+    /* TCSR[FWF] is set when the TX FIFO has drained; the MCXN947 SAI driver
+     * exposes it as kSAI_FIFOWarningFlag (no separate "FIFO empty" flag). */
+    while (!(SAI_TxGetStatusFlag(base) & kSAI_FIFOWarningFlag)) { __NOP(); }
     return kStatus_Success;
 }
 
