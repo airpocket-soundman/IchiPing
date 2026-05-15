@@ -53,5 +53,6 @@
   // YAML — pin the environment file schema for autocompletion.
   "yaml.schemas": {
     "https://json.schemastore.org/conda-environment.json": "pc/environment.yml"
-  }
+  },
+  "cmake.sourceDirectory": "D:/workspace/github/IchiPing/firmware/projects/06_mic_test"
 }

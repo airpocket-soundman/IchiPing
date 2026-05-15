@@ -36,6 +36,7 @@
 #include "board.h"
 #include "fsl_debug_console.h"
 #include "fsl_lpuart.h"
+#include "fsl_sai.h"                /* for SAI1 peripheral instance macro */
 
 #include "sai_mic.h"
 #include "sai_speaker.h"
@@ -43,6 +44,8 @@
 #include "ichiping_frame.h"
 #include "ichp_cmd.h"
 #include "app.h"
+
+extern void BOARD_InitHardware(void);   /* defined in cm33_core0/hardware_init.c */
 
 #include <math.h>
 #include <string.h>

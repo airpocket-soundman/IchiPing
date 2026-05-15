@@ -206,7 +206,7 @@ int main(void) {
     BOARD_InitHardware();  /* see comment on the extern declaration above */
     gpio_outputs_init();
 
-    PRINTF("\r\nIchiPing LVGL test  ─  ILI9341 + LVGL v9 partial render\r\n");
+    PRINTF("\r\nIchiPing LVGL test  --  ILI9341 + LVGL v9 partial render\r\n");
 
     ili9341_t lcd = {
         .spi          = ILI_SPI_BASE,

@@ -35,12 +35,15 @@
 #include "board.h"
 #include "fsl_debug_console.h"
 #include "fsl_lpuart.h"
+#include "fsl_sai.h"                /* for SAI1 peripheral instance macro */
 
 #include "sai_mic.h"
 #include "sai_speaker.h"
 #include "dummy_audio.h"
 #include "ichiping_frame.h"
 #include "app.h"
+
+extern void BOARD_InitHardware(void);   /* defined in cm33_core0/hardware_init.c */
 
 #define IRTEST_SAMPLE_RATE   16000u
 #define IRTEST_CHIRP_MS      2000u
@@ -82,7 +85,7 @@ int main(void)
     BOARD_InitHardware();
     systick_init_1ms();
 
-    PRINTF("\r\nIchiPing 08_mic_speaker_test  ─  SAI1 TX chirp + SAI1 RX capture\r\n");
+    PRINTF("\r\nIchiPing 08_mic_speaker_test  --  SAI1 TX chirp + SAI1 RX capture\r\n");
     PRINTF("  Fs=%u, chirp=%u samp, window=%u samp, cycle=%u ms\r\n",
            (unsigned)IRTEST_SAMPLE_RATE, (unsigned)IRTEST_CHIRP_SAMP,
            (unsigned)IRTEST_TOTAL_SAMP,  (unsigned)IRTEST_CYCLE_MS);
