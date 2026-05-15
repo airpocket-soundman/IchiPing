@@ -8,7 +8,7 @@
       "name": "debug",
       "displayName": "debug",
       "generator": "Ninja",
-      "binaryDir": "${fileDir}//${presetName}",
+      "binaryDir": "${fileDir}/${presetName}",
       "toolchainFile": "$env{SdkRootDirPath}/mcuxsdk/cmake/toolchain/armgcc.cmake",
       "inherits": "debug-env",
       "cacheVariables": {
@@ -25,14 +25,14 @@
         "WEST": "TRUE",
         "board": "frdmmcxn947",
         "core_id": "cm33_core0",
-        "PrjRootDirPath": "${fileDir}//"
+        "PrjRootDirPath": "${fileDir}/"
       }
     },
     {
       "name": "release",
       "displayName": "release",
       "generator": "Ninja",
-      "binaryDir": "${fileDir}//${presetName}",
+      "binaryDir": "${fileDir}/${presetName}",
       "toolchainFile": "$env{SdkRootDirPath}/mcuxsdk/cmake/toolchain/armgcc.cmake",
       "inherits": "release-env",
       "cacheVariables": {
@@ -49,7 +49,7 @@
         "WEST": "TRUE",
         "board": "frdmmcxn947",
         "core_id": "cm33_core0",
-        "PrjRootDirPath": "${fileDir}//"
+        "PrjRootDirPath": "${fileDir}/"
       }
     }
   ],
