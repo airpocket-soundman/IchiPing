@@ -8,6 +8,7 @@ extern "C" {
 void BOARD_InitBootPins(void);
 void BOARD_InitPins(void);
 void SAI1_TX_InitPins(void);
+void SW3_InitPins(void);
 
 #if defined(__cplusplus)
 }

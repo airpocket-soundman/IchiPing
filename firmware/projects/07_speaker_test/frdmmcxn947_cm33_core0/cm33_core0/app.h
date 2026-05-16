@@ -23,4 +23,9 @@
 #define BOARD_SPK_SAI_CLK_DIV    kCLOCK_DivSai1Clk
 #define BOARD_SPK_SAI_CLK_FREQ   CLOCK_GetSaiClkFreq(1u)
 
+/* On-board push button SW3 — toggle cycle start/stop. Active-low. */
+#define BOARD_USER_BUTTON_GPIO   GPIO0
+#define BOARD_USER_BUTTON_PIN    6U
+#define BOARD_USER_BUTTON_NAME   "SW3"
+
 #endif /* _APP_H_ */

@@ -24,6 +24,7 @@ void BOARD_InitBootPins(void)
 {
     BOARD_InitPins();
     SAI1_TX_InitPins();
+    SW3_InitPins();
 }
 
 void BOARD_InitPins(void)
@@ -50,4 +51,21 @@ void SAI1_TX_InitPins(void)
     PORT_SetPinConfig(PORT3, 16U, &sai_cfg);   /* SAI1_TX_BCLK → MAX98357A BCLK */
     PORT_SetPinConfig(PORT3, 17U, &sai_cfg);   /* SAI1_TX_FS   → MAX98357A LRC  */
     PORT_SetPinConfig(PORT3, 20U, &sai_cfg);   /* SAI1_TXD0    → MAX98357A DIN  */
+}
+
+/* On-board user button SW3 = PORT0 pin 6 (FRDM-MCXN947 schematic). Active-low,
+ * with an external pull-up on the dev board; we also enable the internal
+ * pull-up for redundancy and turn on the passive filter for hardware
+ * debouncing. SW2 (PORT0 pin 23) is intentionally NOT used here because
+ * IchiPing reserves PORT0_23 for the ILI9341 backlight (A5). */
+void SW3_InitPins(void)
+{
+    CLOCK_EnableClock(kCLOCK_Port0);
+    const port_pin_config_t btn_cfg = {
+        kPORT_PullUp, kPORT_HighPullResistor, kPORT_FastSlewRate,
+        kPORT_PassiveFilterEnable, kPORT_OpenDrainDisable, kPORT_LowDriveStrength,
+        kPORT_MuxAlt0,                /* GPIO function */
+        kPORT_InputBufferEnable, kPORT_InputNormal, kPORT_UnlockRegister,
+    };
+    PORT_SetPinConfig(PORT0, 6U, &btn_cfg);
 }
