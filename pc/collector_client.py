@@ -79,7 +79,8 @@ class Frame:
 
 class StreamReader(threading.Thread):
     """Background thread: read bytes from serial, split into ASCII lines
-    and ICHP frames, push to queues for the foreground REPL / plan runner.
+    and ICHP frames, dispatch to either a queue (default, used by plan
+    mode) or a direct callback (set by REPL for real-time display).
 
     Boundary rule (matches the firmware-side encoding):
       - 4-byte sliding window scans for the literal b"ICHP" magic.
@@ -87,6 +88,13 @@ class StreamReader(threading.Thread):
         payload bytes, then 2 CRC bytes; verify CRC; emit Frame.
       - Bytes that do not contribute to a frame are accumulated as ASCII
         until a CR or LF; emit complete lines (no terminator).
+
+    Callback vs queue: if line_callback is set, ASCII lines go straight
+    to it (called from this background thread — caller must be thread-
+    safe). Otherwise they accumulate in self.lines for foreground get().
+    Same split for frames. REPL uses callbacks so MCU responses appear
+    immediately rather than waiting for the next user input; plan mode
+    uses queues so it can pace step-by-step.
     """
 
     def __init__(self, ser: serial.Serial):
@@ -94,6 +102,8 @@ class StreamReader(threading.Thread):
         self.ser = ser
         self.lines: Queue[str] = Queue()
         self.frames: Queue[Frame] = Queue()
+        self.line_callback = None      # set to callable(str) for async display
+        self.frame_callback = None     # set to callable(Frame) for async save
         self._stop = threading.Event()
         self._line_buf = bytearray()
 
@@ -134,7 +144,10 @@ class StreamReader(threading.Thread):
             finally:
                 self._line_buf.clear()
             if line:
-                self.lines.put(line)
+                if self.line_callback is not None:
+                    self.line_callback(line)
+                else:
+                    self.lines.put(line)
 
     def _read_n(self, n: int) -> bytes:
         buf = bytearray()
@@ -164,17 +177,19 @@ class StreamReader(threading.Thread):
             return
         expected = crc16_ccitt(header_bytes + payload)
         got = crc_bytes[0] | (crc_bytes[1] << 8)
-        self.frames.put(
-            Frame(
-                seq=seq,
-                timestamp_ms=ts,
-                rate_hz=rate,
-                n_samples=n_samp,
-                servo_deg=tuple(servo),
-                samples=payload,
-                crc_ok=(expected == got),
-            )
+        frame = Frame(
+            seq=seq,
+            timestamp_ms=ts,
+            rate_hz=rate,
+            n_samples=n_samp,
+            servo_deg=tuple(servo),
+            samples=payload,
+            crc_ok=(expected == got),
         )
+        if self.frame_callback is not None:
+            self.frame_callback(frame)
+        else:
+            self.frames.put(frame)
 
 
 # ---------------------------------------------------------------------------
@@ -347,76 +362,123 @@ REPL_HELP = """
 Commands forwarded to the MCU (case-insensitive verb):
 
   PING
-  GET CONFIG / GET HOME / GET PINS
+  GET CONFIG / GET HOME / GET OPEN / GET PINS
   SET VOLUME <0..1>
   SET EXCITATION chirp|multiband|silence
   SET REPEATS <N>
   SET PIN <servo> <deg>     /  CLEAR PIN <servo>  /  CLEAR PINS
-  SET HOME <servo> <deg>    /  SAVE HOME
+  SET HOME <servo> <deg>    /  SET OPEN <servo> <deg>  /  SAVE HOME
   SERVO <servo> <deg>       /  SERVO ALL OFF
   RUN                       /  STOP
 
 Local helpers (do not reach the MCU):
 
-  :label <name>     Set the capture label (frames go to <out>/<name>/)
-  :help             Show this help
-  :quit             Exit
+  help  /  ?            Show this help          (also accepts :help)
+  quit  /  exit         Exit                    (also accepts :quit / :exit)
+  :label <name>         Set capture label       (must use : to disambiguate)
 
 Servos: window_a window_b window_c door_AB door_BC
 """
 
 
+# Bare words handled locally without ":" prefix. These verbs are not
+# claimed by any MCU command, so the disambiguation that ":" was added
+# for does not bite here. SOME local commands ("label") still require
+# the ":" since their bare form could plausibly be a future MCU verb.
+_LOCAL_NOCOLON = {"help", "?", "quit", "exit"}
+
+
+def _handle_local(cmd: str, saver: "CaptureSaver") -> str:
+    """Try to handle `cmd` as a local REPL command.
+
+    Returns one of:
+      "handled" — cmd was local and we processed it; caller should continue
+      "quit"    — user asked to exit; caller should return
+      "forward" — cmd is not local; caller should send it to the MCU
+    """
+    has_colon = cmd.startswith(":")
+    body = cmd[1:] if has_colon else cmd
+    head, *rest = body.split(maxsplit=1)
+    head_lower = head.lower()
+
+    # Always-local words (work with or without colon)
+    if head_lower in ("quit", "exit"):
+        return "quit"
+    if head_lower in ("help", "?"):
+        print(REPL_HELP)
+        return "handled"
+
+    # Colon-only local words (kept colon-required to avoid clashing with
+    # potential future MCU verbs)
+    if has_colon:
+        if head_lower == "label":
+            label = rest[0].strip() if rest else ""
+            if not label:
+                print("  usage: :label <name>")
+                return "handled"
+            saver.set_label(label)
+            print(f"  label set to {label!r} (next frames -> <out>/{label}/)")
+            return "handled"
+        print(f"  unknown local command: {cmd}")
+        return "handled"
+
+    return "forward"
+
+
 def run_repl(ser: serial.Serial, reader: StreamReader, saver: CaptureSaver) -> None:
     print(REPL_HELP)
 
-    def drain():
+    # Print lock so async background prints (MCU lines, saved frames) do
+    # not interleave with one another mid-line.
+    out_lock = threading.Lock()
+
+    def on_line(line: str) -> None:
+        # `\n` ensures the response starts on a fresh line even if the
+        # user has typed a partial command; their typing is unaffected
+        # (still in the readline buffer) but visually scrolls.
+        with out_lock:
+            sys.stdout.write(f"\n  < {line}\n> ")
+            sys.stdout.flush()
+
+    def on_frame(frame: Frame) -> None:
+        with out_lock:
+            if not frame.crc_ok:
+                sys.stdout.write(f"\n  ! frame seq={frame.seq} CRC BAD\n> ")
+            else:
+                path = saver.save(frame)
+                sys.stdout.write(f"\n  > saved {path.name} (seq={frame.seq})\n> ")
+            sys.stdout.flush()
+
+    # Wire the reader to push lines + frames straight to stdout in real
+    # time, instead of buffering them in the queue. The queue path is
+    # still used by plan mode (which does its own pacing).
+    reader.line_callback = on_line
+    reader.frame_callback = on_frame
+
+    try:
         while True:
             try:
-                line = reader.lines.get_nowait()
-                print(f"  < {line}")
-            except Empty:
-                break
-            try:
-                frame = reader.frames.get_nowait()
-                if not frame.crc_ok:
-                    print(f"  ! frame seq={frame.seq} CRC BAD")
-                else:
-                    path = saver.save(frame)
-                    print(f"  > saved {path.name} (seq={frame.seq})")
-            except Empty:
-                pass
-
-    while True:
-        drain()
-        try:
-            cmd = input("> ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print()
-            return
-        if not cmd:
-            continue
-        if cmd.startswith(":"):
-            head, *rest = cmd[1:].split(maxsplit=1)
-            head = head.lower()
-            if head == "quit" or head == "exit":
+                cmd = input("> ").strip()
+            except (EOFError, KeyboardInterrupt):
+                print()
                 return
-            if head == "help":
-                print(REPL_HELP)
+            if not cmd:
                 continue
-            if head == "label":
-                label = rest[0] if rest else ""
-                if not label:
-                    print("  usage: :label <name>")
-                    continue
-                saver.set_label(label)
-                print(f"  label set to {label!r} (next frames -> <out>/{label}/)")
+            decision = _handle_local(cmd, saver)
+            if decision == "quit":
+                return
+            if decision == "handled":
                 continue
-            print(f"  unknown local command: {cmd}")
-            continue
-        send(ser, cmd)
-        # Brief drain wave so the response shows up before the next prompt.
-        time.sleep(0.15)
-        drain()
+            # decision == "forward"
+            send(ser, cmd)
+            # No sleep / no drain needed — on_line will print the MCU
+            # response asynchronously when it arrives, including the
+            # fresh "> " prompt for the next command.
+    finally:
+        # Detach callbacks so a subsequent plan run (if any) can use the
+        # queue path again.
+        reader.line_callback = None
+        reader.frame_callback = None
 
 
 # ---------------------------------------------------------------------------
