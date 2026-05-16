@@ -138,7 +138,7 @@ python verify.py --in ../captures/loopback.bin --strict
 - [ ] v0.4: PCA9685 + SG90 ×5 を実装、3 部屋模型での自動データ収集
 - [ ] v0.5: 1D CNN autoencoder（INT8）で全閉/開状態の二値分類
 - [ ] v1.0: TFT (ILI9341) 表示 + EXEC ボタンによる手動デモモード完成
-- [ ] v2.0: ML63Q2557 + Solist-AI への移植（ROHM EDGE HACK 提出版）
+- [ ] v2.0: ML63Q2557 + Solist-AI への移植（ROHM EDGE HACK 提出版） — 技術課題まとめ: [docs/solist_porting.html](docs/solist_porting.html)
 
 ## ライセンス
 

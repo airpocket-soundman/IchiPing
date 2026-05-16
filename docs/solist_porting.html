@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Solist-AI 移植 — 技術的課題まとめ — IchiPing</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../index.html">トップ</a>
+      <a href="../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="../docs/spec.html">仕様書 (spec)</a>
+      <a href="../docs/nn_design.html">NN 設計</a>
+      <a href="../docs/mcu_deployment.html">MCU デプロイ</a>
+      <a href="../docs/bringup.html">実機ブリングアップ</a>
+      <a href="../docs/solist_porting.html" class="current">Solist-AI 移植課題</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="../hardware/wiring.html">配線テーブル</a>
+      <a href="../hardware/bom.html">BOM (部品表)</a>
+      <a href="../hardware/display_options.html">ディスプレイ候補</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../firmware/README.html">firmware ガイド</a>
+      <a href="../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="../docs/vscode_setup.html">VS Code セットアップ</a>
+      <a href="../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a><br>
+    <a href="https://github.com/airpocket-soundman/digikey_project">正本 digikey_project</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../index.html">← IchiPing トップ</a>
+    ／ <a href="../tasks.html">タスクボード</a>
+    ／ <a href="spec.html">仕様書</a>
+    ／ Solist-AI 移植課題
+  </div>
+  <h1>Solist-AI 移植 — 技術的課題まとめ（v2 実証スコープ）</h1>
+  <div class="sub">
+    v1（<b>FRDM-MCXN947 + 自由 1D-CNN</b>）を v2（<b>ROHM ML63Q2557 + Solist-AI ELM/マハラノビス</b>）に持っていくとき、実装上どこで詰まるかを集約したページ。
+    <a href="spec.html">spec.html §10 / §11 / §12-Phase2</a> で確定済みのアーキ方針を起点に、ハード・信号処理・推論・ツール・検証の 5 軸でリスクと確認事項を列挙する。
+  </div>
+  <div class="meta">
+    <span class="meta-stat"><span class="num">Cortex-M0+</span> 48 MHz / FPU 無</span>
+    <span class="meta-stat"><span class="num">16 KB</span> RAM 目標</span>
+    <span class="meta-stat"><span class="num">14 クラス</span> × D=30 次元</span>
+    <span class="meta-stat"><span class="num">ELM ×4</span> + マハラノビス</span>
+  </div>
+</header>
+
+<main>
+
+<section>
+  <h2>1. このページのスコープ</h2>
+  <p><a href="spec.html">spec.html §11</a> にあるとおり、v1→v2 は<b>機能拡張ではなく同じ問題（同じ実験模型・同じデータセット・同じ推論ターゲット）を 2 つの NN プラットフォームで並列に解く</b>形。本ページは v2 側の <b>移植実装</b>に絞り、設計判断のうち <em>確定</em>・<em>仮定</em>・<em>未確認</em> を区別して列挙する。</p>
+  <ul>
+    <li><b>確定</b>: spec.html §10/§11/§12 に明記されたアーキ方針（ELM ×4、マハラノビス、AxlCORE-ODL、目標 17 KB、目標 1 ms 推論）</li>
+    <li><b>仮定</b>: 一般的な Cortex-M0+ MCU の性質からの推定（FPU 無、固定小数前提、CMSIS 流儀の API 等）</li>
+    <li><b>未確認</b>: ROHM 開発キット入手後に必ず確認すべき仕様事項（I/F 種別、SDK 詳細、自己書込み API 等）</li>
+  </ul>
+  <p style="color: var(--muted); font-size: 13px;">実家屋デプロイは <b>本プロジェクトのスコープ外</b>（spec.html §11 末尾）。実験模型上での動作実証だけを評価対象とする。</p>
+</section>
+
+<section>
+  <h2>2. v1 → v2 スタック差分（俯瞰）</h2>
+  <table>
+    <thead><tr><th>レイヤ</th><th>v1（確定 / FRDM-MCXN947）</th><th>v2（移植先 / ML63Q2557）</th><th>主な差分 / 課題</th></tr></thead>
+    <tbody>
+      <tr><td>MCU コア</td><td>Cortex-M33 @ 150 MHz, FPU 有, DSP 拡張</td><td>Cortex-M0+ @ 48 MHz, <b>FPU 無</b>, DSP 拡張無</td><td>クロック ~1/3、浮動小数演算は全て soft-float / 固定小数化が前提</td></tr>
+      <tr><td>NN アクセラレータ</td><td>eIQ Neutron NPU（自由 NN）</td><td>AxlCORE-ODL（ELM 専用 ODL ロジック）</td><td>自由 NN → ELM 1 隠れ層に強制制約</td></tr>
+      <tr><td>RAM / Flash</td><td>~数百 KB / 2 MB+</td><td>~16 KB / 数十 KB（spec §10 目標 17 KB 合計）</td><td>1〜2 桁減。<b>常駐モデルパラメータと推論ワークの両立</b>が最大課題</td></tr>
+      <tr><td>音声入力</td><td>SAI1 RX（INMP441, I²S 32-bit）</td><td><b>未確認</b>（I²S/PDM/外付け codec の有無）</td><td>SAI 相当が無ければ PDM + decimation を CPU で、または別マイク選定</td></tr>
+      <tr><td>音声出力</td><td>SAI1 TX（MAX98357A）</td><td><b>未確認</b></td><td>chirp 再生用。最悪 PWM + LPF でも可</td></tr>
+      <tr><td>I²C（サーボ / TFT）</td><td>LPI2C2, LPSPI1</td><td><b>未確認</b></td><td>サーボは v2 では原則不要（データ収集は v1 で完了済前提）。TFT は表示用に欲しい</td></tr>
+      <tr><td>UART（OpenSDA）</td><td>LP_FLEXCOMM4, 115200/921600</td><td><b>未確認</b></td><td>PC 連携・デバッグ用に必須</td></tr>
+      <tr><td>開発ツール</td><td>MCUXpresso for VS Code, armgcc 14.2, CMake/Ninja</td><td>ROHM 公式 SDK（独自 IDE / コンパイラ可能性）</td><td>ビルド・デバッグフロー再構築。CI も別建て</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>3. 信号処理パイプライン</h2>
+  <p>v1 では NPU が生 raw 信号を直接食えるため、特徴抽出を簡略化できた。v2 では <b>NN 入力が手前で D=30 の物理特徴量に圧縮されている</b>（spec.html §10 入力欄）ので、<b>特徴抽出パイプラインを M0+ 上で実時間で回す</b>のがキーになる。</p>
+
+  <h3>3.1 chirp 生成</h3>
+  <ul>
+    <li>200 Hz → 8 kHz 線形チャープ × 2 秒（16 kHz サンプリング = 32k サンプル）</li>
+    <li>v1: <code>render_chirp()</code> が <code>sinf()</code> で実時間生成（FPU 有なので軽い）</li>
+    <li>v2: FPU 無で <code>sinf()</code> は重い → <b>事前生成した int16 チャープテーブル（32 KB）を Flash に焼く</b>のが現実的。再生回数が高々数回/秒なら RAM コピー不要、Flash 直アクセスで足りる</li>
+    <li>fade-in/out（v1 で 5 ms）も事前にテーブル化</li>
+  </ul>
+
+  <h3>3.2 マイク取得</h3>
+  <ul>
+    <li>v1: I²S 32-bit ステレオ→ MonoRight 抽出 + float 化（INMP441 / MSM261S4030H0）</li>
+    <li>v2 で I²S が無く <b>PDM のみ</b>なら、decimation FIR を CPU で実装する必要あり
+      <ul>
+        <li>3.072 MHz PDM → 16 kHz PCM = decimation by 192 倍。多段（CIC + half-band）で M0+ 実時間が成立するか要検証</li>
+        <li>CMSIS-DSP <code>arm_fir_decimate</code> 相当が ROHM SDK にあれば流用、無ければ自前実装</li>
+      </ul>
+    </li>
+    <li>I²S/PDM どちらも無ければ <b>外付け codec（I²C 制御 + I²S 出力）または別マイクの選定</b>が必須 → BOM 影響大</li>
+  </ul>
+
+  <h3>3.3 特徴抽出（30 次元への圧縮）</h3>
+  <p>spec.html §10 で <b>RT60 × 8 帯 + DRR × 3 + モードピーク × 6 + 振幅 × 6 + ノイズ床 × 3</b> = 26〜30 次元、と確定。M0+ 実装でのボトルネック候補:</p>
+  <table>
+    <thead><tr><th>特徴量</th><th>必要処理</th><th>想定コスト / リスク</th></tr></thead>
+    <tbody>
+      <tr><td>RT60 × 8 帯</td><td>8 帯域フィルタバンク（IIR バタワース等）→ エネルギー減衰の対数線形回帰</td><td>32k サンプル × 8 帯 のリングバッファ保持は <b>RAM 16 KB に乗らない</b> → 帯域ごとに逐次計算 + ダウンサンプリング前提</td></tr>
+      <tr><td>DRR × 3</td><td>直接音 / 残響成分のエネルギー比、3 帯</td><td>onset 検出が要、ピーク+50 ms 窓と +50〜500 ms 窓のパワー比</td></tr>
+      <tr><td>モードピーク × 6</td><td>低域 (~500 Hz) FFT のピーク周波数と Q</td><td>FFT 512 or 1024 を <b>固定小数で M0+ @ 48 MHz が間に合うか</b>要計測。CMSIS-DSP <code>arm_rfft_fast_q15</code> 相当が無ければ自前</td></tr>
+      <tr><td>振幅 × 6</td><td>6 帯のピーク振幅</td><td>RT60 のフィルタバンク出力を流用可</td></tr>
+      <tr><td>ノイズ床 × 3</td><td>chirp 開始前 100 ms × 3 帯のパワー</td><td>軽い。要するに pre-chirp 区間の RMS</td></tr>
+    </tbody>
+  </table>
+  <p style="color: var(--muted); font-size: 13px;"><b>順番が大事</b>: chirp 開始前 100 ms（ノイズ床）→ chirp 区間 → chirp 終了後 1 秒（RT60 / DRR / モードピーク / 振幅）。サンプリングと特徴抽出を <b>ストリーミング</b>で重ねれば、生 32k サンプル全保持は不要にできる。</p>
+</section>
+
+<section>
+  <h2>4. 推論アーキ移植</h2>
+
+  <h3>4.1 専門 ELM × 4 + マハラノビス</h3>
+  <p>spec.html §10 で確定済の構造を実装視点で再掲:</p>
+  <ul>
+    <li><b>ELM-AB</b>: 扉 AB の開閉判定（必ず動作）</li>
+    <li><b>ELM-a</b>, <b>ELM-BC</b>, <b>ELM-b·c 時分割</b>: AB 状態に応じて条件付き起動（4 スロット制約）</li>
+    <li><b>マハラノビス 14 クラス</b>: 全候補状態に対する尤度。トポロジ判定 → 関連 ELM 起動の階層パイプライン</li>
+  </ul>
+
+  <h3>4.2 メモリ占有試算</h3>
+  <table>
+    <thead><tr><th>項目</th><th>サイズ計算</th><th>合計</th><th>配置</th></tr></thead>
+    <tbody>
+      <tr><td>α（隠れ層重み, 固定）</td><td>K × D = K × 30 × 1B (q7)</td><td>K=64 なら ~1.9 KB</td><td>Flash</td></tr>
+      <tr><td>β（出力重み, 学習対象）</td><td>4 ELM × K × M_out × 2B (q15)</td><td>K=64, M_out=4 平均なら ~2 KB</td><td>Flash（PC 学習後焼込み）<br>or RAM（オンデバイス再校正版）</td></tr>
+      <tr><td>μ_k</td><td>14 × 30 × 4B</td><td>1.68 KB</td><td>Flash</td></tr>
+      <tr><td>Σ_k⁻¹</td><td>14 × 30 × 30 / 2 × 4B（上三角）</td><td><b>25.2 KB</b></td><td>Flash（RAM には収まらない）</td></tr>
+      <tr><td>推論ワーク（特徴量 30 次元 × float, 中間バッファ）</td><td>~1 KB</td><td>1 KB</td><td>RAM</td></tr>
+      <tr><td>音声 / FFT バッファ</td><td>FFT 512 q15 + 窓 = ~2 KB</td><td>2 KB</td><td>RAM</td></tr>
+    </tbody>
+  </table>
+  <p><b>主リスク</b>: Σ_k⁻¹ 25 KB は spec §10 の Flash 数 KB 目標を大きく超える。
+    緩和策候補:</p>
+  <ul>
+    <li>対角近似（Naive Bayes 化）: 14 × 30 × 4B = <b>1.68 KB</b> に圧縮。精度低下の影響は要評価</li>
+    <li>低ランク近似（Σ⁻¹ ≈ U Λ Uᵀ, rank r=5）: 14 × (30 × 5 + 5) × 4B = ~8.5 KB</li>
+    <li>クラス間で Σ⁻¹ を共有（Pooled covariance）: 1 × 30 × 30 / 2 × 4B = 1.8 KB</li>
+  </ul>
+
+  <h3>4.3 推論レイテンシ試算</h3>
+  <ul>
+    <li>マハラノビス 14 クラス × D=30: 1 距離あたり D² = 900 mul + add（対角近似なら D = 30 のみ）</li>
+    <li>フル: 14 × 900 = 12,600 mul/add。M0+ で固定小数 1 mul ≈ 1 cycle、1 mul/add 合計 2〜4 cycle 想定 → 25k〜50k cycle → <b>0.5〜1 ms @ 48 MHz</b>、目標の 1 ms ぎりぎり</li>
+    <li>対角近似: 14 × 30 = 420 mul/add → 0.02 ms。安全側</li>
+    <li>ELM 1 推論: K × D + K × M_out。K=64, D=30, M_out=4 で 1,920 + 256 ≈ 2.2k op → 0.1 ms 程度</li>
+    <li>4 スロット時分割切替: spec §10 の「数 ms 想定」は実測必須。AxlCORE-ODL の context switch ペナルティ次第</li>
+  </ul>
+</section>
+
+<section>
+  <h2>5. β の閉形式学習（AxlCORE-ODL）</h2>
+  <p>v2 のキラーデモは「30 秒録音 → β 再計算 → 動作復帰」（spec.html §10 / §12 Phase 2）。AxlCORE-ODL がオンデバイスでこの最小二乗を担当する。</p>
+  <h3>5.1 確認が必要な仕様（要 開発キット）</h3>
+  <ul>
+    <li>H 行列の最大サイズ（サンプル数 N × 隠れ次元 K）</li>
+    <li>λ（リッジ項）の指定方法</li>
+    <li>クラス重み付き擬似逆行列が叩けるか（spec §10 「不可視ラベルのクラス不均衡」対策）</li>
+    <li>β を Flash に焼く API、erase/program 粒度、寿命（一般 MCU は 10k〜100k 回程度。再校正頻度から逆算）</li>
+    <li>停電耐性（書込み途中で落ちた時の rollback）</li>
+  </ul>
+
+  <h3>5.2 30 秒録音から有効サンプルを抜く処理</h3>
+  <p>30 s × 16 kHz = 480k 生サンプル。これをそのまま H に積むのは N が大きすぎ。実際の流れ:</p>
+  <ol>
+    <li>30 秒の間に chirp を <b>N 回</b>打つ（例: 1 秒に 1 回 = 30 サンプル）</li>
+    <li>各 chirp 応答から D=30 の特徴量を抽出（v1 と同じパイプライン）</li>
+    <li>14 クラスのうち <b>「現在の物理状態」のラベル</b>を与える（センサ移動デモなら "全閉" 状態のみで OK）</li>
+    <li>H ∈ ℝ^(N×K) を構築し β = (HᵀH + λI)⁻¹ HᵀY を解く</li>
+  </ol>
+  <p style="color: var(--muted); font-size: 13px;">単一クラス（全閉）だけでも μ_k と β の再校正が成立するのが Solist-AI 流儀のミソ。これは v1 の自由 NN ではできない芸当。</p>
+</section>
+
+<section>
+  <h2>6. 周辺ハード移植</h2>
+  <table>
+    <thead><tr><th>v1 のペリフェラル</th><th>v2 での扱い</th><th>移植難度</th></tr></thead>
+    <tbody>
+      <tr><td>PCA9685 + SG90 ×5（I²C）</td><td><b>v2 では実機サーボ駆動は原則不要</b>（収集データを v1 で完了済み前提）。実演デモで使う場合のみ I²C を引く</td><td>低（v1 ドライバを HAL 層越しに移植）</td></tr>
+      <tr><td>INMP441 / MSM261S4030H0（I²S）</td><td>ML63Q2557 の I/F 次第。最悪 <b>PDM マイク（MP34DT05 等）への置換</b></td><td><b>高</b>（PDM デシメーション CPU 実装が必要）</td></tr>
+      <tr><td>MAX98357A（I²S TX）</td><td>chirp 再生用。I²S 無ければ PWM + LPF、または別 D/A IC</td><td>中</td></tr>
+      <tr><td>ILI9341 TFT（SPI + 4 GPIO）</td><td>v2 でも結果表示に使いたい。SPI と DC/RST/CS GPIO があれば流用</td><td>低</td></tr>
+      <tr><td>SW3 オンボードボタン（GPIO IRQ）</td><td>ROHM ボードの user button + GPIO IRQ API に差し替え</td><td>低</td></tr>
+      <tr><td>OpenSDA UART（115200 / 921600）</td><td>ROHM ボードのデバッグ UART に差し替え</td><td>低</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>7. ソフト構造の事前リファクタ（v1 段階でやる価値）</h2>
+  <p>v1 のドライバ層がすでに <b>MCXN947 SDK 依存に染まっている</b>（<code>fsl_*</code> シンボル直叩き）。v2 移植時の差分を減らすために <b>v1 段階で HAL 層を切り出しておく</b>のが効く。</p>
+  <ul>
+    <li><b>servo_driver</b>: I²C transfer を <code>hal_i2c_write(bus, addr, buf, n)</code> に抽象化済 → v2 でも流用可能の構造</li>
+    <li><b>sai_speaker / sai_mic</b>: <code>fsl_sai</code> 直叩き → v2 でも音声を扱うなら <code>hal_audio_*</code> 化を v1 中に検討</li>
+    <li><b>SW3 / GPIO IRQ</b>: <code>BOARD_SW3_*</code> マクロ越しに参照しているので比較的薄い。v2 側 board.h で同じマクロを定義すれば main 側ロジックはそのまま流用可</li>
+    <li><b>chirp/特徴量計算</b>: <b>これは新規実装</b>。v1 では NPU 上の Conv1D が暗黙に担当していた処理を、v2 では明示的に C で書く必要</li>
+  </ul>
+</section>
+
+<section>
+  <h2>8. 検証パイプライン</h2>
+  <p>spec.html §12 Phase 2 の「v1 と v2 の精度比較」を成立させるための実装課題:</p>
+  <ul>
+    <li>共通評価セット: v1 で収集した 1,000 サンプル（spec §12 Phase 1）を <b>生 RIR としても、D=30 特徴量としても</b>保存しておく必要</li>
+    <li>v2 の評価フロー: PC から D=30 特徴量を UART 経由で ML63Q2557 に流し、推論結果を受け取って混同行列を作る test harness</li>
+    <li>メトリック揃え: any_open 二値、door/window 多クラス、角度回帰の MSE — v1 と v2 で <b>同一メトリック関数</b>を PC 側で実装（pc/eval.py 的なもの、未着手）</li>
+    <li>「v1 から 5% 以内」の合否基準: クラスごと精度 / マクロ平均 F1 / 角度 MAE のどれを採用するか事前に決めておく</li>
+  </ul>
+</section>
+
+<section>
+  <h2>9. 未確認事項リスト（開発キット入手後の最優先）</h2>
+  <ol>
+    <li>ML63Q2557 ペリフェラル一覧（特に I²S/PDM/I²C/SPI/UART の有無と本数）</li>
+    <li>AxlCORE-ODL の入出力次元上限と β 計算 API</li>
+    <li>ROHM 公式 SDK のコンパイラ・ビルドシステム（gcc 互換か、独自 IDE 必須か）</li>
+    <li>Flash 自己書込み API、最小消去単位、書換え寿命</li>
+    <li>クロック・パワー管理（48 MHz 連続動作で消費電流、低消費モード遷移時間）</li>
+    <li>デバッグ I/F（SWD？ J-Link 互換？）</li>
+    <li>開発キット入手手段・価格・納期</li>
+  </ol>
+</section>
+
+<section>
+  <h2>10. 段階的移植計画</h2>
+  <ol>
+    <li><b>キット入手 + Hello World</b>: シリアル疎通、LED 点滅</li>
+    <li><b>PC 側で特徴抽出を確定</b>: v1 で集めた生 RIR を D=30 特徴量に変換するスクリプト（pc/training/features.py の拡張）</li>
+    <li><b>ホスト PC で β 閉形式学習</b>: numpy の lstsq で参照実装、AxlCORE-ODL なしでも数値的に再現できる状態にする</li>
+    <li><b>ML63Q2557 上で推論パイプラインのみ</b>: 音声 I/F は使わず、PC から D=30 特徴量を UART で流す → ELM ×4 + マハラノビスで分類 → UART で結果返す</li>
+    <li><b>音声 I/F 接続</b>: I²S/PDM/codec を物理結線、生サンプル → D=30 特徴量の片道パイプライン</li>
+    <li><b>AxlCORE-ODL でオンデバイス β</b>: 同じテストデータで PC 参照実装と一致確認</li>
+    <li><b>オンデバイス再校正デモ統合</b>: SW でセンサ位置変更モード突入 → 30 秒録音 → β 再計算 → 動作復帰 → TFT で結果表示</li>
+    <li><b>精度評価</b>: v1 vs v2 の 5% 以内検証、未達ならアーキ調整（ELM 隠れ次元 K、共分散近似精度）</li>
+  </ol>
+</section>
+
+<section>
+  <h2>11. リスクサマリ</h2>
+  <table>
+    <thead><tr><th>リスク</th><th>影響度</th><th>緩和策</th></tr></thead>
+    <tbody>
+      <tr><td>ML63Q2557 に I²S / PDM 入力が無い</td><td>高</td><td>外付け codec（I²C 制御 + I²S 出力）または別マイク選定。BOM 影響大</td></tr>
+      <tr><td>FFT / フィルタバンク計算が実時間に間に合わない</td><td>中〜高</td><td>FFT サイズ縮小（1024→512）、フレーム間引き、特徴量の一部簡略化</td></tr>
+      <tr><td>Σ_k⁻¹ が Flash に収まらない</td><td>中</td><td>対角近似 / 共有共分散 / 低ランク近似。精度トレードオフ要評価</td></tr>
+      <tr><td>ROHM SDK が独自 IDE で gcc 互換性が薄い</td><td>中</td><td>v1 段階で HAL 層を切り出し、移植境界を局所化</td></tr>
+      <tr><td>β オンデバイス計算のサンプル数不足</td><td>低〜中</td><td>クラス重み付き、β 初期値を PC 学習結果で warm start、L2 正則化強化</td></tr>
+      <tr><td>4 スロット時分割のコンテキスト切替コスト</td><td>低</td><td>実測後にスロット利用パターンを最適化、最悪 ELM-b・c を共通化</td></tr>
+      <tr><td>v1 と v2 の精度差が 5% を超える</td><td>中</td><td>アーキ調整（K, 共分散近似精度, λ, アンサンブル数）、達成不能なら<b>差分そのもの</b>を成果として報告</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>12. 関連ドキュメント</h2>
+  <ul>
+    <li><a href="spec.html">docs/spec.html</a> §10 / §11 / §12 — アーキ方針の正本</li>
+    <li><a href="nn_design.html">docs/nn_design.html</a> — v1 の NN 詳細（比較対象）</li>
+    <li><a href="../tasks.html">tasks.html</a> — v2.0 系タスク</li>
+    <li><a href="../README.html">../README.html</a> — ロードマップの v2.0 行</li>
+  </ul>
+</section>
+
+<div class="footer-note">
+  本ページは v2 移植の<b>実装側ガイド</b>で、アーキ仕様の正本は <a href="https://github.com/airpocket-soundman/digikey_project/blob/main/details/C4-IchiPing.html">digikey_project details/C4-IchiPing.html</a> 側にある。仕様変更が必要になった場合は<b>必ず正本側を先に更新</b>し、本ページ・<a href="spec.html">spec.html</a> はそれに追従させる。
+</div>
+
+</main>
+</body>
+</html>
