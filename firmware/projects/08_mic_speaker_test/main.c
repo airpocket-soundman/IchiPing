@@ -90,7 +90,7 @@ extern void BOARD_InitHardware(void);
  *   .bss overflow. So we capture int16 directly into the s_tx_buf
  *   payload region and skip ichp_pack_frame's internal memcpy. The
  *   header and CRC are written in-place. f32 capture (dynamic range
- *   benefit) can come back once 09_audio_stream introduces EDMA ring
+ *   benefit) can come back once we move from blocking I/O to EDMA ring
  *   buffers that work on small chunks instead of the whole window. */
 static int16_t s_chirp [IRTEST_CHIRP_SAMP];
 static uint8_t s_tx_buf[ICHP_HEADER_SIZE

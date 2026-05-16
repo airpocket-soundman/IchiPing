@@ -1,5 +1,11 @@
 # 04_lvgl_test — LVGL 統合テスト
 
+> **⚠️ STATUS: 凍結（2026-05-16〜）**
+>
+> LVGL 路線は凍結中。新規 TFT UI（[09_collector](../09_collector/) の servo パネル、[10_inference](../10_inference/) の推論結果表示）は **直接 ILI9341 ドライバ** ([`shared/source/ili9341.c`](../../shared/source/ili9341.c)) を使う方針。LVGL の middleware フットプリント・初期化コストが現状要件に対してオーバースペックなため。
+>
+> 本プロジェクト自体は **過去の動作実績として保持**するが、新規機能追加はしない。将来 UI 複雑度が LVGL を必要とするレベルまで上がったら再評価する。
+
 ILI9341 + LVGL v9 で IchiPing 状態 UI のモックを描画するファーム。テスト 1 が通ったあと、UI ライブラリの統合確認に使う。
 
 ## MCUXpresso でのインポート手順

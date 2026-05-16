@@ -46,8 +46,8 @@
       <a href="../06_mic_test/README.html">06 mic_test</a>
       <a href="../07_speaker_test/README.html">07 speaker_test</a>
       <a href="../08_mic_speaker_test/README.html" class="current">08 mic_speaker_test</a>
-      <a href="../09_audio_stream/README.html">09 audio_stream</a>
-      <a href="../10_collector/README.html">10 collector</a>
+      <a href="../09_collector/README.html">09 collector</a>
+      <a href="../10_inference/README.html">10 inference</a>
       <a href="../../host_build/README.html">host_build</a>
       <a href="../../../pc/training/README.html">pc/training (NN 学習)</a>
     </div>
@@ -76,10 +76,7 @@
 
 <h1>08_mic_speaker_test — マイク × スピーカ閉ループ</h1>
 <p>スピーカ (MAX98357A) で 200→6 kHz chirp を再生しながらマイク (INMP441 / MSM261) で 2.5 秒キャプチャ。<strong>部屋のインパルス応答</strong>を 1 ICHP フレームに詰めて 921600 bps の UART で PC に送る。</p>
-<p>これは IchiPing の本命データ取得経路の最小版で、ここで CRC が通って WAV に保存できるようになると、あとは:
-- 連続版 → <a href="../09_audio_stream/">09_audio_stream</a>
-- ラベル付き条件指定版 → <a href="../10_collector/">10_collector</a>
-にスムーズに繋がる。</p>
+<p>これは IchiPing の本命データ取得経路で、ここで CRC が通って WAV に保存できれば v0.5（<a href="../../../pc/training/README.html">pc/training/</a>）の学習データソースとして直接使える。ラベル付け運用は PC 側で <code>--out</code> ディレクトリをクラスごとに分けるだけ（<a href="../../../pc/README.html">pc/README</a> §A' 参照）。</p>
 
 <h2>動作概要</h2>
 <table>

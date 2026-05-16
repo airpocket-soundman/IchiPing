@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>10_inference — NN 推論オンデバイスデモ — IchiPing</title>
+<link rel="stylesheet" href="../../../docs/style.css">
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../../../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../../../index.html">トップ</a>
+      <a href="../../../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="../../../docs/spec.html">仕様書 (spec)</a>
+      <a href="../../../docs/nn_design.html">NN 設計</a>
+      <a href="../../../docs/mcu_deployment.html">MCU デプロイ</a>
+      <a href="../../../docs/bringup.html">実機ブリングアップ</a>
+      <a href="../../../docs/servo_coords.html">サーボ座標系</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="../../../hardware/wiring.html">配線テーブル</a>
+      <a href="../../../hardware/bom.html">BOM (部品表)</a>
+      <a href="../../../hardware/display_options.html">ディスプレイ候補</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../../../firmware/README.html">firmware ガイド</a>
+      <a href="../../../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ファーム別デモ</div>
+      <a href="../01_dummy_emitter/README.html">01 dummy_emitter</a>
+      <a href="../02_servo_test/README.html">02 servo_test</a>
+      <a href="../03_ili9341_test/README.html">03 ili9341_test</a>
+      <a href="../04_lvgl_test/README.html">04 lvgl_test (凍結)</a>
+      <a href="../05_usb_cdc_emitter/README.html">05 usb_cdc_emitter</a>
+      <a href="../06_mic_test/README.html">06 mic_test</a>
+      <a href="../07_speaker_test/README.html">07 speaker_test</a>
+      <a href="../08_mic_speaker_test/README.html">08 mic_speaker_test</a>
+      <a href="../09_collector/README.html">09 collector</a>
+      <a href="../10_inference/README.html" class="current">10 inference</a>
+      <a href="../../host_build/README.html">host_build</a>
+      <a href="../../../pc/training/README.html">pc/training (NN 学習)</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="../../../docs/vscode_setup.html">VS Code セットアップ</a>
+      <a href="../../../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a><br>
+    <a href="https://github.com/airpocket-soundman/digikey_project">正本 digikey_project</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../../../index.html">← IchiPing トップ</a>
+    ／ <a href="../../README.html">firmware</a>
+    ／ <a href="../">projects</a>
+    ／ 10_inference
+  </div>
+  <h1>10_inference — NN 推論オンデバイスデモ</h1>
+  <div class="sub">
+    09_collector で集めたデータで <a href="../../../pc/training/README.html"><code>pc/training/</code></a> が訓練した NN を
+    <b>MCU 上で動かす</b>ためのデモプロジェクト。08 と同じハード（SAI1 全二重 + ILI9341）を使い、サーボは触らない。
+    「audio 取込 → 特徴抽出 → NN 推論 → 結果を TFT に表示」という end-to-end 経路を最短で立ち上げ、
+    後で eIQ Toolkit が吐く INT8 モデルを差し替えれば本番化できる構成。
+  </div>
+  <div class="meta">
+    <span class="meta-stat"><span class="num">v0.5</span> 後段デモ</span>
+    <span class="meta-stat"><span class="num">STUB</span> 推論（実装ロードマップあり）</span>
+    <span class="meta-stat"><span class="num">3 s</span> サイクル</span>
+  </div>
+</header>
+
+<main>
+
+<h2>動作シーケンス</h2>
+
+<pre><code>boot
+ └ SAI1 init (08 と同じ全二重)
+ └ ILI9341 init
+ └ render_multiband(s_excite)   ← 09 と同じ multiband click 列を事前生成
+ └ "press SW3 to start" を TFT に表示
+loop (SW3 ON 時):
+ ├ play_and_capture(s_excite → s_audio)   2 s SAI1 同期 TX+RX
+ ├ extract_features(s_audio → s_spectrum) 128 bin（STUB: 帯域ごとの RMS）
+ ├ infer(s_spectrum → class_id, prob)     STUB: peak ビン → クラス
+ ├ display_result(class, prob, spectrum)  クラス名 + 確率 + バー
+ └ sleep until 3 s 周期
+</code></pre>
+
+<h2>TFT 表示レイアウト</h2>
+
+<pre><code>┌──────────────────────────────────────────┐
+│ IchiPing inference                       │  header (NAVY)
+├──────────────────────────────────────────┤
+│ seq    7                                 │  trial カウンタ
+│ door_open                                │  推論クラス（橙, 大字）
+│ p = 0.74                                 │  信頼度（緑）
+│                                          │
+│ ▌█ ▌▌▌ █▌▌█ ▌▌█▌▌█▌█▌▌▌                  │  spectrum bars (128 ch)
+│ ▌█ ▌▌▌ █▌▌█ ▌▌█▌▌█▌█▌▌▌                  │
+│ ...                                      │
+└──────────────────────────────────────────┘
+</code></pre>
+
+<h2>UART 出力（PC モニタ用）</h2>
+
+<p>
+  オンデバイスで完結するデモだが、評価のためデバッグ UART (115200 bps) に
+  毎推論 1 行の機械可読フォーマットを出す。<a href="../../../pc/inference_client.py"><code>pc/inference_client.py</code></a> が
+  これをパースして整形表示・CSV ログ・真値タグ付け（オンライン精度確認）を行う。
+</p>
+
+<pre><code>INFO IchiPing 10_inference build May 16 2026 18:42:11
+INFO classes: door_closed door_half door_open amb_silence
+INFO state=RUNNING
+RESULT seq=1 class=door_closed prob=0.812 cap_ms=2010 infer_ms=4
+RESULT seq=2 class=door_half   prob=0.643 cap_ms=2010 infer_ms=4
+...
+</code></pre>
+
+<h2>PC 側モニタの起動</h2>
+
+<pre><code>cd pc
+uv sync                                       # pyserial だけ取得（一度だけ）
+uv run python inference_client.py --port COM7
+</code></pre>
+
+<p>CSV ログを取りたい場合:</p>
+
+<pre><code>uv run python inference_client.py --port COM7 --csv ../runs/inference_log.csv
+</code></pre>
+
+<p>
+  真値ラベル（model の現在状態）を <code>:label door_closed</code> のようにオンラインで入力すれば、
+  予測との一致 / 不一致が <code>✓ / ✗</code> でその場で見える。
+  詳細は <a href="../../../pc/README.html">pc/README.html</a> モジュール構成参照。
+</p>
+
+<h2>現状: スケルトン（STUB 実装）</h2>
+
+<p>ファームは end-to-end で動くが、特徴抽出と推論は<b>プレースホルダ</b>:</p>
+
+<table>
+  <thead>
+    <tr><th>機能</th><th>スタブ実装</th><th>本実装で置換</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>特徴抽出</td>
+      <td>128 帯域の RMS 直</td>
+      <td>整合フィルタ → 1024 pt FFT → log-mag → 128 bin（PowerQuad 経由）</td>
+    </tr>
+    <tr>
+      <td>推論</td>
+      <td>最大エネルギー帯 → 線形にクラス id</td>
+      <td>INT8 1D-CNN（eIQ Toolkit 生成 C array + CMSIS-NN）</td>
+    </tr>
+    <tr>
+      <td>クラス</td>
+      <td><code>door_closed</code> / <code>door_half</code> / <code>door_open</code> / <code>amb_silence</code> 固定 4 種</td>
+      <td><a href="../../../pc/training/dataset.py"><code>pc/training/dataset.py</code></a> のラベル順に同期</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  スタブでも実機で動かすと「マイクに音を入れるとクラスとバーが変わる」のが見えるので、
+  表示パイプライン・SAI・SW3 ゲートの動作確認はこれで完結する。
+</p>
+
+<h2>本実装ロードマップ</h2>
+
+<ol>
+  <li><b><code>pc/training/</code> で best.pt + best.onnx を出す</b> — IP-0.5.1（<a href="../../../pc/training/README.html">訓練 README</a>）</li>
+  <li><b>eIQ Toolkit で ONNX → INT8 量子化 → C source 生成</b> — IP-0.5.2（<a href="../../../docs/mcu_deployment.html">mcu_deployment.html</a>）</li>
+  <li><b>生成された <code>model_data.c</code> を <code>10_inference/</code> に取り込み</b>、<code>infer()</code> を <code>cmsis_nn</code> 呼出に置換</li>
+  <li><b><code>extract_features()</code> を PowerQuad FFT 実装に置換</b>（同 IP-0.5.3）</li>
+  <li><b>クラス名配列 <code>INF_CLASS_NAMES[]</code> を訓練ラベルに同期</b> — <code>pc/training/dataset.py</code> の auto-discover 順から拾うのが安全</li>
+  <li><b>レイテンシ計測</b> — RESULT 行の <code>cap_ms</code> / <code>infer_ms</code> を CSV ログから集計</li>
+</ol>
+
+<h2>配線</h2>
+
+<p><a href="../09_collector/README.html">09_collector</a> と完全に同じ（<b>サーボは未使用</b>, PCA9685 は接続不要）:</p>
+
+<table>
+  <thead>
+    <tr><th>信号</th><th>ピン</th><th>備考</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>SAI1 BCLK / FS / TXD / RXD</td><td>J1.1 / J1.11 / J1.5 / J1.15</td><td>08 と同じ</td></tr>
+    <tr><td>OpenSDA UART</td><td>LPUART4 (115200 bps, テキスト)</td><td>デバッグログ + RESULT 行</td></tr>
+    <tr><td>ILI9341 TFT</td><td>LPSPI1 + A2/A3/A4/A5 GPIO</td><td>03 と同じ</td></tr>
+    <tr><td>SW3</td><td>PORT0_6 オンボード</td><td>開始/停止トグル</td></tr>
+  </tbody>
+</table>
+
+<p>サーボは未使用なので 5V 外部レール（MAX98357A 用 1 系統）だけで足りる。</p>
+
+<h2>ビルド手順</h2>
+
+<p>
+  本プロジェクトには Config Tools 生成物一式が既に含まれている。
+  <a href="../09_collector/README.html#h2-build">09_collector のビルド手順</a> とほぼ同じ。差分:
+</p>
+
+<ul>
+  <li>LPI2C2 / PCA9685 関連ファイルは不要</li>
+  <li>追加ソース: <code>firmware/shared/source/{ichiping_frame, sai_mic, sai_speaker, ili9341}.c</code> + 本 main.c</li>
+  <li><code>ichp_cmd.c</code> / <code>servo_config.c</code> / <code>collector_display.c</code> / <code>pca9685.c</code> は <b>不要</b></li>
+</ul>
+
+<h2>既知の制約 / TODO</h2>
+
+<ul>
+  <li>スタブ推論は学習済み NN を反映していない — IP-0.5.2 まで本物にならない</li>
+  <li>特徴抽出スタブは spectrum を「平均 RMS」で代用しているので<b>周波数分解能ゼロ</b>、本来必要な整合フィルタが入っていない</li>
+  <li>双方向プロトコルなし（ICHP 送信もコマンド受信もしない）。実機 1 体で完結するスタンドアロンデモ + UART モニタ参照</li>
+</ul>
+
+</main>
+
+</body>
+</html>

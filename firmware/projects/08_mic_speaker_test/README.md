@@ -2,10 +2,7 @@
 
 スピーカ (MAX98357A) で 200→6 kHz chirp を再生しながらマイク (INMP441 / MSM261) で 2.5 秒キャプチャ。**部屋のインパルス応答**を 1 ICHP フレームに詰めて 921600 bps の UART で PC に送る。
 
-これは IchiPing の本命データ取得経路の最小版で、ここで CRC が通って WAV に保存できるようになると、あとは:
-- 連続版 → [09_audio_stream](../09_audio_stream/)
-- ラベル付き条件指定版 → [10_collector](../10_collector/)
-にスムーズに繋がる。
+これは IchiPing の本命データ取得経路で、ここで CRC が通って WAV に保存できれば v0.5（[pc/training/](../../../pc/training/)）の学習データソースとして直接使える。ラベル付け運用は PC 側で `--out` ディレクトリをクラスごとに分けるだけ（[pc/README.md](../../../pc/README.md) §A' 参照）。
 
 ## 動作概要
 

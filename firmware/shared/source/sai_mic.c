@@ -234,7 +234,7 @@ status_t sai_mic_start_streaming(sai_mic_t *mic, int16_t *ring, size_t ring_samp
 {
     /* EDMA streaming is implementation-heavy; this is a placeholder that
      * lets the project build. Add fsl_sai_edma.h based ring transfer here
-     * when 09_audio_stream / 10_collector graduate from blocking I/O. */
+     * when 08_mic_speaker_test graduates from blocking I/O. */
     (void)mic; (void)ring; (void)ring_samples;
     return kStatus_Fail;
 }

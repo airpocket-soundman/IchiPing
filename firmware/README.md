@@ -48,28 +48,28 @@ firmware/
 │   ├── 06_mic_test/                      INMP441 単体疎通（SAI1 RX, RMS/Peak PRINTF）
 │   ├── 07_speaker_test/                  MAX98357A 単体疎通（SAI1 TX, 5 種テスト音, ✅ 実機確認済）
 │   ├── 08_mic_speaker_test/              TX chirp ＋ RX キャプチャ（室内インパルス応答）
-│   ├── 09_audio_stream/                  実音 INMP441 → ICHP フレーム連続送信（01 の real-mic 版）
-│   └── 10_collector/                     PC 双方向: PC→MCU 設定 / MCU→PC ラベル付き学習データ
+│   ├── 09_collector/                     PC 制御ラベル付きデータ採取（v0.5 学習データ採取の本命）
+│   └── 10_inference/                     オンデバイス NN 推論デモ（capture → features → infer → TFT）
 ├── host_build/                          ホスト (gcc/MinGW) でビルドする足場
 │   ├── Makefile                          .so/.dll を作って ctypes 突合テストに使う
 │   └── README.md
 └── README.md / README.html
 ```
 
-本リポは **5 つの独立ファーム**を提供する。それぞれ別 MCUXpresso プロジェクト:
+本リポは **10 つの独立ファーム**を提供する。それぞれ別 MCUXpresso プロジェクト:
 
 | # | ディレクトリ | 用途 | SDK ベース |
 |---|---|---|---|
 | 1 | [`projects/01_dummy_emitter`](projects/01_dummy_emitter/) | シリアル疎通とフレーム形式の確立（v0.1 本番） | `lpuart/polling_transfer` |
 | 2 | [`projects/02_servo_test`](projects/02_servo_test/) | PCA9685 **または** LU9685 + SG90 ×5 の動作確認（v0.4 準備） | `lpi2c/polling_master` |
 | 3 | [`projects/03_ili9341_test`](projects/03_ili9341_test/) | TFT 配線確認 + 5 フェーズ最小描画デモ（v1.0 準備） | `lpspi/polling_b2b` |
-| 4 | [`projects/04_lvgl_test`](projects/04_lvgl_test/) | LVGL v9 のポート確立 + IchiPing 状態 UI モック | `lpspi/polling_b2b` + middleware/lvgl |
+| 4 | [`projects/04_lvgl_test`](projects/04_lvgl_test/) | LVGL v9 のポート確立 + IchiPing 状態 UI モック **（⚠️ 凍結 — 直接 ILI9341 ドライバ採用、本プロジェクトは保持のみ）** | `lpspi/polling_b2b` + middleware/lvgl |
 | 5 | [`projects/05_usb_cdc_emitter`](projects/05_usb_cdc_emitter/) | USB CDC ACM で 1 フレーム ~50 ms（v0.3 高速化） | `usb_examples/usb_device_cdc_vcom` |
 | 6 | [`projects/06_mic_test`](projects/06_mic_test/README.md) | INMP441 単体疎通 — PRINTF だけで RMS/Peak/ZCR 観測 | `sai/sai_interrupt_record` |
 | 7 | [`projects/07_speaker_test`](projects/07_speaker_test/README.md) | MAX98357A 単体疎通 — 200/1k/5k Hz + chirp 再生 | `sai/sai_interrupt_play` |
-| 8 | [`projects/08_mic_speaker_test`](projects/08_mic_speaker_test/README.md) | TX chirp ＋ RX キャプチャの閉ループ（インパルス応答） | `sai/sai_*` + `lpuart` |
-| 9 | [`projects/09_audio_stream`](projects/09_audio_stream/README.md) | 実マイク連続ストリーミング（01 の real audio 版） | `sai/sai_*` + `lpuart` |
-| 10 | [`projects/10_collector`](projects/10_collector/README.md) | PC 双方向制御の学習データ採取（窓 / 励起 / 反復 / ラベル） | `sai/sai_*` + `lpuart` ＋ PC `collector_client.py` |
+| 8 | [`projects/08_mic_speaker_test`](projects/08_mic_speaker_test/README.md) | TX chirp ＋ RX キャプチャの閉ループ（インパルス応答, 単発デモ） | `sai/sai_*` + `lpuart` |
+| 9 | [`projects/09_collector`](projects/09_collector/README.md) | PC 制御ラベル付きデータ採取（08 + 02 + ILI9341 統合, ASCII コマンド + ICHP 多重） | `sai/sai_*` + `lpi2c` + `lpspi` + `lpuart` |
+| 10 | [`projects/10_inference`](projects/10_inference/README.md) | オンデバイス NN 推論デモ（capture → features → infer → TFT 結果表示, v0.5 後段） | `sai/sai_*` + `lpspi` |
 
 詳細なインポート手順は **各プロジェクトの README.md** を参照。
 
@@ -103,13 +103,13 @@ Servo test は **PCA9685（NXP, 16 ch）** と **LU9685-20CU（中国製, 20 ch�
 | 01_dummy_emitter | [README.md](projects/01_dummy_emitter/README.md) | [README.html](projects/01_dummy_emitter/README.html) | **PC で `receiver.py` 起動必須**（バイナリ） |
 | 02_servo_test | [README.md](projects/02_servo_test/README.md) | [README.html](projects/02_servo_test/README.html) | **SW3 で開始/停止**、シリアルモニタ + 目視（PC スクリプト不要） |
 | 03_ili9341_test | [README.md](projects/03_ili9341_test/README.md) | [README.html](projects/03_ili9341_test/README.html) | TFT 目視 + シリアル進行ログ（PC スクリプト不要） |
-| 04_lvgl_test | [README.md](projects/04_lvgl_test/README.md) | [README.html](projects/04_lvgl_test/README.html) | TFT 目視 + LVGL FPS モニタ（PC スクリプト不要） |
+| 04_lvgl_test | [README.md](projects/04_lvgl_test/README.md) | [README.html](projects/04_lvgl_test/README.html) | **⚠️ 凍結** — 過去の動作実績として保持。新 TFT UI は 09/10 の直接 ILI9341 ドライバを参照 |
 | 05_usb_cdc_emitter | [README.md](projects/05_usb_cdc_emitter/README.md) | [README.html](projects/05_usb_cdc_emitter/README.html) | **PC で `receiver.py` 起動必須**（仮想 COM, バイナリ） |
 | 06_mic_test | [README.md](projects/06_mic_test/README.md) | [README.html](projects/06_mic_test/README.html) | シリアルモニタで PRINTF 統計を眺める（PC スクリプト不要） |
 | 07_speaker_test | [README.md](projects/07_speaker_test/README.md) | [README.html](projects/07_speaker_test/README.html) | スピーカで耳判定（PC スクリプト不要） |
-| 08_mic_speaker_test | [README.md](projects/08_mic_speaker_test/README.md) | [README.html](projects/08_mic_speaker_test/README.html) | **`receiver.py` 起動必須**。captures に room IR WAV |
-| 09_audio_stream | [README.md](projects/09_audio_stream/README.md) | [README.html](projects/09_audio_stream/README.html) | **`receiver.py` 起動必須**。実マイク音を連続記録 |
-| 10_collector | [README.md](projects/10_collector/README.md) | [README.html](projects/10_collector/README.html) | **`collector_client.py` で PC 側から制御** |
+| 08_mic_speaker_test | [README.md](projects/08_mic_speaker_test/README.md) | [README.html](projects/08_mic_speaker_test/README.html) | **`receiver.py` 起動必須**。captures に room IR WAV（単発デモ） |
+| 09_collector | [README.md](projects/09_collector/README.md) | — | **`collector_client.py` 起動必須**。PC↔MCU 双方向、`captures/<label>/` に振り分け保存、TFT に servo パネル表示 |
+| 10_inference | [README.md](projects/10_inference/README.md) | — | PC スクリプト不要。SW3 起動 → audio 取込 → NN 推論 → TFT に結果表示（現状 STUB 推論） |
 | host_build | [README.md](host_build/README.md) | [README.html](host_build/README.html) | ファームではない。`python -m unittest test_ctypes_packer` で C↔Python 突合 |
 
 > **配線必須:** ハードを繋ぐ前に [../hardware/wiring.html](../hardware/wiring.html) §2 を一通り確認。
@@ -127,8 +127,8 @@ Servo test は **PCA9685（NXP, 16 ch）** と **LU9685-20CU（中国製, 20 ch�
 | 06_mic_test | **115200 bps** | テキスト（peak/RMS/DC/ZCR）、8N1 | TeraTerm 等 |
 | 07_speaker_test | **115200 bps** | テキスト（フェーズ表示）、8N1 | TeraTerm 等 |
 | 08_mic_speaker_test | **921600 bps** | バイナリ ICHP フレーム、8N1 | [../pc/receiver.py](../pc/receiver.py) |
-| 09_audio_stream | **921600 bps** | バイナリ ICHP フレーム、8N1 | [../pc/receiver.py](../pc/receiver.py) |
-| 10_collector | **921600 bps** | ASCII コマンド／応答 ＋ バイナリ ICHP フレーム多重 | [../pc/collector_client.py](../pc/collector_client.py) |
+| 09_collector | **921600 bps** | ASCII コマンド／応答 ＋ バイナリ ICHP フレーム多重 | [../pc/collector_client.py](../pc/collector_client.py) |
+| 10_inference | **115200 bps** | テキスト（推論デバッグログ）、8N1 | TeraTerm 等（オプション、本体は TFT で完結） |
 
 ## 動作シーケンス（Dummy emitter）
 

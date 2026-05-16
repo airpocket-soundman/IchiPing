@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>09_collector — PC 制御ラベル付きデータ採取 — IchiPing</title>
+<link rel="stylesheet" href="../../../docs/style.css">
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../../../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../../../index.html">トップ</a>
+      <a href="../../../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="../../../docs/spec.html">仕様書 (spec)</a>
+      <a href="../../../docs/nn_design.html">NN 設計</a>
+      <a href="../../../docs/mcu_deployment.html">MCU デプロイ</a>
+      <a href="../../../docs/bringup.html">実機ブリングアップ</a>
+      <a href="../../../docs/servo_coords.html">サーボ座標系</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="../../../hardware/wiring.html">配線テーブル</a>
+      <a href="../../../hardware/bom.html">BOM (部品表)</a>
+      <a href="../../../hardware/display_options.html">ディスプレイ候補</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../../../firmware/README.html">firmware ガイド</a>
+      <a href="../../../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ファーム別デモ</div>
+      <a href="../01_dummy_emitter/README.html">01 dummy_emitter</a>
+      <a href="../02_servo_test/README.html">02 servo_test</a>
+      <a href="../03_ili9341_test/README.html">03 ili9341_test</a>
+      <a href="../04_lvgl_test/README.html">04 lvgl_test (凍結)</a>
+      <a href="../05_usb_cdc_emitter/README.html">05 usb_cdc_emitter</a>
+      <a href="../06_mic_test/README.html">06 mic_test</a>
+      <a href="../07_speaker_test/README.html">07 speaker_test</a>
+      <a href="../08_mic_speaker_test/README.html">08 mic_speaker_test</a>
+      <a href="../09_collector/README.html" class="current">09 collector</a>
+      <a href="../10_inference/README.html">10 inference</a>
+      <a href="../../host_build/README.html">host_build</a>
+      <a href="../../../pc/training/README.html">pc/training (NN 学習)</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="../../../docs/vscode_setup.html">VS Code セットアップ</a>
+      <a href="../../../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a><br>
+    <a href="https://github.com/airpocket-soundman/digikey_project">正本 digikey_project</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../../../index.html">← IchiPing トップ</a>
+    ／ <a href="../../README.html">firmware</a>
+    ／ <a href="../">projects</a>
+    ／ 09_collector
+  </div>
+  <h1>09_collector — PC 制御ラベル付きデータ採取</h1>
+  <div class="sub">
+    v0.5 NN 訓練用のデータ採取ステーション。08 の SAI 全二重 + 02 の PCA9685 サーボ + 03 の ILI9341 TFT を統合し、
+    OpenSDA UART 1 本で <b>PC ↔ MCU 双方向プロトコル</b>を回す。サーボ座標系・校正運用の正式仕様は
+    <a href="../../../docs/servo_coords.html">docs/servo_coords.html</a> を参照。
+  </div>
+  <div class="meta">
+    <span class="meta-stat active"><span class="num">v0.5</span> 学習データ採取の本命</span>
+    <span class="meta-stat"><span class="num">921600 bps</span> ASCII + ICHP 多重</span>
+    <span class="meta-stat"><span class="num">5</span> サーボ + TFT</span>
+  </div>
+</header>
+
+<main>
+
+<h2>アーキテクチャ</h2>
+
+<pre><code>[PC: collector_client.py]                       [MCU: 09_collector]
+  PING / GET / SET / SERVO / RUN / STOP   →  ichp_cmd_lbuf_feed
+                                                       │
+                                                       ▼
+  OK ... / ERR ... / INFO ... 1 行         ←  uart_write_line
+                                                       │
+  ICHP audio frame ×repeats（servo_deg[5] = 実角）←  send_frame
+</code></pre>
+
+<p>ASCII 行と ICHP バイナリは同一 UART に多重化。PC は <code>ICHP</code> magic で境界判定。</p>
+
+<h2>コマンド一覧 (<a href="../../shared/include/ichp_cmd.h"><code>shared/include/ichp_cmd.h</code></a> 参照)</h2>
+
+<table>
+  <thead>
+    <tr><th>種別</th><th>コマンド</th><th>例</th><th>効果</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>診断</td><td><code>PING</code></td><td><code>PING</code></td><td><code>OK PONG &lt;build&gt;</code> 応答</td></tr>
+    <tr><td>取得</td><td><code>GET CONFIG</code> / <code>GET HOME</code> / <code>GET OPEN</code> / <code>GET PINS</code></td><td><code>GET HOME</code></td><td>現状を OK 行で返す</td></tr>
+    <tr><td>設定</td><td><code>SET VOLUME &lt;0..1&gt;</code></td><td><code>SET VOLUME 0.05</code></td><td>TX ソフト音量</td></tr>
+    <tr><td>設定</td><td><code>SET EXCITATION &lt;name&gt;</code></td><td><code>SET EXCITATION multiband</code></td><td><code>chirp</code> / <code>multiband</code> / <code>silence</code></td></tr>
+    <tr><td>設定</td><td><code>SET REPEATS &lt;N&gt;</code></td><td><code>SET REPEATS 30</code></td><td>RUN 時の試行回数</td></tr>
+    <tr><td>設定</td><td><code>SET PIN &lt;servo&gt; &lt;deg&gt;</code></td><td><code>SET PIN door_AB 0</code></td><td>当該扉/窓を RUN 時に固定</td></tr>
+    <tr><td>設定</td><td><code>CLEAR PIN &lt;servo&gt;</code> / <code>CLEAR PINS</code></td><td><code>CLEAR PIN door_AB</code></td><td>pin 解除</td></tr>
+    <tr><td>校正</td><td><code>SET HOME &lt;servo&gt; &lt;deg&gt;</code></td><td><code>SET HOME window_a 12</code></td><td>home（閉位置, mechanical）を RAM 更新</td></tr>
+    <tr><td>校正</td><td><code>SET OPEN &lt;servo&gt; &lt;deg&gt;</code></td><td><code>SET OPEN window_a 87</code></td><td>open（全開位置, mechanical）を RAM 更新</td></tr>
+    <tr><td>校正</td><td><code>SAVE HOME</code></td><td><code>SAVE HOME</code></td><td>永続化（<b>現状 NOT_IMPL — 後述</b>）</td></tr>
+    <tr><td>マニュアル</td><td><code>SERVO &lt;servo&gt; &lt;deg&gt;</code></td><td><code>SERVO window_a 45</code></td><td>1 ch を即動かす（RUN 外専用）</td></tr>
+    <tr><td>マニュアル</td><td><code>SERVO ALL OFF</code></td><td><code>SERVO ALL OFF</code></td><td>全 PWM 停止</td></tr>
+    <tr><td>実行</td><td><code>RUN</code></td><td><code>RUN</code></td><td>repeats 回データ採取</td></tr>
+    <tr><td>中断</td><td><code>STOP</code></td><td><code>STOP</code></td><td>次フレーム境界で中断</td></tr>
+  </tbody>
+</table>
+
+<p>
+  servo 名: <code>window_a</code> / <code>window_b</code> / <code>window_c</code> / <code>door_AB</code> / <code>door_BC</code>（大文字小文字無視）。
+  角度引数はすべて <b>mechanical_deg</b>（PCA9685 への生 PWM 角）。
+  <code>SERVO</code> / <code>SET HOME</code> / <code>SET OPEN</code> / <code>SET PIN</code> 全部 mechanical 系。
+  表示用の logical 系 (閉=0, 開=+, max 75/90) は <a href="../../../docs/servo_coords.html">docs/servo_coords.html</a> を参照。
+</p>
+
+<h2>動作シーケンス</h2>
+
+<pre><code>boot
+ └ servo_config_init → servos to home_deg → READY
+loop:
+ └ poll UART RX
+    ├ line complete → parse → dispatch → respond
+    │   └ on RUN:
+    │       for i in 0..repeats-1:
+    │         build trial pattern (pinned values + random fill)
+    │         drive servos, settle 400 ms
+    │         render excitation (cached if unchanged)
+    │         play_and_capture (full-duplex SAI1, 2 s window)
+    │         send ICHP frame (servo_deg[] = actual angles applied)
+    │         poll for STOP between trials
+    └ idle → __WFI
+</code></pre>
+
+<h2>PC 側ツールの立ち上げ — <a href="../../../pc/collector_client.py"><code>pc/collector_client.py</code></a></h2>
+
+<h3>1. 環境セットアップ（一度だけ）</h3>
+
+<p>uv 推奨（pyserial 1 つだけで動く軽量ツールなので extras なし <code>uv sync</code> で十分）:</p>
+
+<pre><code># uv 初導入 (1 回だけ)
+irm https://astral.sh/uv/install.ps1 | iex
+
+cd pc
+uv sync                    # pyserial だけ取得、~3 秒
+</code></pre>
+
+<p>conda 派の場合は <code>conda env create -f environment.yml</code> でも OK。詳細は <a href="../../../pc/README.html">pc/README.html</a> 参照。</p>
+
+<h3>2. COM ポート確認</h3>
+
+<p>Windows: デバイスマネージャ → 「ポート (COM と LPT)」 → FRDM-MCXN947 OpenSDA の COM 番号を控える（例 <code>COM7</code>）。複数 USB シリアル機器がある場合は、ボードを抜き差しして消える / 出てくるポートが目印。</p>
+
+<h3>3. 起動 — REPL モード</h3>
+
+<pre><code>cd pc
+uv run python collector_client.py --port COM7 --out ../captures
+</code></pre>
+
+<p>起動成功時:</p>
+
+<pre><code>connected COM7 @ 921600 bps, output -> ../captures
+  &lt; INFO IchiPing 09_collector ready
+  &lt; INFO build May 16 2026 18:42:11
+  &lt; INFO send PING to test, GET CONFIG for state, RUN to collect
+
+Commands forwarded to the MCU (case-insensitive verb):
+  PING
+  GET CONFIG / GET HOME / GET OPEN / GET PINS
+  ...
+&gt;
+</code></pre>
+
+<p>
+  <code>&gt;</code> プロンプトでコマンドを打つと <b>そのまま 09_collector ファームに送信</b>され、
+  MCU からの応答（<code>OK ...</code> / <code>ERR ...</code> / <code>INFO ...</code>）が <code>  &lt; ...</code> で表示される。
+  バイナリ ICHP フレームが流れてくれば自動でデマルチプレクスして
+  <code>captures/&lt;label&gt;/frame_NNNNNN.wav</code> に保存。
+</p>
+
+<h3>4. 基本コマンド例</h3>
+
+<p><b>疎通確認:</b></p>
+
+<pre><code>&gt; PING
+  &lt; OK PONG May 16 2026 18:42:11
+&gt; GET CONFIG
+  &lt; OK CONFIG rate=16000 window=32000 excitation=multiband volume=0.050 repeats=30
+&gt; GET HOME
+  &lt; OK HOME window_a=0.0 window_b=0.0 window_c=0.0 door_AB=0.0 door_BC=0.0
+</code></pre>
+
+<p><b>サーボ校正（ホーン取付調整時）:</b></p>
+
+<pre><code>&gt; SERVO window_a 0           # マニュアル角度指定
+  &lt; OK SERVO window_a 0.0
+&gt; SERVO window_a 12
+  &lt; OK SERVO window_a 12.0    # 「閉」になる角度を目視で探す
+&gt; SET HOME window_a 12       # その値を home (閉) として焼く
+  &lt; OK HOME window_a 12.0
+&gt; SERVO window_a 87          # 「開」になる角度を探す
+&gt; SET OPEN window_a 87
+  &lt; OK OPEN window_a 87.0
+&gt; GET HOME                    # 5 ch 分の home 一覧
+  &lt; OK HOME window_a=12.0 window_b=0.0 ...
+</code></pre>
+
+<p>詳細手順は <a href="../../../docs/servo_coords.html">docs/servo_coords.html §3</a>。</p>
+
+<p><b>ラベルを切替えてデータ採取:</b></p>
+
+<pre><code>&gt; :label door_closed         # PC 側ローカルコマンド (MCU に届かない)
+  label set to 'door_closed' (next frames -&gt; &lt;out&gt;/door_closed/)
+&gt; SET PIN door_AB 0           # door_AB を「閉」固定
+  &lt; OK PIN door_AB 0.0
+&gt; SET PIN door_BC 0
+  &lt; OK PIN door_BC 0.0
+&gt; SET REPEATS 30
+  &lt; OK REPEATS 30
+&gt; RUN
+  &lt; OK RUN started repeats=30 excitation=multiband
+  &gt; saved frame_000000.wav (seq=1)
+  &gt; saved frame_000001.wav (seq=2)
+  ...
+  &lt; OK RUN done frames=30
+</code></pre>
+
+<p>30 試行ぶん <code>captures/door_closed/frame_000000.wav</code> ... <code>frame_000029.wav</code> と <code>labels.csv</code> が保存される。</p>
+
+<h3>5. 起動 — プラン実行モード（推奨, 学習データ採取の本番）</h3>
+
+<p>JSON プランを書いて 1 コマンドで複数条件を順次採取:</p>
+
+<pre><code>[
+  {"label": "door_closed", "pins": {"door_AB": 0,  "door_BC": 0},  "repeats": 30},
+  {"label": "door_half",   "pins": {"door_AB": 45, "door_BC": 45}, "repeats": 30},
+  {"label": "door_open",   "pins": {"door_AB": 90, "door_BC": 90}, "repeats": 30},
+  {"label": "amb_silence", "pins": {}, "excitation": "silence", "repeats": 10}
+]
+</code></pre>
+
+<pre><code>uv run python collector_client.py --port COM7 --plan plan.json --out ../captures
+</code></pre>
+
+<p>各 step ごとに <code>CLEAR PINS</code> → <code>SET PIN ...</code> → <code>SET REPEATS N</code> → <code>RUN</code> を自動発行。所要時間は約 <code>repeats × 3 秒 + 設定オーバーヘッド数秒</code> × step 数。上記 4 step / 計 100 試行で約 6 分。</p>
+
+<h3>6. ローカルコマンド（<code>:</code> で始まる、MCU には届かない）</h3>
+
+<table>
+  <thead>
+    <tr><th>コマンド</th><th>効果</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>:label &lt;name&gt;</code></td><td>以降のフレーム保存先を <code>captures/&lt;name&gt;/</code> に切替</td></tr>
+    <tr><td><code>:help</code></td><td>コマンド一覧表示</td></tr>
+    <tr><td><code>:quit</code> / <code>:exit</code></td><td>切断して終了</td></tr>
+  </tbody>
+</table>
+
+<h3>7. トラブルシュート</h3>
+
+<table>
+  <thead>
+    <tr><th>症状</th><th>対処</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>FAIL opening COM7</code></td><td>別ターミナル（TeraTerm 等）が掴んでいる。閉じる</td></tr>
+    <tr><td><code>&lt; INFO IchiPing 09_collector ready</code> が来ない</td><td>ファームが起動していない / COM 番号間違い / ボーレート不一致（921600 固定）</td></tr>
+    <tr><td><code>OK RUN started</code> 後にフレームが来ない</td><td>I²C 不通でサーボ駆動失敗 → <code>SERVO window_a 45</code> 単体で動作確認、デバッグ</td></tr>
+    <tr><td><code>! frame seq=N CRC BAD</code> 頻発</td><td>UART バッファ溢れ。USB ケーブル変更、PC 側 USB ハブ介在を外す</td></tr>
+    <tr><td>サーボが微動するだけ</td><td>外部 5V レール不足 → 1000 µF 電解 + 安定 5V 給電確認</td></tr>
+  </tbody>
+</table>
+
+<h2>ICHP フレーム内 <code>servo_deg[5]</code> の意味</h2>
+
+<p>
+  このプロジェクトでは <b>当該試行で実際にサーボに送った角度（絶対）</b>。
+  <code>home_deg</code> でも <code>open_deg</code> でもなく、PCA9685 に書き込んだ値そのもの。
+  pin 指定があった ch は pin の値、無指定 ch はランダム結果。
+</p>
+
+<p>
+  ラベル文字列は <b>フレーム外</b>、各 RUN の前に <code>INFO label=...</code> で送る。
+  PC 側は ASCII 行 / バイナリの逐次到着順を保つことで対応付け。
+</p>
+
+<h2>サーボ校正（home / open 位置決定）の運用</h2>
+
+<p>詳細手順は <a href="../../../docs/servo_coords.html">docs/servo_coords.html §3 校正手順</a> に集約。要点だけ:</p>
+
+<ol>
+  <li><code>SERVO window_a &lt;deg&gt;</code> で 1 ch ずつ動かして「閉」位置と「全開」位置を探る</li>
+  <li><code>SET HOME window_a 12</code> / <code>SET OPEN window_a 87</code> で焼き付け（窓は <code>open - home = 75°</code>、扉は <code>90°</code> が目標）</li>
+  <li>5 ch ぶん繰り返し、<code>GET HOME</code> / <code>GET OPEN</code> で確認</li>
+  <li><b><code>SAVE HOME</code> は現状 NOT_IMPL</b>。代わりに <a href="../../shared/source/servo_config.c"><code>firmware/shared/source/servo_config.c</code></a> の <code>SERVO_CONFIG_DEFAULTS</code> に値を書き写してリビルド → 焼き直し</li>
+  <li>以降は boot 時に同じ位置に戻る</li>
+</ol>
+
+<p>将来 MCXN947 IAP を実装したら <code>SAVE HOME</code> がフラッシュ書込になる。手順は <code>servo_config_save_flash()</code> の TODO 参照。</p>
+
+<h2>ディスプレイ（ILI9341 240×320）</h2>
+
+<p>
+  09_collector は TFT を持っていれば自動で 5 サーボのリアルタイム状態パネルを描画する。
+  パネル不在でもファームはヘッドレス動作（display 関数は no-op）。
+</p>
+
+<pre><code>┌──────────────────────────────────────────┐
+│ IchiPing collector                       │
+├──────────────────────────────────────────┤
+│ window_a   +45/+75  [====    ]   MID     │  WINDOW (logical_max=75)
+│ window_b    +0/+75  [        ]   CLOSED  │
+│ window_c   +75/+75  [========]   OPEN    │
+│ door_AB    +90/+90  [========]   OPEN    │  DOOR (logical_max=90)
+│ door_BC    +45/+90  [====    ]   MID     │
+├──────────────────────────────────────────┤
+│ multiband vol 0.05                       │
+│ trial   7/30                             │
+└──────────────────────────────────────────┘
+</code></pre>
+
+<ul>
+  <li>表示角度は <b>logical_deg</b>（閉 = 0, 開方向 = +）。mechanical_deg からの変換は <code>servo_config_to_logical()</code> 経由</li>
+  <li>色: 緑 = CLOSED（logical ≤ 3°）／橙 = OPEN（logical ≥ 95% × max）／黄 = MID</li>
+  <li>各 SERVO / RUN コマンドで即座に再描画</li>
+</ul>
+
+<p>
+  配線は <a href="../03_ili9341_test/README.html">03_ili9341_test</a> と同一（LPSPI1 + A2/A3/A4/A5 GPIO）。
+  本パネルの詳細仕様は <a href="../../../docs/servo_coords.html">docs/servo_coords.html §4 ディスプレイ表示</a>。
+</p>
+
+<h2>配線</h2>
+
+<p><a href="../08_mic_speaker_test/README.html">08_mic_speaker_test</a> の和集合 + <a href="../02_servo_test/README.html">02_servo_test</a> の I²C:</p>
+
+<table>
+  <thead>
+    <tr><th>信号</th><th>ピン</th><th>備考</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>SAI1 BCLK / FS / TXD / RXD</td><td>J1.1 / J1.11 / J1.5 / J1.15</td><td>08 と同じ（INMP441 + MAX98357A）</td></tr>
+    <tr><td>LPI2C2 SDA / SCL</td><td>D18 (P4_0) / D19 (P4_1)</td><td>02 と同じ（PCA9685）</td></tr>
+    <tr><td>OpenSDA UART</td><td>LPUART4</td><td>921600 bps 双方向</td></tr>
+    <tr><td>サーボ PWM</td><td>PCA9685 ch 0..4</td><td>window_a/b/c, door_AB/BC</td></tr>
+    <tr><td>サーボ 5V</td><td>外部 5V レール</td><td>MAX98357A と共通、1000 µF 電解必須</td></tr>
+    <tr><td>ILI9341 TFT</td><td>LPSPI1 + A2/A3/A4/A5 GPIO</td><td>03_ili9341_test と同じ。未接続でもファームは動作</td></tr>
+  </tbody>
+</table>
+
+<h2>ビルド手順（MCUXpresso for VS Code）</h2>
+
+<p>
+  本プロジェクトには Config Tools 生成物（<code>frdmmcxn947_cm33_core0/</code>、<code>CMakeLists.txt</code>、
+  <code>prj.conf</code>、<code>pin_mux.c</code> 等）一式が既に含まれている。手順:
+</p>
+
+<ol>
+  <li>VS Code → <i>MCUXpresso → Import Project From Folder</i> → <code>firmware/projects/09_collector/</code></li>
+  <li><i>Configure preset</i> で <code>debug</code> または <code>release</code> を選択 → ビルド</li>
+  <li>OpenSDA 経由で書込（GDB / Run target）</li>
+  <li>シリアル端末で <code>PING</code> 送信 → <code>OK PONG ...</code> 確認 → <a href="../../../pc/collector_client.py"><code>pc/collector_client.py</code></a> へ</li>
+</ol>
+
+<p>
+  CMakeLists.txt は以下のソースを取り込む（必要なら他プロジェクト雛形を作るとき参考に）:
+</p>
+
+<pre><code>main.c
+../../shared/source/ichiping_frame.c
+../../shared/source/sai_mic.c
+../../shared/source/sai_speaker.c
+../../shared/source/pca9685.c
+../../shared/source/ichp_cmd.c
+../../shared/source/servo_config.c
+../../shared/source/ili9341.c
+../../shared/source/collector_display.c
+</code></pre>
+
+<h2>既知の制約 / TODO</h2>
+
+<ul>
+  <li><b>フラッシュ永続化未実装</b> — <code>SAVE HOME</code> は NOT_IMPL。MCXN947 IAP（<code>fsl_iap.h</code> または <code>fsl_flash.h</code>）で 1 sector を予約する実装が必要。回避策はリビルド運用（上記）</li>
+  <li><b>サーボ移動とキャプチャは直列</b>。1 試行 = 0.4 s 待ち + 2 s キャプチャ + 0.56 s UART 送信 = <b>3 秒/フレーム</b>。30 フレーム = 1.5 分。USB CDC（05 ベース）に乗り換えれば UART 送信 0.1 s に短縮可</li>
+  <li><b>ラベル対応付けがシーケンシャル前提</b>。並列 RUN 不可（並列にする場合はラベル ID をフレーム内に埋める拡張が必要）</li>
+  <li><b>ランダム化は二値選択（home / open のいずれか）</b>。連続角度ランダム化が必要なら <code>build_trial_pattern</code> を改修</li>
+  <li><b>STOP は試行間境界でのみ反映</b>。1 試行 3 秒のラグを許容する設計</li>
+</ul>
+
+</main>
+
+</body>
+</html>

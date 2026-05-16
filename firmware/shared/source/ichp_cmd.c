@@ -1,184 +1,269 @@
 /*
- * IchiPing command-line parser — see ichp_cmd.h.
+ * IchiPing — ASCII command parser (collector protocol).
+ * Implements the API declared in firmware/shared/include/ichp_cmd.h.
  *
- * No stdio / malloc usage, safe to call from non-FreeRTOS bare-metal code.
+ * Kept SDK-free (only <string.h>, <stdlib.h>, <ctype.h>) so the same
+ * source can be reused in host-side ctypes tests if we ever want to
+ * round-trip parse-tested commands.
  */
 
 #include "ichp_cmd.h"
 
 #include <string.h>
 #include <stdlib.h>
+#include <ctype.h>
 
-#ifndef __BUILD_TIMESTAMP__
-#  define __BUILD_TIMESTAMP__ __DATE__ " " __TIME__
-#endif
+const char *const ICHP_SERVO_NAMES[ICHP_SERVO_COUNT] = {
+    "window_a",
+    "window_b",
+    "window_c",
+    "door_AB",
+    "door_BC",
+};
 
-void ichp_cmd_init_defaults(ichp_cmd_state_t *st)
+const char *const ICHP_EXCITATION_NAMES[ICHP_EXCITE__COUNT] = {
+    "chirp",
+    "multiband",
+    "silence",
+};
+
+static int strcasecmp_local(const char *a, const char *b)
 {
-    if (!st) return;
-    st->window_samples  = 32000U;          /* 2 s @ 16 kHz */
-    st->sample_rate_hz  = 16000U;
-    st->tone            = ICHP_TONE_CHIRP;
-    st->repeats         = 1U;
-    st->label[0]        = '\0';
-    st->start_requested = 0;
-    st->stop_requested  = 0;
-}
-
-/* ---- tiny string helpers (no libc dependency beyond memchr/strcmp) ---- */
-
-static int str_eq(const char *a, const char *b)
-{
-    while (*a && *b) { if (*a++ != *b++) return 0; }
-    return *a == *b;
-}
-
-static const char *skip_spaces(const char *p)
-{
-    while (*p == ' ' || *p == '\t') p++;
-    return p;
-}
-
-static const char *next_token(const char *p)
-{
-    while (*p && *p != ' ' && *p != '\t') p++;
-    return skip_spaces(p);
-}
-
-static void str_copy(char *dst, size_t cap, const char *src, size_t n)
-{
-    size_t i = 0;
-    if (cap == 0) return;
-    while (i + 1 < cap && i < n && src[i] && src[i] != ' ' && src[i] != '\t') {
-        dst[i] = src[i];
-        i++;
+    while (*a && *b) {
+        int ca = tolower((unsigned char)*a);
+        int cb = tolower((unsigned char)*b);
+        if (ca != cb) return ca - cb;
+        a++; b++;
     }
-    dst[i] = '\0';
+    return (unsigned char)*a - (unsigned char)*b;
 }
 
-/* ---- per-line static buffer ---- */
-static char s_line[ICHP_CMD_LINE_MAX];
-static size_t s_len = 0;
-
-static void put_str(char *dst, const char *src)
+int ichp_servo_lookup(const char *name)
 {
-    size_t i = 0;
-    while (src[i] && i < ICHP_CMD_LINE_MAX - 1) { dst[i] = src[i]; i++; }
-    dst[i] = '\0';
-}
-
-static void put_concat(char *dst, const char *a, const char *b)
-{
-    size_t i = 0;
-    while (*a && i < ICHP_CMD_LINE_MAX - 1) { dst[i++] = *a++; }
-    while (*b && i < ICHP_CMD_LINE_MAX - 1) { dst[i++] = *b++; }
-    dst[i] = '\0';
-}
-
-static void put_dec(char *dst, const char *prefix, uint32_t value)
-{
-    size_t i = 0;
-    while (*prefix && i < ICHP_CMD_LINE_MAX - 1) { dst[i++] = *prefix++; }
-    char buf[12]; int n = 0;
-    if (value == 0) { buf[n++] = '0'; }
-    else { uint32_t v = value; char tmp[12]; int t = 0;
-        while (v) { tmp[t++] = (char)('0' + (v % 10)); v /= 10; }
-        while (t > 0) buf[n++] = tmp[--t];
-    }
-    for (int k = 0; k < n && i < ICHP_CMD_LINE_MAX - 1; k++) dst[i++] = buf[k];
-    dst[i] = '\0';
-}
-
-/* ---- per-line handler ---- */
-
-static void handle_line(ichp_cmd_state_t *st, const char *line, char *reply)
-{
-    line = skip_spaces(line);
-    reply[0] = '\0';
-
-    if (line[0] == '\0') return;  /* empty line: no reply */
-
-    if (str_eq(line, "PING") || (line[0]=='P'&&line[1]=='I'&&line[2]=='N'&&line[3]=='G'&&(line[4]==0||line[4]==' '))) {
-        put_concat(reply, "OK PONG ", __BUILD_TIMESTAMP__);
-        return;
-    }
-    if (line[0]=='S'&&line[1]=='T'&&line[2]=='A'&&line[3]=='R'&&line[4]=='T') {
-        st->start_requested = 1;
-        put_str(reply, "OK START");
-        return;
-    }
-    if (line[0]=='S'&&line[1]=='T'&&line[2]=='O'&&line[3]=='P') {
-        st->stop_requested = 1;
-        put_str(reply, "OK STOP");
-        return;
-    }
-    if (line[0]=='G'&&line[1]=='E'&&line[2]=='T') {
-        /* Caller is responsible for emitting multi-line GET replies; we
-         * return only the first field here. The main loop calls back with
-         * additional ASCII lines per key. */
-        put_dec(reply, "OK window=", st->window_samples);
-        return;
-    }
-    if (line[0]=='S'&&line[1]=='E'&&line[2]=='T'&&line[3]==' ') {
-        const char *p = skip_spaces(line + 3);
-        const char *key = p;
-        const char *val = next_token(p);
-        if (!*val) { put_str(reply, "ERR SET needs key and value"); return; }
-
-        if (key[0]=='w'&&key[1]=='i'&&key[2]=='n'&&key[3]=='d'&&key[4]=='o'&&key[5]=='w') {
-            st->window_samples = (uint32_t)atoi(val);
-            put_dec(reply, "OK window=", st->window_samples); return;
+    if (!name) return -1;
+    for (uint8_t i = 0; i < ICHP_SERVO_COUNT; i++) {
+        if (strcasecmp_local(name, ICHP_SERVO_NAMES[i]) == 0) {
+            return (int)i;
         }
-        if (key[0]=='r'&&key[1]=='a'&&key[2]=='t'&&key[3]=='e') {
-            st->sample_rate_hz = (uint32_t)atoi(val);
-            put_dec(reply, "OK rate=", st->sample_rate_hz); return;
-        }
-        if (key[0]=='r'&&key[1]=='e'&&key[2]=='p'&&key[3]=='e'&&key[4]=='a'&&key[5]=='t'&&key[6]=='s') {
-            st->repeats = (uint32_t)atoi(val);
-            put_dec(reply, "OK repeats=", st->repeats); return;
-        }
-        if (key[0]=='t'&&key[1]=='o'&&key[2]=='n'&&key[3]=='e') {
-            ichp_tone_t t = ICHP_TONE_CHIRP;
-            if      (val[0]=='c') t = ICHP_TONE_CHIRP;
-            else if (val[0]=='t' && val[4]=='2') t = ICHP_TONE_200HZ;
-            else if (val[0]=='t' && val[4]=='1') t = ICHP_TONE_1KHZ;
-            else if (val[0]=='t' && val[4]=='5') t = ICHP_TONE_5KHZ;
-            else if (val[0]=='s') t = ICHP_TONE_SILENCE;
-            else { put_str(reply, "ERR tone must be chirp|tone200|tone1k|tone5k|silence"); return; }
-            st->tone = t;
-            put_str(reply, "OK tone set");
-            return;
-        }
-        if (key[0]=='l'&&key[1]=='a'&&key[2]=='b'&&key[3]=='e'&&key[4]=='l') {
-            str_copy(st->label, ICHP_CMD_LABEL_MAX, val, ICHP_CMD_LABEL_MAX);
-            put_concat(reply, "OK label=", st->label);
-            return;
-        }
-        put_str(reply, "ERR unknown key");
-        return;
     }
-
-    put_str(reply, "ERR unknown command");
+    return -1;
 }
 
-int ichp_cmd_feed_byte(ichp_cmd_state_t *st, uint8_t b,
-                       char reply[ICHP_CMD_LINE_MAX])
+int ichp_excitation_lookup(const char *name)
 {
-    if (!st || !reply) return 0;
-    reply[0] = '\0';
-
-    if (b == '\r') return 0;
-    if (b != '\n') {
-        if (s_len < ICHP_CMD_LINE_MAX - 1) {
-            s_line[s_len++] = (char)b;
-            s_line[s_len]    = '\0';
+    if (!name) return -1;
+    for (int i = 0; i < (int)ICHP_EXCITE__COUNT; i++) {
+        if (strcasecmp_local(name, ICHP_EXCITATION_NAMES[i]) == 0) {
+            return i;
         }
-        return 0;
+    }
+    return -1;
+}
+
+/* In-place tokeniser. Returns pointer to next token start, advances *p
+ * to one past the token's terminator. Returns NULL when no more tokens. */
+static char *next_token(char **p)
+{
+    if (!p || !*p) return NULL;
+    char *s = *p;
+    while (*s && isspace((unsigned char)*s)) s++;
+    if (!*s) { *p = s; return NULL; }
+    char *start = s;
+    while (*s && !isspace((unsigned char)*s)) s++;
+    if (*s) { *s = '\0'; s++; }
+    *p = s;
+    return start;
+}
+
+bool ichp_cmd_lbuf_feed(ichp_cmd_lbuf_t *lb, char c)
+{
+    if (c == '\r' || c == '\n') {
+        if (lb->len == 0) {
+            /* empty line — ignore but do not signal a complete line */
+            return false;
+        }
+        lb->buf[lb->len] = '\0';
+        return true;
+    }
+    if (lb->len >= ICHP_CMD_LINE_MAX) {
+        lb->overflow = true;
+        return false;
+    }
+    lb->buf[lb->len++] = c;
+    return false;
+}
+
+bool ichp_cmd_parse(char *line, ichp_cmd_t *out, const char **err_token,
+                    const char **err_arg)
+{
+    if (!line || !out) return false;
+    memset(out, 0, sizeof(*out));
+    if (err_token) *err_token = NULL;
+    if (err_arg)   *err_arg   = NULL;
+
+    char *p = line;
+    char *verb = next_token(&p);
+    if (!verb) {
+        if (err_token) *err_token = "EMPTY";
+        return false;
     }
 
-    s_line[s_len] = '\0';
-    handle_line(st, s_line, reply);
-    s_len = 0;
-    s_line[0] = '\0';
-    return 1;
+    /* Uppercase verb for case-insensitive matching. */
+    for (char *q = verb; *q; q++) *q = (char)toupper((unsigned char)*q);
+
+    if (strcmp(verb, "PING") == 0) {
+        out->kind = ICHP_CMD_PING;
+        return true;
+    }
+    if (strcmp(verb, "RUN") == 0) {
+        out->kind = ICHP_CMD_RUN;
+        return true;
+    }
+    if (strcmp(verb, "STOP") == 0) {
+        out->kind = ICHP_CMD_STOP;
+        return true;
+    }
+
+    if (strcmp(verb, "GET") == 0) {
+        char *what = next_token(&p);
+        if (!what) { if (err_token) *err_token = "BAD_ARGS"; if (err_arg) *err_arg = "GET"; return false; }
+        for (char *q = what; *q; q++) *q = (char)toupper((unsigned char)*q);
+        if (strcmp(what, "CONFIG") == 0) { out->kind = ICHP_CMD_GET_CONFIG; return true; }
+        if (strcmp(what, "HOME")   == 0) { out->kind = ICHP_CMD_GET_HOME;   return true; }
+        if (strcmp(what, "OPEN")   == 0) { out->kind = ICHP_CMD_GET_OPEN;   return true; }
+        if (strcmp(what, "PINS")   == 0) { out->kind = ICHP_CMD_GET_PINS;   return true; }
+        if (err_token) *err_token = "BAD_ARGS";
+        if (err_arg)   *err_arg   = what;
+        return false;
+    }
+
+    if (strcmp(verb, "CLEAR") == 0) {
+        char *what = next_token(&p);
+        if (!what) { if (err_token) *err_token = "BAD_ARGS"; if (err_arg) *err_arg = "CLEAR"; return false; }
+        for (char *q = what; *q; q++) *q = (char)toupper((unsigned char)*q);
+        if (strcmp(what, "PINS") == 0) { out->kind = ICHP_CMD_CLEAR_PINS; return true; }
+        if (strcmp(what, "PIN")  == 0) {
+            char *sname = next_token(&p);
+            int idx = ichp_servo_lookup(sname);
+            if (idx < 0) { if (err_token) *err_token = "BAD_SERVO"; if (err_arg) *err_arg = sname; return false; }
+            out->kind = ICHP_CMD_CLEAR_PIN;
+            out->servo_idx = (uint8_t)idx;
+            return true;
+        }
+        if (err_token) *err_token = "BAD_ARGS";
+        if (err_arg)   *err_arg   = what;
+        return false;
+    }
+
+    if (strcmp(verb, "SET") == 0) {
+        char *what = next_token(&p);
+        if (!what) { if (err_token) *err_token = "BAD_ARGS"; if (err_arg) *err_arg = "SET"; return false; }
+        for (char *q = what; *q; q++) *q = (char)toupper((unsigned char)*q);
+
+        if (strcmp(what, "VOLUME") == 0) {
+            char *v = next_token(&p);
+            if (!v) { if (err_token) *err_token = "BAD_ARGS"; if (err_arg) *err_arg = "VOLUME"; return false; }
+            float f = strtof(v, NULL);
+            if (f < 0.0f || f > 1.0f) { if (err_token) *err_token = "OUT_OF_RANGE"; if (err_arg) *err_arg = v; return false; }
+            out->kind = ICHP_CMD_SET_VOLUME;
+            out->volume = f;
+            return true;
+        }
+        if (strcmp(what, "EXCITATION") == 0) {
+            char *v = next_token(&p);
+            int e = ichp_excitation_lookup(v);
+            if (e < 0) { if (err_token) *err_token = "OUT_OF_RANGE"; if (err_arg) *err_arg = v; return false; }
+            out->kind = ICHP_CMD_SET_EXCITATION;
+            out->excite = (ichp_excitation_t)e;
+            return true;
+        }
+        if (strcmp(what, "REPEATS") == 0) {
+            char *v = next_token(&p);
+            if (!v) { if (err_token) *err_token = "BAD_ARGS"; if (err_arg) *err_arg = "REPEATS"; return false; }
+            int32_t n = (int32_t)strtol(v, NULL, 10);
+            if (n < 1 || n > 10000) { if (err_token) *err_token = "OUT_OF_RANGE"; if (err_arg) *err_arg = v; return false; }
+            out->kind = ICHP_CMD_SET_REPEATS;
+            out->repeats = n;
+            return true;
+        }
+        if (strcmp(what, "PIN") == 0) {
+            char *sname = next_token(&p);
+            char *v     = next_token(&p);
+            int idx = ichp_servo_lookup(sname);
+            if (idx < 0) { if (err_token) *err_token = "BAD_SERVO"; if (err_arg) *err_arg = sname; return false; }
+            if (!v) { if (err_token) *err_token = "BAD_ARGS"; if (err_arg) *err_arg = "PIN"; return false; }
+            float d = strtof(v, NULL);
+            if (d < 0.0f || d > 180.0f) { if (err_token) *err_token = "OUT_OF_RANGE"; if (err_arg) *err_arg = v; return false; }
+            out->kind = ICHP_CMD_SET_PIN;
+            out->servo_idx = (uint8_t)idx;
+            out->deg = d;
+            return true;
+        }
+        if (strcmp(what, "HOME") == 0 || strcmp(what, "OPEN") == 0) {
+            char *sname = next_token(&p);
+            char *v     = next_token(&p);
+            int idx = ichp_servo_lookup(sname);
+            if (idx < 0) { if (err_token) *err_token = "BAD_SERVO"; if (err_arg) *err_arg = sname; return false; }
+            if (!v) { if (err_token) *err_token = "BAD_ARGS"; if (err_arg) *err_arg = what; return false; }
+            float d = strtof(v, NULL);
+            if (d < 0.0f || d > 180.0f) { if (err_token) *err_token = "OUT_OF_RANGE"; if (err_arg) *err_arg = v; return false; }
+            out->kind = (strcmp(what, "HOME") == 0) ? ICHP_CMD_SET_HOME : ICHP_CMD_SET_OPEN;
+            out->servo_idx = (uint8_t)idx;
+            out->deg = d;
+            return true;
+        }
+        if (err_token) *err_token = "BAD_ARGS";
+        if (err_arg)   *err_arg   = what;
+        return false;
+    }
+
+    if (strcmp(verb, "SAVE") == 0) {
+        char *what = next_token(&p);
+        if (!what) { if (err_token) *err_token = "BAD_ARGS"; if (err_arg) *err_arg = "SAVE"; return false; }
+        for (char *q = what; *q; q++) *q = (char)toupper((unsigned char)*q);
+        if (strcmp(what, "HOME") == 0) { out->kind = ICHP_CMD_SAVE_HOME; return true; }
+        if (err_token) *err_token = "BAD_ARGS";
+        if (err_arg)   *err_arg   = what;
+        return false;
+    }
+
+    if (strcmp(verb, "SERVO") == 0) {
+        char *first = next_token(&p);
+        if (!first) { if (err_token) *err_token = "BAD_ARGS"; if (err_arg) *err_arg = "SERVO"; return false; }
+        /* Special form: SERVO ALL OFF */
+        char upper[16];
+        size_t i = 0;
+        while (first[i] && i < sizeof(upper) - 1) {
+            upper[i] = (char)toupper((unsigned char)first[i]); i++;
+        }
+        upper[i] = '\0';
+        if (strcmp(upper, "ALL") == 0) {
+            char *off = next_token(&p);
+            char upper2[8] = {0};
+            if (off) {
+                size_t j = 0;
+                while (off[j] && j < sizeof(upper2) - 1) {
+                    upper2[j] = (char)toupper((unsigned char)off[j]); j++;
+                }
+            }
+            if (strcmp(upper2, "OFF") != 0) { if (err_token) *err_token = "BAD_ARGS"; if (err_arg) *err_arg = "SERVO ALL"; return false; }
+            out->kind = ICHP_CMD_SERVO_ALL_OFF;
+            return true;
+        }
+        /* Normal: SERVO <name> <deg> */
+        int idx = ichp_servo_lookup(first);
+        if (idx < 0) { if (err_token) *err_token = "BAD_SERVO"; if (err_arg) *err_arg = first; return false; }
+        char *v = next_token(&p);
+        if (!v) { if (err_token) *err_token = "BAD_ARGS"; if (err_arg) *err_arg = "SERVO"; return false; }
+        float d = strtof(v, NULL);
+        if (d < 0.0f || d > 180.0f) { if (err_token) *err_token = "OUT_OF_RANGE"; if (err_arg) *err_arg = v; return false; }
+        out->kind = ICHP_CMD_SERVO;
+        out->servo_idx = (uint8_t)idx;
+        out->deg = d;
+        return true;
+    }
+
+    if (err_token) *err_token = "BAD_VERB";
+    if (err_arg)   *err_arg   = verb;
+    return false;
 }

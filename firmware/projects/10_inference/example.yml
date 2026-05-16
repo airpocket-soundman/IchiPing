@@ -1,0 +1,14 @@
+ichiping_10_inference:
+  boards:
+    frdmmcxn947@cm33_core0: []
+  contents:
+    document:
+      brief: IchiPing — autonomous on-device NN inference demo. Captures the
+        multiband click response, runs a (currently stubbed) classifier, and
+        shows the result on the ILI9341 TFT. Companion to pc/training/ — drop
+        in the eIQ-quantised model once trained.
+      category: ichiping
+      name: ichiping_10_inference${core_id_suffix_name}
+    meta_path: examples/ichiping/10_inference
+    project-root-path: boards/${board}/ichiping/10_inference/${multicore_foldername}
+  section-type: freestanding_application

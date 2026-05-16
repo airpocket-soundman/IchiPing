@@ -41,7 +41,7 @@ FRDM-MCXN947 Board User Manual Table 17（Arduino compatible header J1 pinout）
 >
 > **重要 2**: LRC は当初 J1.3 (SJ10=2-3 が必要) で計画していたが、BUM Table 17 によれば **J1.11 にも同じ P3_17 / `SAI1_TX_FS` が SJ 無しで直結**されているため、IchiPing は J1.11 を採用。FRDM-MCXN947 出荷時のジャンパ位置のまま動く構成になっている。SJ11 (J1.1 = BCLK 用) もデフォルトの 1-2 で OK。
 >
-> **重要 3**: SAI1 は INMP441（マイク, RX 側）と共用ペリフェラル。08_mic_speaker_test / 10_collector では同じ SAI1 を全二重で使うので、**J1.7 (`SAI1_MCLK`)** / **J1.9 (`SAI1_RX_BCLK`)** / **J1.13 (`SAI1_RX_FS`)** / **J1.15 (`SAI1_RXD0`)** も合わせて配線済にしておくと後の bring-up が楽。
+> **重要 3**: SAI1 は INMP441（マイク, RX 側）と共用ペリフェラル。08_mic_speaker_test では同じ SAI1 を全二重で使うので、**J1.7 (`SAI1_MCLK`)** / **J1.9 (`SAI1_RX_BCLK`)** / **J1.13 (`SAI1_RX_FS`)** / **J1.15 (`SAI1_RXD0`)** も合わせて配線済にしておくと後の bring-up が楽。
 
 ## ビルド・実行
 

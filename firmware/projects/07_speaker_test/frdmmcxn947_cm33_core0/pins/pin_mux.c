@@ -13,7 +13,7 @@
  *
  * NOTE: the SAI1 instance is shared with the on-board codec and (in our
  * setup) the INMP441 mic. The two cannot both be configured as master at
- * the same time — only 08_mic_speaker_test / 10_collector run full-duplex.
+ * the same time — only 08_mic_speaker_test runs full-duplex.
  */
 
 #include "fsl_common.h"

@@ -37,6 +37,21 @@
       <a href="../pc/README.html">PC ガイド</a>
     </div>
     <div class="sidenav-group">
+      <div class="sidenav-h">ファーム別デモ</div>
+      <a href="projects/01_dummy_emitter/README.html">01 dummy_emitter</a>
+      <a href="projects/02_servo_test/README.html">02 servo_test</a>
+      <a href="projects/03_ili9341_test/README.html">03 ili9341_test</a>
+      <a href="projects/04_lvgl_test/README.html">04 lvgl_test (凍結)</a>
+      <a href="projects/05_usb_cdc_emitter/README.html">05 usb_cdc_emitter</a>
+      <a href="projects/06_mic_test/README.html">06 mic_test</a>
+      <a href="projects/07_speaker_test/README.html">07 speaker_test</a>
+      <a href="projects/08_mic_speaker_test/README.html">08 mic_speaker_test</a>
+      <a href="projects/09_collector/README.html">09 collector</a>
+      <a href="projects/10_inference/README.html">10 inference</a>
+      <a href="host_build/README.html">host_build</a>
+      <a href="../pc/training/README.html">pc/training (NN 学習)</a>
+    </div>
+    <div class="sidenav-group">
       <div class="sidenav-h">メタ</div>
       <a href="../docs/vscode_setup.html">VS Code セットアップ</a>
       <a href="../CLAUDE.html">Claude 作業ガイド</a>
@@ -114,8 +129,8 @@
 │   ├── 06_mic_test/                      INMP441 単体疎通（SAI1 RX, RMS/Peak PRINTF）
 │   ├── 07_speaker_test/                  MAX98357A 単体疎通（SAI1 TX, 5 種テスト音, ✅ 実機確認済）
 │   ├── 08_mic_speaker_test/              TX chirp ＋ RX キャプチャ（室内インパルス応答）
-│   ├── 09_audio_stream/                  実音 INMP441 → ICHP フレーム連続送信（01 の real-mic 版）
-│   └── 10_collector/                     PC 双方向: PC→MCU 設定 / MCU→PC ラベル付き学習データ
+│   ├── 09_collector/                     PC 制御ラベル付きデータ採取（v0.5 学習データ採取の本命）
+│   └── 10_inference/                     オンデバイス NN 推論デモ（capture → features → infer → TFT）
 ├── host_build/                          ホスト (gcc/MinGW) でビルドする足場
 │   ├── Makefile                          .so/.dll を作って ctypes 突合テストに使う
 │   └── README.md
@@ -148,7 +163,7 @@
     <tr>
       <td>4</td>
       <td><a href="projects/04_lvgl_test/README.html"><code>projects/04_lvgl_test</code></a></td>
-      <td>LVGL v9 のポート確立 + IchiPing 状態 UI モック</td>
+      <td>LVGL v9 のポート確立 + IchiPing 状態 UI モック <b>（⚠️ 凍結 — 直接 ILI9341 ドライバ採用、本プロジェクトは保持のみ）</b></td>
       <td><code>lpspi/polling_b2b</code> + middleware/lvgl</td>
     </tr>
     <tr>
@@ -172,20 +187,20 @@
     <tr>
       <td>8</td>
       <td><a href="projects/08_mic_speaker_test/README.html"><code>projects/08_mic_speaker_test</code></a></td>
-      <td>TX chirp ＋ RX キャプチャの閉ループ（室内インパルス応答）</td>
+      <td>TX chirp ＋ RX キャプチャの閉ループ（室内インパルス応答, 単発デモ）</td>
       <td><code>sai/sai_*</code> + <code>lpuart</code></td>
     </tr>
     <tr>
       <td>9</td>
-      <td><a href="projects/09_audio_stream/README.html"><code>projects/09_audio_stream</code></a></td>
-      <td>実マイク連続ストリーミング（01 の real audio 版）</td>
-      <td><code>sai/sai_*</code> + <code>lpuart</code></td>
+      <td><a href="projects/09_collector/README.md"><code>projects/09_collector</code></a></td>
+      <td>PC 制御ラベル付きデータ採取（08 + 02 + ILI9341 統合, ASCII コマンド + ICHP 多重）</td>
+      <td><code>sai/sai_*</code> + <code>lpi2c</code> + <code>lpspi</code> + <code>lpuart</code></td>
     </tr>
     <tr>
       <td>10</td>
-      <td><a href="projects/10_collector/README.html"><code>projects/10_collector</code></a></td>
-      <td>PC 双方向制御の学習データ採取（窓 / 励起 / 反復 / ラベル）</td>
-      <td><code>sai/sai_*</code> + <code>lpuart</code> ＋ PC <code>collector_client.py</code></td>
+      <td><a href="projects/10_inference/README.md"><code>projects/10_inference</code></a></td>
+      <td>オンデバイス NN 推論デモ（capture → features → infer → TFT 結果表示, v0.5 後段）</td>
+      <td><code>sai/sai_*</code> + <code>lpspi</code></td>
     </tr>
   </tbody>
 </table>
@@ -277,7 +292,7 @@
       <td>04_lvgl_test</td>
       <td><a href="projects/04_lvgl_test/README.html">README.html</a></td>
       <td><a href="projects/04_lvgl_test/README.md">README.md</a></td>
-      <td>TFT 目視 + LVGL FPS モニタ（PC スクリプト不要）</td>
+      <td><b>⚠️ 凍結</b> — 過去の動作実績として保持。新 TFT UI は 09/10 の直接 ILI9341 ドライバを参照</td>
     </tr>
     <tr>
       <td>05_usb_cdc_emitter</td>
@@ -301,19 +316,19 @@
       <td>08_mic_speaker_test</td>
       <td><a href="projects/08_mic_speaker_test/README.html">README.html</a></td>
       <td><a href="projects/08_mic_speaker_test/README.md">README.md</a></td>
-      <td><b><code>receiver.py</code> 起動必須</b>。<code>captures/</code> に room IR WAV</td>
+      <td><b><code>receiver.py</code> 起動必須</b>。<code>captures/</code> に room IR WAV（単発デモ）</td>
     </tr>
     <tr>
-      <td>09_audio_stream</td>
-      <td><a href="projects/09_audio_stream/README.html">README.html</a></td>
-      <td><a href="projects/09_audio_stream/README.md">README.md</a></td>
-      <td><b><code>receiver.py</code> 起動必須</b>。実マイク音を連続記録</td>
+      <td>09_collector</td>
+      <td>—</td>
+      <td><a href="projects/09_collector/README.md">README.md</a></td>
+      <td><b><code>collector_client.py</code> 起動必須</b>。PC↔MCU 双方向、<code>captures/&lt;label&gt;/</code> に振り分け保存、TFT に servo パネル表示</td>
     </tr>
     <tr>
-      <td>10_collector</td>
-      <td><a href="projects/10_collector/README.html">README.html</a></td>
-      <td><a href="projects/10_collector/README.md">README.md</a></td>
-      <td><b><code>collector_client.py</code> で PC 側から制御</b></td>
+      <td>10_inference</td>
+      <td>—</td>
+      <td><a href="projects/10_inference/README.md">README.md</a></td>
+      <td>PC スクリプト不要。SW3 起動 → audio 取込 → NN 推論 → TFT に結果表示（現状 STUB 推論）</td>
     </tr>
     <tr>
       <td>host_build</td>
@@ -364,6 +379,36 @@
       <td><b>N/A</b> (USB CDC、baud 無視)</td>
       <td>バイナリ ICHP フレーム</td>
       <td><a href="../pc/README.html">pc/receiver.py</a> で受ける</td>
+    </tr>
+    <tr>
+      <td>06_mic_test</td>
+      <td><b>115200 bps</b></td>
+      <td>テキスト（peak/RMS/DC/ZCR）、8N1</td>
+      <td>TeraTerm 等</td>
+    </tr>
+    <tr>
+      <td>07_speaker_test</td>
+      <td><b>115200 bps</b></td>
+      <td>テキスト（フェーズ表示）、8N1</td>
+      <td>TeraTerm 等</td>
+    </tr>
+    <tr>
+      <td>08_mic_speaker_test</td>
+      <td><b>921600 bps</b></td>
+      <td>バイナリ ICHP フレーム、8N1</td>
+      <td><a href="../pc/README.html">pc/receiver.py</a></td>
+    </tr>
+    <tr>
+      <td>09_collector</td>
+      <td><b>921600 bps</b></td>
+      <td>ASCII コマンド／応答 ＋ バイナリ ICHP フレーム多重</td>
+      <td><a href="../pc/collector_client.py">pc/collector_client.py</a></td>
+    </tr>
+    <tr>
+      <td>10_inference</td>
+      <td><b>115200 bps</b></td>
+      <td>テキスト（推論デバッグログ）、8N1</td>
+      <td>TeraTerm 等（オプション、本体は TFT で完結）</td>
     </tr>
   </tbody>
 </table>
