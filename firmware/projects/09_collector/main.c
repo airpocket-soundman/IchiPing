@@ -132,15 +132,6 @@ static const float COL_MB_FREQS_HZ[COL_MB_N_BANDS] = {
 /* ILI9341 TFT (matches 03_ili9341_test; macros resolve via app.h). */
 #define COL_TFT_SPI_BAUD      20000000U     /* 20 MHz once init proves stable */
 
-/* Idle heartbeat — emits one INFO line per second on the debug UART when
- * not inside a RUN. Lets a plain serial monitor (TeraTerm / VS Code
- * Serial Monitor at 921600 8N1) confirm the firmware booted and the UART
- * TX path is alive even if no PC tool is connected. The line is short
- * (~40 B) so the bandwidth cost is negligible. Deliberately avoids the
- * literal "ICHP" 4-byte substring so the collector_client.py frame
- * detector does not false-trigger. */
-#define COL_HEARTBEAT_MS      1000u
-
 /* ---- Buffers ---- */
 
 static int16_t s_excite[COL_WINDOW_SAMP];                 /* TX waveform, pre-rendered */
@@ -172,7 +163,6 @@ static servo_driver_t        s_servo;
 static sai_mic_t             s_mic;
 static sai_speaker_t         s_spk;
 static ili9341_t             s_tft;
-static uint32_t              s_last_heartbeat_ms = 0;
 static collector_display_t   s_disp;
 
 /* ---- SysTick ---- */
@@ -675,13 +665,6 @@ int main(void)
                 ichp_cmd_lbuf_reset(&lb);
             }
         } else {
-            /* Heartbeat once per second so a plain serial monitor can
-             * confirm the firmware is alive even with nothing else
-             * happening. Skipped during RUN (do_run holds the CPU). */
-            if ((s_uptime_ms - s_last_heartbeat_ms) >= COL_HEARTBEAT_MS) {
-                s_last_heartbeat_ms = s_uptime_ms;
-                uart_printf("INFO heartbeat uptime=%ums", (unsigned)s_uptime_ms);
-            }
             __WFI();
         }
     }
