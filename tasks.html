@@ -340,7 +340,7 @@
           <code>firmware/shared/include/servo_driver.h</code> がビルド時シンボルでバックエンドを切り替える共通 API:
           <code>SERVO_BACKEND_PCA9685</code>（16 ch, NXP, 既定）/ <code>SERVO_BACKEND_LU9685_I2C</code>（20 ch, 中国製互換）。
           <code>pca9685.c</code> は PWM tick + SG90 校正、<code>lu9685.c</code> は ESPEasy 由来プロトコル（reg 0xFC=freq, 0xFD=20ch bulk, reg=pin で個別）。
-          <code>main_servo_test.c</code> は共通 API のみ呼び、ハード差し替え時のコード変更ゼロ（Preprocessor シンボルを変えるだけ）。同期ウェイポイント (0/90/180°) → 5 ch ソロスイープのループ。<b>LU9685 実機動作確認済</b>（commit <code>b22a9f0</code>、現物 I²C アドレス 0x1F、<code>i2c_scan()</code> 診断付き）。
+          <code>main_servo_test.c</code> は共通 API のみ呼び、ハード差し替え時のコード変更ゼロ（Preprocessor シンボルを変えるだけ）。サイクルは Phase 1 同期ウェイポイント (0/90/180°) → Phase 2 5 ch ソロスイープ → Phase 3 スタガ・スロースイープの 3 段構成で、<b>SW3 オンボードボタンで開始/停止トグル</b>（GPIO0 falling-edge IRQ + 200 ms ソフトデバウンス、起動直後は停止状態でサーボ 0° パーク）。<b>LU9685 実機動作確認済</b>（commit <code>b22a9f0</code>、現物 I²C アドレス 0x1F、<code>i2c_scan()</code> 診断付き）。
         </p>
         <div class="task-meta">
           <span>担当: <b>MCU + ハード</b></span>

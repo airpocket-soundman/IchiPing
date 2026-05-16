@@ -29,6 +29,7 @@ void BOARD_InitBootPins(void)
 {
     BOARD_InitPins();
     LPI2C2_InitPins();
+    SW3_InitPins();
 }
 
 void BOARD_InitPins(void)
@@ -65,4 +66,23 @@ void LPI2C2_InitPins(void)
     };
     PORT_SetPinConfig(PORT4, 0U, &i2c_cfg);  /* SDA = ARD_D18 (J2 pin 18) */
     PORT_SetPinConfig(PORT4, 1U, &i2c_cfg);  /* SCL = ARD_D19 (J2 pin 20) */
+}
+
+/* On-board user button SW3 = PORT0 pin 6 (FRDM-MCXN947 schematic).
+ * Active-low with an external pull-up on the dev board; we additionally
+ * enable the internal pull-up for redundancy and the passive filter
+ * for hardware debouncing. Used by main.c to start/stop the demo. */
+void SW3_InitPins(void)
+{
+    CLOCK_EnableClock(kCLOCK_Port0);
+
+    const port_pin_config_t btn_cfg = {
+        kPORT_PullUp,                kPORT_HighPullResistor,
+        kPORT_FastSlewRate,          kPORT_PassiveFilterEnable,
+        kPORT_OpenDrainDisable,      kPORT_LowDriveStrength,
+        kPORT_MuxAlt0,               /* GPIO function */
+        kPORT_InputBufferEnable,     kPORT_InputNormal,
+        kPORT_UnlockRegister,
+    };
+    PORT_SetPinConfig(PORT0, 6U, &btn_cfg);
 }

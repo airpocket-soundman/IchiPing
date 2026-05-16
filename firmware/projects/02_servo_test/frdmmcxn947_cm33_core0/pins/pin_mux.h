@@ -16,6 +16,7 @@ extern "C" {
 void BOARD_InitBootPins(void);
 void BOARD_InitPins(void);
 void LPI2C2_InitPins(void);
+void SW3_InitPins(void);
 
 #if defined(__cplusplus)
 }

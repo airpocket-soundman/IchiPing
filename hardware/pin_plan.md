@@ -138,6 +138,7 @@
 ✅ PWR LED（外付け、ヘッダ占有なし）
 ✅ OpenSDA UART（J17, ヘッダ占有なし）
 ✅ USB CDC（J21, ヘッダ占有なし）
+✅ オンボードボタン SW3（PORT0_6, ヘッダ占有なし） — 02/07 でデモ開始/停止トグルに使用
 
 **ピン使用合計**: J1 = 9 pin / J2 = 6 pin / J4 = 4 pin
 
@@ -148,12 +149,12 @@
 | プロジェクト | 使うピン |
 |---|---|
 | 01_dummy_emitter | OpenSDA UART のみ |
-| 02_servo_test | LPI2C2 (D18/D19) |
+| 02_servo_test | LPI2C2 (D18/D19) + SW3 (PORT0_6, オンボード) |
 | 03_ili9341_test | LPSPI1 (D11/D13) + 4 GPIO (A2..A5) |
 | 04_lvgl_test | 同上 |
 | 05_usb_cdc_emitter | USB CDC (J21) |
 | 06_mic_test | SAI1 RX (J1.1/J1.11/J1.15) |
-| 07_speaker_test | SAI1 TX (J1.1/J1.11/J1.5) |
+| 07_speaker_test | SAI1 TX (J1.1/J1.11/J1.5) + SW3 (PORT0_6, オンボード) |
 | 08_mic_speaker_test | SAI1 全二重 (J1.1/J1.11/J1.5/J1.15) |
 | 09_audio_stream | SAI1 RX のみ（06 と同じ） |
 | 10_collector | SAI1 全二重 (08 と同じ) + ASCII コマンド (OpenSDA UART) |

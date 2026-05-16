@@ -22,6 +22,14 @@
  *
  *   (repeat from phase 1)
  *
+ * Control:
+ *   SW3 (on-board push button, PORT0_6) toggles the demo on/off via
+ *   a falling-edge GPIO0 interrupt. Boot state is "stopped" — servos
+ *   sit parked at 0° until the user presses SW3 the first time, and
+ *   a second press pauses at the next phase boundary (≤ ~1 s lag
+ *   because the existing delay_ms() blocks are kept intact for the
+ *   sweep timing to remain readable on the console).
+ *
  * Channel map (matches hardware/wiring.md §2.5):
  *   ch0 = window a   ch1 = window b   ch2 = window c
  *   ch3 = door AB    ch4 = door BC
@@ -63,8 +71,11 @@
 #include "board.h"
 #include "fsl_debug_console.h"
 #include "fsl_lpi2c.h"
+#include "fsl_gpio.h"
 
 #include "servo_driver.h"
+
+#include <stdbool.h>
 
 extern void BOARD_InitHardware(void);
 
@@ -91,6 +102,42 @@ static void systick_init_1ms(void) {
 static void delay_ms(uint32_t ms) {
     uint32_t end = s_uptime_ms + ms;
     while ((int32_t)(s_uptime_ms - end) < 0) { __WFI(); }
+}
+
+/* ----- SW3 cycle gate -----
+ *
+ * SW3 (on-board push button, PORT0_6, active-low) toggles the demo
+ * on/off. The PORT0 interrupt fires on every falling edge; the ISR
+ * stamps a "press pending" flag with 200 ms software debounce (the
+ * board's passive PORT filter catches the worst bounces, but multi-
+ * bounce still slips through occasionally). Boot state is "stopped"
+ * so the servos sit at 0° on reset and never sweep until the user
+ * explicitly hits SW3. */
+static volatile bool     s_cycle_running   = false;
+static volatile bool     s_button_event    = false;
+static volatile uint32_t s_last_button_ms  = 0;
+
+void BOARD_SW3_IRQ_HANDLER(void)
+{
+    uint32_t flags = GPIO_GpioGetInterruptFlags(BOARD_SW3_GPIO);
+    if (flags & (1u << BOARD_SW3_GPIO_PIN)) {
+        GPIO_GpioClearInterruptFlags(BOARD_SW3_GPIO,
+                                     1u << BOARD_SW3_GPIO_PIN);
+        if ((s_uptime_ms - s_last_button_ms) > 200u) {
+            s_button_event   = true;
+            s_last_button_ms = s_uptime_ms;
+        }
+    }
+    SDK_ISR_EXIT_BARRIER;
+}
+
+static void consume_button_toggle(void) {
+    if (s_button_event) {
+        s_button_event  = false;
+        s_cycle_running = !s_cycle_running;
+        PRINTF("[" BOARD_SW3_NAME "] cycle %s\r\n",
+               s_cycle_running ? "RUNNING" : "PAUSED");
+    }
 }
 
 /* ----- I²C bring-up ----- */
@@ -133,16 +180,54 @@ static void i2c_scan(LPI2C_Type *base) {
     PRINTF("I2C scan: %d device(s) responded\r\n\r\n", found);
 }
 
+static void servo_slow_staggered_sweep(servo_driver_t *servo) {
+    static const float stagger[SERVO_CH_COUNT] = {
+        0.0f,  8.0f, 16.0f, 24.0f, 32.0f,
+    };
+    float position[SERVO_CH_COUNT];
+
+    PRINTF("[phase 3] slow staggered sweep to 180°\r\n");
+    for (int step = 0; step <= 180; step++) {
+        for (int ch = 0; ch < SERVO_CH_COUNT; ch++) {
+            float deg = (float)step + stagger[ch];
+            position[ch] = (deg > 180.0f) ? 180.0f : deg;
+        }
+
+        status_t w = servo_set_first_n_deg(servo, position, SERVO_CH_COUNT);
+        if (w != kStatus_Success) {
+            PRINTF("  slow sweep status=%d at step=%d\r\n", (int)w, step);
+            break;
+        }
+        delay_ms(25);
+    }
+
+    float all0[SERVO_CH_COUNT] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+    status_t w = servo_set_first_n_deg(servo, all0, SERVO_CH_COUNT);
+    PRINTF("  all -> 0° (instant return, status=%d)\r\n", (int)w);
+    delay_ms(500);
+}
+
 int main(void) {
     BOARD_InitHardware();
     systick_init_1ms();
     i2c_master_init();
+
+    /* SW3 = digital input; pin mux + pull-up + passive filter were
+     * set in BOARD_InitBootPins() / SW3_InitPins(). Configure the
+     * falling-edge interrupt on GPIO0 pin 6 and unmask the shared
+     * GPIO0 vector (BOARD_SW3_IRQ_HANDLER above). */
+    const gpio_pin_config_t btn_in = { kGPIO_DigitalInput, 0 };
+    GPIO_PinInit(BOARD_SW3_GPIO, BOARD_SW3_GPIO_PIN, &btn_in);
+    GPIO_SetPinInterruptConfig(BOARD_SW3_GPIO, BOARD_SW3_GPIO_PIN,
+                               kGPIO_InterruptFallingEdge);
+    EnableIRQ(BOARD_SW3_IRQ);
 
     PRINTF("\r\nIchiPing servo test  --  backend=%s  addr=0x%02X  freq=%uHz  chans=%u\r\n",
            SERVO_BACKEND_NAME,
            (unsigned)SERVO_DEFAULT_ADDR,
            (unsigned)SERVO_DEFAULT_FREQ_HZ,
            (unsigned)SERVO_CH_COUNT);
+    PRINTF("Press " BOARD_SW3_NAME " to start the demo; press again to pause.\r\n");
 
     i2c_scan(SERVO_I2C_BASE);
 
@@ -164,44 +249,68 @@ int main(void) {
     PRINTF("park bulk-write status=%d (0=OK, !=0=I2C error)\r\n", (int)ps);
     delay_ms(500);
 
+    float all0[SERVO_CH_COUNT]   = {  0.0f,   0.0f,   0.0f,   0.0f,   0.0f};
+    float all90[SERVO_CH_COUNT]  = { 90.0f,  90.0f,  90.0f,  90.0f,  90.0f};
+    float all180[SERVO_CH_COUNT] = {180.0f, 180.0f, 180.0f, 180.0f, 180.0f};
+
     uint32_t cycle = 0;
     for (;;) {
+        /* Paused/idle: park servos at 0° and sleep on __WFI until SW3
+         * toggles us back on. Using interrupts (not polling) means the
+         * press is captured even though delay_ms() / __WFI() are blocking. */
+        if (!s_cycle_running) {
+            (void)servo_set_first_n_deg(&servo, all0, SERVO_CH_COUNT);
+            while (!s_cycle_running) {
+                consume_button_toggle();
+                __WFI();
+            }
+        }
+
         cycle++;
         PRINTF("\r\n[cycle %u] phase 1: synchronised waypoints\r\n",
                (unsigned)cycle);
-
-        float all0[SERVO_CH_COUNT]   = {  0.0f,   0.0f,   0.0f,   0.0f,   0.0f};
-        float all90[SERVO_CH_COUNT]  = { 90.0f,  90.0f,  90.0f,  90.0f,  90.0f};
-        float all180[SERVO_CH_COUNT] = {180.0f, 180.0f, 180.0f, 180.0f, 180.0f};
 
         status_t w;
         w = servo_set_first_n_deg(&servo, all0,   SERVO_CH_COUNT);
         PRINTF("  all -> 0°   (status=%d)\r\n", (int)w);
         delay_ms(1000);
+        consume_button_toggle(); if (!s_cycle_running) continue;
 
         w = servo_set_first_n_deg(&servo, all90,  SERVO_CH_COUNT);
         PRINTF("  all -> 90°  (status=%d)\r\n", (int)w);
         delay_ms(1000);
+        consume_button_toggle(); if (!s_cycle_running) continue;
 
         w = servo_set_first_n_deg(&servo, all180, SERVO_CH_COUNT);
         PRINTF("  all -> 180° (status=%d)\r\n", (int)w);
         delay_ms(1000);
+        consume_button_toggle(); if (!s_cycle_running) continue;
 
         w = servo_set_first_n_deg(&servo, all0,   SERVO_CH_COUNT);
         PRINTF("  all -> 0°   (status=%d, rest)\r\n", (int)w);
         delay_ms(500);
+        consume_button_toggle(); if (!s_cycle_running) continue;
 
         PRINTF("[cycle %u] phase 2: solo sweep\r\n", (unsigned)cycle);
+        bool aborted = false;
         for (int ch = 0; ch < SERVO_CH_COUNT; ch++) {
             w = servo_set_deg(&servo, (uint8_t)ch, 180.0f);
             PRINTF("  ch%d (%s) -> 180° (status=%d)\r\n",
                    ch, SERVO_NAMES[ch], (int)w);
             delay_ms(1000);
+            consume_button_toggle();
+            if (!s_cycle_running) { aborted = true; break; }
 
             w = servo_set_deg(&servo, (uint8_t)ch, 0.0f);
             PRINTF("  ch%d (%s) -> 0°   (status=%d)\r\n",
                    ch, SERVO_NAMES[ch], (int)w);
             delay_ms(500);
+            consume_button_toggle();
+            if (!s_cycle_running) { aborted = true; break; }
         }
+        if (aborted) { continue; }
+
+        servo_slow_staggered_sweep(&servo);
+        consume_button_toggle();
     }
 }

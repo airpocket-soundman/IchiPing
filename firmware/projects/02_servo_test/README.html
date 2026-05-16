@@ -74,6 +74,7 @@
   <div class="sub">
     PCA9685 <b>または</b> LU9685 経由で SG90 ×5 をスイープして配線確認する単体テストファーム。
     <code>servo_driver.h</code> の共通 API を経由するので、コードを変えずに 2 種類のサーボドライバ IC を切り替えられる。
+    基板上の <b>SW3</b> でデモを開始/停止できる（起動直後は停止状態。サーボは 0° で待機）。
   </div>
   <div class="meta">
     <span class="meta-stat"><span class="num">v0.4</span> 準備</span>
@@ -121,6 +122,22 @@
   </tbody>
 </table>
 
+<p>開始/停止トグルに使う <b>SW3 はオンボードボタン</b>（PORT0_6, 内部プルアップ + パッシブフィルタ済み）なので、追加配線は不要。</p>
+
+<h2>操作方法（SW3 で開始/停止）</h2>
+<table>
+  <thead><tr><th>状態</th><th>シリアル表示</th><th>サーボの挙動</th></tr></thead>
+  <tbody>
+    <tr><td>起動直後</td><td><code>Press SW3 to start the demo; press again to pause.</code></td><td>0° にパーク（待機）</td></tr>
+    <tr><td>SW3 押下</td><td><code>[SW3] cycle RUNNING</code></td><td>動作シーケンス開始</td></tr>
+    <tr><td>動作中に SW3 再押下</td><td><code>[SW3] cycle PAUSED</code></td><td><b>次の phase 境界</b>で 0° に戻して待機</td></tr>
+  </tbody>
+</table>
+<ul>
+  <li>200 ms ソフトウェアデバウンス入り。チャタリングで多重トグルされない。</li>
+  <li>押下は GPIO0 falling-edge 割り込みで捕捉するので、<code>delay_ms()</code> ブロック中でも取りこぼさない。ただし停止指示が<b>実際にサーボへ反映されるのは現在の phase が終わるタイミング</b>（最大 ~1 s 遅延）。</li>
+</ul>
+
 <h2>シリアル設定（PRINTF 観測用）</h2>
 <table>
   <thead><tr><th>項目</th><th>値</th></tr></thead>
@@ -132,15 +149,28 @@
 </table>
 
 <h2>動作シーケンス</h2>
-<pre><code>Phase 1 (同期ウェイポイント):
-  all → 0°       hold 1.0 s
-  all → 90°      hold 1.0 s
-  all → 180°     hold 1.0 s
-  all → 0°       hold 0.5 s
-
-Phase 2 (ソロスイープ ×5 ch):
-  ch_n → 180°    hold 1.0 s
-  ch_n → 0°      hold 0.5 s</code></pre>
+<p>SW3 で開始すると、以下を <b>1 サイクル</b>として繰り返す。再度 SW3 を押すと次の phase 境界で停止し 0° へ戻る。</p>
+<table>
+  <thead><tr><th>Phase</th><th>内容</th><th>保持時間</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>1 — 同期ウェイポイント</td>
+      <td>全 5 ch 一斉に <code>0° → 90° → 180° → 0°</code></td>
+      <td>各 1.0 s（末尾 0° のみ 0.5 s）</td>
+    </tr>
+    <tr>
+      <td>2 — ソロスイープ</td>
+      <td>ch0 → ch4 の順に単独で <code>180° → 0°</code> を 1 往復<br>
+          (ch0 = 窓 a, ch1 = 窓 b, ch2 = 窓 c, ch3 = 扉 AB, ch4 = 扉 BC)</td>
+      <td>180° hold 1.0 s, 0° hold 0.5 s</td>
+    </tr>
+    <tr>
+      <td>3 — スタガ・スロースイープ</td>
+      <td>全 5 ch 同期で <code>0° → 180°</code> までスタガ付き段階移動（25 ms/step）、終了時に一括 <code>0°</code> 復帰</td>
+      <td>0° 復帰後 0.5 s</td>
+    </tr>
+  </tbody>
+</table>
 
 <h2>確認方法</h2>
 
@@ -157,28 +187,43 @@ Phase 2 (ソロスイープ ×5 ch):
   <li><code>python -m serial.tools.miniterm COM7 115200</code>（pyserial 入っていれば即動く）</li>
 </ul>
 
-<p>期待ログ例:</p>
+<p>期待ログ例（<b>SW3 を押すまでは I²C スキャンの後で止まって見える</b>点に注意）:</p>
 
-<pre><code>IchiPing servo_test (backend=PCA9685, addr=0x40)
-PCA9685 init OK @ 50 Hz
-Phase 1 sync waypoints:
-  all -> 0 deg   hold 1000 ms
-  all -> 90 deg  hold 1000 ms
-  all -> 180 deg hold 1000 ms
-  all -> 0 deg   hold 500 ms
-Phase 2 solo sweep:
-  ch0 -> 180 deg
-  ch0 -> 0 deg
-  ch1 -> 180 deg
-  ...</code></pre>
+<pre><code>IchiPing servo test  --  backend=PCA9685  addr=0x40  freq=50Hz  chans=5
+Press SW3 to start the demo; press again to pause.
+
+I2C scan (0x01..0x77):
+  ACK at 0x40
+I2C scan: 1 device(s) responded
+
+OK: PCA9685 initialised (addr=0x40)
+park bulk-write status=0 (0=OK, !=0=I2C error)
+
+# ここで SW3 を 1 回押す
+[SW3] cycle RUNNING
+
+[cycle 1] phase 1: synchronised waypoints
+  all -> 0°   (status=0)
+  all -> 90°  (status=0)
+  all -> 180° (status=0)
+  all -> 0°   (status=0, rest)
+[cycle 1] phase 2: solo sweep
+  ch0 (window a) -> 180° (status=0)
+  ch0 (window a) -> 0°   (status=0)
+  ...
+[phase 3] slow staggered sweep to 180°
+  all -> 0° (instant return, status=0)</code></pre>
 
 <h3>B. 目視で 5 個のサーボが動くことを確認</h3>
 
 <p>シリアルログより<b>こちらが本命</b>。配線が間違っていてもログは進むので必ず実物を見る:</p>
 
 <ol>
-  <li>Phase 1 で 5 個全部が同じ角度に動く（0° → 90° → 180° → 0° の 3 段階）</li>
+  <li>電源投入直後はサーボが 0° で静止。<b>SW3 を 1 回押すと動き出す</b>。</li>
+  <li>Phase 1 で 5 個全部が同じ角度に動く（0° → 90° → 180° → 0°）</li>
   <li>Phase 2 で 1 個ずつ順に 0° ↔ 180° を往復（ch0 = 窓 a, ch1 = 窓 b, ch2 = 窓 c, ch3 = 扉 AB, ch4 = 扉 BC）</li>
+  <li>Phase 3 で 5 個がスタガ付きでゆっくり 180° まで上昇し、最後に一括 0° へ戻る</li>
+  <li>動作中に <b>SW3 を再度押す</b>と、シリアルに <code>[SW3] cycle PAUSED</code> が出て、次の phase 境界で 0° に戻って静止</li>
   <li>動かないチャネルがあれば配線か PCA9685 出力か個体不良</li>
   <li>全部が同じ角度で固まる → I²C 通信失敗（次項参照）</li>
 </ol>
@@ -201,6 +246,13 @@ I2C scan: 1 device(s) responded</code></pre>
   <li><b>PCA9685 が応答しない</b>: A0..A5 の I²C アドレス選択ピンの位置を確認、デフォルト 0x40</li>
   <li><b>LU9685 が ACK は返すのにサーボが 0V で動かない</b>: 典型的に <code>LU9685_DEFAULT_ADDR</code> が 0x00 になっているケース。LU9685 は I²C General Call (0x00) にオプトイン応答するので LPI2C は <code>kStatus_Success</code> を返すが、コマンドは broadcast 扱いになり PWM は立たない。<code>i2c_scan()</code> の出力で実アドレスを確認し、<code>lu9685.h</code> の <code>LU9685_DEFAULT_ADDR</code> をそれに合わせる</li>
   <li><b>サーボがガタつく</b>: V+ の 5V 電源容量不足。USB バスパワーでは足りないので外部 5V 電源 + 1000 µF を必ず</li>
+  <li><b>SW3 を押しても反応しない</b>:
+    <ol>
+      <li>シリアルに <code>[SW3] cycle RUNNING</code> が出ているか確認 → 出ているのにサーボが動かなければ I²C/電源側</li>
+      <li>出ていなければ pin_mux で <code>SW3_InitPins()</code> が <code>BOARD_InitBootPins()</code> から呼ばれているか、<code>EnableIRQ(BOARD_SW3_IRQ)</code> が main で叩かれているかを確認</li>
+      <li>チャタリングで多重トグルしている場合は ISR 内の 200 ms デバウンス窓を伸ばす</li>
+    </ol>
+  </li>
 </ul>
 
 </main>
