@@ -17,7 +17,6 @@ mcux_add_source(
     SOURCES main.c
             ../../shared/source/sai_mic.c
             ../../shared/source/sai_speaker.c
-            ../../shared/source/dummy_audio.c
             ../../shared/source/ichiping_frame.c
 )
 

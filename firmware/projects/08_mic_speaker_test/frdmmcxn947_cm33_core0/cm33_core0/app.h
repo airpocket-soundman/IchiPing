@@ -27,4 +27,10 @@
 #define BOARD_SPK_SAI_CLK_DIV    BOARD_SAI_CLK_DIV
 #define BOARD_SPK_SAI_CLK_FREQ   BOARD_SAI_CLK_FREQ
 
+/* On-board push button SW3 — toggles the chirp/capture cycle. Active-low.
+ * Same physical button as 07_speaker_test (PORT0 pin 6, GPIO0 vector). */
+#define BOARD_USER_BUTTON_GPIO   GPIO0
+#define BOARD_USER_BUTTON_PIN    6U
+#define BOARD_USER_BUTTON_NAME   "SW3"
+
 #endif /* _APP_H_ */

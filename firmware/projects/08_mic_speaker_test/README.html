@@ -75,30 +75,80 @@
 <main>
 
 <h1>08_mic_speaker_test — マイク × スピーカ閉ループ</h1>
-<p>スピーカ (MAX98357A) で 200→8 kHz chirp を再生しながらマイク (INMP441) で 2.5 秒キャプチャ。<strong>部屋のインパルス応答</strong>を 1 ICHP フレームに詰めて 921600 bps の UART で PC に送る。</p>
+<p>スピーカ (MAX98357A) で 200→6 kHz chirp を再生しながらマイク (INMP441 / MSM261) で 2.5 秒キャプチャ。<strong>部屋のインパルス応答</strong>を 1 ICHP フレームに詰めて 921600 bps の UART で PC に送る。</p>
 <p>これは IchiPing の本命データ取得経路の最小版で、ここで CRC が通って WAV に保存できるようになると、あとは:
 - 連続版 → <a href="../09_audio_stream/">09_audio_stream</a>
 - ラベル付き条件指定版 → <a href="../10_collector/">10_collector</a>
 にスムーズに繋がる。</p>
-<h2>期待する動作</h2>
-<pre><code>[   1] firing chirp + recording 40000 samples...
-   ↓ PC 側 receiver.py
-[     1] t=  4123ms sr=16000 N=40000 servos=[  0.0, ...] CRC=OK (0.25 fps)
-captures/08/frame_000001.wav  ← 1.5 MB の 16-bit mono WAV
+
+<h2>動作概要</h2>
+<table>
+<thead>
+<tr><th>項目</th><th>値</th></tr>
+</thead>
+<tbody>
+<tr><td>サンプルレート</td><td>16 kHz</td></tr>
+<tr><td>chirp</td><td>200 → 6000 Hz 線形スイープ, 2.0 s, 両端 5 ms raised-cosine フェード</td></tr>
+<tr><td>録音窓</td><td>2.5 s (= chirp 2.0 s + late reflections 500 ms)</td></tr>
+<tr><td>サイクル</td><td>5 s 間隔（捕捉 2.5 s + UART 送信 ~0.9 s + 残りスリープ）</td></tr>
+<tr><td>ソフト音量</td><td>0.15 (約 -16 dB; 07_speaker_test と同じ。MAX98357A GAIN ピン GND で +3 dB ハード)</td></tr>
+<tr><td>起動状態</td><td><strong>PAUSED</strong> — SW3 押下で RUNNING/PAUSED トグル</td></tr>
+<tr><td>chirp ↔ 録音同期</td><td>同一 SAI1 ループでインターリーブ（TX FIFO 深さ分 ~8 サンプル / 500 µs のオフセット）</td></tr>
+<tr><td>マイク取込精度</td><td>f32 で取って int16 ペイロードに変換（full dynamic range 保持）</td></tr>
+</tbody>
+</table>
+
+<p>起動時に SW3 を押すまで音は鳴らず、シリアルには:</p>
+<pre><code>IchiPing 08_mic_speaker_test  --  SAI1 TX chirp + SAI1 RX capture
+  Fs=16000 Hz, chirp=32000 samp (200..6000 Hz), window=40000 samp, cycle=5000 ms
+Press SW3 to start the cycle; press again to pause.
+[SAI MIC] sai_clk=... TCSR=0x9017xxxx ...
+[SAI] sai_clk=... TCSR=0x9017xxxx ...
 </code></pre>
+
+<p>の後、SW3 押下後にサイクルが回る:</p>
+<pre><code>[SW3] cycle RUNNING
+[   1] firing chirp + capturing 40000 samples...
+  [ICHP] seq=1 bytes=80038 crc=0x37a2 peak=18432 rms=2104
+</code></pre>
+
+<p>PC 側 receiver.py からは:</p>
+<pre><code>[     1] t=  5123ms sr=16000 N=40000 servos=[  0.0, ...] CRC=OK (0.20 fps)
+captures/08/frame_000001.wav  ← 約 80 kB の 16-bit mono WAV
+</code></pre>
+
 <p>判定: WAV を Audacity 等で開いて
 - chirp の波形が見える（マイク経路 OK）
 - chirp 終了後 ~500 ms に <strong>late reflections</strong>（残響）が残っている（部屋応答 OK）
-- 高調波歪みやクリッピングが無い</p>
+- 高調波歪みやクリッピングが無い（peak &lt; 30000、rms 数百〜数千が目安）</p>
+
 <h2>PC 側受信</h2>
 <pre><code>cd pc
 python receiver.py --port COM7 --baud 921600 --out ../captures/08
 </code></pre>
-<p><code>captures/08/labels.csv</code> が 4 秒に 1 行ずつ追記される。</p>
-<h2>既知の TODO</h2>
+<p><code>captures/08/labels.csv</code> が 5 秒に 1 行ずつ追記される。</p>
+
+<h2>06/07 からの差分まとめ</h2>
+<table>
+<thead>
+<tr><th>項目</th><th>06_mic_test</th><th>07_speaker_test</th><th>08（このプロジェクト）</th></tr>
+</thead>
+<tbody>
+<tr><td>SAI1 方向</td><td>RX のみ（sync, TX は clock-only master）</td><td>TX のみ</td><td><strong>TX + RX 全二重</strong></td></tr>
+<tr><td>取込形式</td><td>f32 (<code>record_blocking_f32</code>)</td><td>—</td><td><strong>f32 取込 → int16 ペイロード変換</strong></td></tr>
+<tr><td>再生信号</td><td>—</td><td>200/1k/5k 純音 + 200→6k chirp + 無音</td><td><strong>200→6k chirp 単発</strong></td></tr>
+<tr><td>chirp 終端</td><td>—</td><td>6 kHz (Nyquist 回避)</td><td>6 kHz (07 の知見を引き継ぎ)</td></tr>
+<tr><td>フェード</td><td>—</td><td>5 ms raised-cosine</td><td>5 ms raised-cosine</td></tr>
+<tr><td>ソフト音量</td><td>—</td><td>0.15</td><td>0.15</td></tr>
+<tr><td>SW3</td><td>なし</td><td>あり (toggle)</td><td><strong>あり (toggle)</strong></td></tr>
+<tr><td>PC 出力</td><td>シリアル統計のみ</td><td>なし</td><td><strong>ICHP フレーム → WAV</strong></td></tr>
+</tbody>
+</table>
+
+<h2>既知の制約</h2>
 <ul>
-<li>現状の <code>play_blocking → record_blocking</code> は <strong>直列実行</strong>（chirp 終わってから録音開始）。本来は EDMA で <strong>同時並行</strong>にする必要がある（chirp と reflections の時間軸を揃えるため）。</li>
-<li>INMP441 と MAX98357A は <strong>物理的に離す</strong>こと（直接振動結合で <code>room IR</code> ではなく機構的な振動を計測してしまう）。</li>
+<li>chirp 再生と録音は <strong>同一 CPU ループでインターリーブ実行</strong>しているため、TX FIFO 深さ (8 サンプル ≈ 500 µs at 16 kHz) 分の同期オフセットが入る。500 ms の reflections 窓内に十分収まるため IR 解析には支障なし。完全アライメントが必要なら EDMA リング化（<a href="../../shared/source/sai_mic.c"><code>shared/source/sai_mic.c</code></a> の <code>sai_mic_start_streaming</code> プレースホルダ）を v0.2 で実装。</li>
+<li>INMP441 と MAX98357A は <strong>物理的に離す</strong>こと（直接振動結合で <code>room IR</code> ではなく機構的な振動を計測してしまう）。10 cm 以上、できれば別の基板に分離。</li>
 </ul>
 
 <h2>配線（実機準拠 — SAI1 全二重, J1 ヘッダ）</h2>
@@ -123,7 +173,7 @@ python receiver.py --port COM7 --baud 921600 --out ../captures/08
 
 <blockquote>
 <p><b>クロック構成</b>: TX フレーマが master（BCLK/FS を P3_16/P3_17 に出す）、RX フレーマは <code>kSAI_ModeSync</code> で TX のクロックを内部共有。<code>shared/source/sai_mic.c</code> + <code>sai_speaker.c</code> で同じ SAI1 ベースを共有しているので、<code>sai_mic_init</code> と <code>sai_speaker_init</code> を続けて呼ぶと同じ TX 設定が確立される（idempotent）。</p>
-<p><b>重要 (注意したハマり)</b>: <code>sai_speaker_play_blocking</code> は完了時に <b>TX を disable しない</b>実装に変更済。disable してしまうと続けて呼ぶ <code>sai_mic_record_blocking</code> で RX が無音になる（sync mode は TX クロックに依存しているため）。明示停止は <code>sai_speaker_stop</code> で。</p>
+<p><b>重要 (注意したハマり)</b>: <code>sai_speaker_play_blocking</code> は完了時に <b>TX を disable しない</b>実装に変更済。disable してしまうと続けて呼ぶ <code>sai_mic_record_blocking</code> で RX が無音になる（sync mode は TX クロックに依存しているため）。明示停止は <code>sai_speaker_stop</code> で。08 はこれらを単独で呼ばず、main.c 内の <code>chirp_and_capture()</code> で TX/RX 両 FIFO を 1 ループに統合してインターリーブ実行している。</p>
 <p><b>SJ 設定</b>: 出荷時デフォルトのままで OK。SJ11 はデフォルト 1-2 で J1.1 = <code>SAI1_TX_BCLK</code>、SJ10 はデフォルト 1-2 のまま (J1.3 = <code>MC_ENC_I</code> 未使用)。<code>SAI1_TX_FS</code> は J1.3 ではなく <b>J1.11</b> から取ることでジャンパ操作を完全に不要にしている。BUM Table 17 を参照。</p>
 <p><b>電源</b>: 外部 5V レールに <b>1000 µF 電解</b>を入れて MAX98357A の inrush を吸収。INMP441 の VDD（3V3）は MCU 3V3 から取って OK（電流 &lt; 2 mA）。GND は外部 5V のグランドと共通バーで 1 点接地。</p>
 </blockquote>
