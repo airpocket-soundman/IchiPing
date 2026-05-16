@@ -129,8 +129,12 @@ static const float COL_MB_FREQS_HZ[COL_MB_N_BANDS] = {
 #endif
 #define COL_I2C_BAUD          100000U
 
-/* ILI9341 TFT (matches 03_ili9341_test; macros resolve via app.h). */
-#define COL_TFT_SPI_BAUD      20000000U     /* 20 MHz once init proves stable */
+/* ILI9341 TFT (matches 03_ili9341_test; macros resolve via app.h).
+ * SPI baud kept at 1 MHz to match the value 03 has verified on real
+ * hardware. Once 09 bring-up confirms display works end-to-end, this
+ * can be raised to 20 MHz like 04_lvgl_test attempted (which is frozen
+ * and therefore unverified at that speed). */
+#define COL_TFT_SPI_BAUD      1000000U
 
 /* ---- Buffers ---- */
 

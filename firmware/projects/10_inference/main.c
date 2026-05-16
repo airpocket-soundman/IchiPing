@@ -54,7 +54,7 @@ extern void BOARD_InitHardware(void);
 #define INF_SAMPLE_RATE       16000u
 #define INF_WINDOW_MS         2000u
 #define INF_WINDOW_SAMP       ((INF_SAMPLE_RATE * INF_WINDOW_MS) / 1000u)
-#define INF_TFT_SPI_BAUD      20000000U
+#define INF_TFT_SPI_BAUD      1000000U      /* matches 03_ili9341_test verified value; raise to 20 MHz after 10 bring-up */
 #define INF_CYCLE_MS          3000u
 
 /* ---- Stub model ----
