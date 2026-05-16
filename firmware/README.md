@@ -68,8 +68,8 @@ firmware/
 | 6 | [`projects/06_mic_test`](projects/06_mic_test/README.md) | INMP441 単体疎通 — PRINTF だけで RMS/Peak/ZCR 観測 | `sai/sai_interrupt_record` |
 | 7 | [`projects/07_speaker_test`](projects/07_speaker_test/README.md) | MAX98357A 単体疎通 — 200/1k/5k Hz + chirp 再生 | `sai/sai_interrupt_play` |
 | 8 | [`projects/08_mic_speaker_test`](projects/08_mic_speaker_test/README.md) | TX chirp ＋ RX キャプチャの閉ループ（インパルス応答, 単発デモ） | `sai/sai_*` + `lpuart` |
-| 9 | [`projects/09_collector`](projects/09_collector/README.md) | PC 制御ラベル付きデータ採取（08 + 02 + ILI9341 統合, ASCII コマンド + ICHP 多重） | `sai/sai_*` + `lpi2c` + `lpspi` + `lpuart` |
-| 10 | [`projects/10_inference`](projects/10_inference/README.md) | オンデバイス NN 推論デモ（capture → features → infer → TFT 結果表示, v0.5 後段） | `sai/sai_*` + `lpspi` |
+| 9 | [`projects/09_collector`](projects/09_collector/README.html) | PC 制御ラベル付きデータ採取（08 + 02 + ILI9341 統合, ASCII コマンド + ICHP 多重） | `sai/sai_*` + `lpi2c` + `lpspi` + `lpuart` |
+| 10 | [`projects/10_inference`](projects/10_inference/README.html) | オンデバイス NN 推論デモ（capture → features → infer → TFT 結果表示, v0.5 後段） | `sai/sai_*` + `lpspi` |
 
 詳細なインポート手順は **各プロジェクトの README.md** を参照。
 
@@ -108,8 +108,8 @@ Servo test は **PCA9685（NXP, 16 ch）** と **LU9685-20CU（中国製, 20 ch�
 | 06_mic_test | [README.md](projects/06_mic_test/README.md) | [README.html](projects/06_mic_test/README.html) | シリアルモニタで PRINTF 統計を眺める（PC スクリプト不要） |
 | 07_speaker_test | [README.md](projects/07_speaker_test/README.md) | [README.html](projects/07_speaker_test/README.html) | スピーカで耳判定（PC スクリプト不要） |
 | 08_mic_speaker_test | [README.md](projects/08_mic_speaker_test/README.md) | [README.html](projects/08_mic_speaker_test/README.html) | **`receiver.py` 起動必須**。captures に room IR WAV（単発デモ） |
-| 09_collector | [README.md](projects/09_collector/README.md) | — | **`collector_client.py` 起動必須**。PC↔MCU 双方向、`captures/<label>/` に振り分け保存、TFT に servo パネル表示 |
-| 10_inference | [README.md](projects/10_inference/README.md) | — | PC スクリプト不要。SW3 起動 → audio 取込 → NN 推論 → TFT に結果表示（現状 STUB 推論） |
+| 09_collector | [README.md](projects/09_collector/README.md) | [README.html](projects/09_collector/README.html) | **`collector_client.py` 起動必須**。PC↔MCU 双方向、`captures/<label>/` に振り分け保存、TFT に servo パネル表示 |
+| 10_inference | [README.md](projects/10_inference/README.md) | [README.html](projects/10_inference/README.html) | PC スクリプト不要。SW3 起動 → audio 取込 → NN 推論 → TFT に結果表示（現状 STUB 推論） |
 | host_build | [README.md](host_build/README.md) | [README.html](host_build/README.html) | ファームではない。`python -m unittest test_ctypes_packer` で C↔Python 突合 |
 
 > **配線必須:** ハードを繋ぐ前に [../hardware/wiring.html](../hardware/wiring.html) §2 を一通り確認。
