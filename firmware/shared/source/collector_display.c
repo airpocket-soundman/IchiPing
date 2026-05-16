@@ -135,7 +135,7 @@ void collector_display_init(collector_display_t *d, ili9341_t *tft)
     for (int i = 0; i < ICHP_SERVO_COUNT; i++) {
         d->last_mech[i] = NAN;
     }
-    d->last_volume  = NAN;
+    d->last_volume_pct = -1;
     d->last_trial   = -1;
     d->last_repeats = -1;
     d->last_excitation[0] = '\0';
@@ -175,7 +175,7 @@ void collector_display_set_pattern(collector_display_t *d,
 }
 
 void collector_display_set_footer(collector_display_t *d,
-                                  const char *excitation, float volume,
+                                  const char *excitation, int32_t volume_pct,
                                   int32_t trial, int32_t repeats)
 {
     if (!d || !d->header_drawn) return;
@@ -187,8 +187,8 @@ void collector_display_set_footer(collector_display_t *d,
         d->last_excitation[sizeof(d->last_excitation) - 1] = '\0';
         need = true;
     }
-    if (!isnan(volume) && fabsf(volume - d->last_volume) > 0.001f) {
-        d->last_volume = volume;
+    if (volume_pct >= 0 && volume_pct != d->last_volume_pct) {
+        d->last_volume_pct = volume_pct;
         need = true;
     }
     if (trial >= 0 && trial != d->last_trial) {
@@ -203,9 +203,9 @@ void collector_display_set_footer(collector_display_t *d,
 
     (void)ili9341_fill_rect(d->tft, 0, y0, PANEL_W, FOOTER_H - 4, COL_BG);
     char line1[40], line2[40];
-    snprintf(line1, sizeof(line1), "%s vol %.2f",
+    snprintf(line1, sizeof(line1), "%s vol %d%%",
              d->last_excitation[0] ? d->last_excitation : "----",
-             isnan(d->last_volume) ? 0.0 : (double)d->last_volume);
+             (int)(d->last_volume_pct < 0 ? 0 : d->last_volume_pct));
     snprintf(line2, sizeof(line2), "trial %3d/%3d",
              (int)((d->last_trial < 0) ? 0 : d->last_trial),
              (int)((d->last_repeats < 0) ? 0 : d->last_repeats));

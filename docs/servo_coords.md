@@ -23,11 +23,11 @@ mechanical_deg = home_deg[i] + sign × logical_deg
 
 | servo | kind | 期待 logical_max | 既定 home_deg | 既定 open_deg |
 |---|---|---|---|---|
-| `window_a` | WINDOW | **75°** | 0° | 75° |
-| `window_b` | WINDOW | **75°** | 0° | 75° |
-| `window_c` | WINDOW | **75°** | 0° | 75° |
-| `door_AB` | DOOR | **90°** | 0° | 90° |
-| `door_BC` | DOOR | **90°** | 0° | 90° |
+| `a` | WINDOW | **75°** | 0° | 75° |
+| `b` | WINDOW | **75°** | 0° | 75° |
+| `c` | WINDOW | **75°** | 0° | 75° |
+| `AB` | DOOR | **90°** | 0° | 90° |
+| `BC` | DOOR | **90°** | 0° | 90° |
 
 - **窓を 75° で止める理由**: 模型の窓サッシが完全 90° まで開くと外枠と干渉してビビる。実機で確認した clear 角度。
 - **扉を 90° で止める理由**: 扉は壁直交方向が「全開」。90° を超えるとアクリル壁と接触。
@@ -41,28 +41,28 @@ mechanical_deg = home_deg[i] + sign × logical_deg
 1. 09_collector を起動して [`pc/collector_client.py`](../pc/collector_client.py) を接続
 2. 1 ch ずつマニュアル動作で「閉」位置を探る:
    ```
-   > SERVO window_a 0
-   > SERVO window_a 5
-   > SERVO window_a 10
+   > SERVO a 0
+   > SERVO a 5
+   > SERVO a 10
    ```
 3. 当たり位置を home に焼き付け:
    ```
-   > SET HOME window_a 12
+   > SET HOME a 12
    ```
 4. 同様に「全開」を探って焼き付け:
    ```
-   > SERVO window_a 80
-   > SERVO window_a 85
-   > SET OPEN window_a 87
+   > SERVO a 80
+   > SERVO a 85
+   > SET OPEN a 87
    ```
    このとき `open - home = 87 - 12 = 75°` が logical_max（窓 = 75）と一致するように物理調整するのが理想
 5. 全 5 ch ぶん繰り返す
 6. 現値を確認:
    ```
    > GET HOME
-   OK HOME window_a=12.0 window_b=8.0 window_c=15.0 door_AB=5.0 door_BC=18.0
+   OK HOME a=12.0 b=8.0 c=15.0 AB=5.0 BC=18.0
    > GET OPEN
-   OK OPEN window_a=87.0 window_b=82.0 window_c=90.0 door_AB=95.0 door_BC=108.0
+   OK OPEN a=87.0 b=82.0 c=90.0 AB=95.0 BC=108.0
    ```
 7. フラッシュ永続化 — **MVP は未実装**（[`SAVE HOME`](../firmware/projects/09_collector/README.md) が `ERR NOT_IMPL` を返す）。代わりに [`firmware/shared/source/servo_config.c`](../firmware/shared/source/servo_config.c) の `SERVO_CONFIG_DEFAULTS` を上の値で書き換えてリビルド・再書込
 8. 以降は boot 時に同じ home / open 位置に戻る
@@ -75,11 +75,11 @@ mechanical_deg = home_deg[i] + sign × logical_deg
 ┌──────────────────────────────────────────┐
 │ IchiPing collector                       │  header (NAVY)
 ├──────────────────────────────────────────┤
-│ window_a   +45/+75  [====    ]   MID     │  WINDOW (logical_max=75)
-│ window_b    +0/+75  [        ]   CLOSED  │  状態色: 緑
-│ window_c   +75/+75  [========]   OPEN    │  状態色: 橙
-│ door_AB    +90/+90  [========]   OPEN    │  DOOR (logical_max=90)
-│ door_BC    +45/+90  [====    ]   MID     │
+│ a   +45/+75  [====    ]   MID     │  WINDOW (logical_max=75)
+│ b    +0/+75  [        ]   CLOSED  │  状態色: 緑
+│ c   +75/+75  [========]   OPEN    │  状態色: 橙
+│ AB    +90/+90  [========]   OPEN    │  DOOR (logical_max=90)
+│ BC    +45/+90  [====    ]   MID     │
 ├──────────────────────────────────────────┤
 │ multiband vol 0.05                       │  footer
 │ trial   7/30                             │
@@ -102,7 +102,7 @@ mechanical_deg = home_deg[i] + sign × logical_deg
 
 09_collector が送出する ICHP フレームの `servo_deg[]` 5 要素は **mechanical_deg**（生 PCA9685 角度）。理由は「実機・別 PC で再現する際に PCA9685 へ直接書ける値の方がデバッグしやすい」から。
 
-PC 側で論理角度に変換したい場合は、`servo_config_to_logical()` 相当の処理を Python 側に実装するか、`labels.csv` 解析時に `home_deg` / `open_deg` を別途参照する。`captures/<label>/labels.csv` の `window_a..door_BC` 列も mechanical_deg。
+PC 側で論理角度に変換したい場合は、`servo_config_to_logical()` 相当の処理を Python 側に実装するか、`labels.csv` 解析時に `home_deg` / `open_deg` を別途参照する。`captures/<label>/labels.csv` の `a..BC` 列も mechanical_deg。
 
 ## 仕様 vs 実装の対応表
 

@@ -80,11 +80,11 @@ python receiver.py --port COM7 --baud 921600 --out ../captures
 ```powershell
 # インタラクティブ REPL（サーボのマニュアル校正・home 位置決め含む）
 python collector_client.py --port COM7 --out ../captures
-> SERVO window_a 0        # ホーン取付調整
-> SET HOME window_a 12    # 「閉」位置を 12° に校正
-> SET PIN door_AB 0       # door_AB だけ閉固定、ほかランダム
+> SERVO a 0        # ホーン取付調整
+> SET HOME a 12    # 「閉」位置を 12° に校正
+> SET PIN AB 0       # AB だけ閉固定、ほかランダム
 > SET REPEATS 30
-> :label door_AB_closed
+> :label AB_closed
 > RUN
 
 # スクリプト実行 — JSON で条件×繰返しを一気に
@@ -95,9 +95,9 @@ python collector_client.py --port COM7 --plan plan.json --out ../captures
 
 ```json
 [
-  {"label": "door_closed", "pins": {"door_AB": 0,  "door_BC": 0},  "repeats": 30},
-  {"label": "door_half",   "pins": {"door_AB": 45, "door_BC": 45}, "repeats": 30},
-  {"label": "door_open",   "pins": {"door_AB": 90, "door_BC": 90}, "repeats": 30},
+  {"label": "door_closed", "pins": {"AB": 0,  "BC": 0},  "repeats": 30},
+  {"label": "door_half",   "pins": {"AB": 45, "BC": 45}, "repeats": 30},
+  {"label": "door_open",   "pins": {"AB": 90, "BC": 90}, "repeats": 30},
   {"label": "amb_silence", "pins": {}, "excitation": "silence", "repeats": 10}
 ]
 ```

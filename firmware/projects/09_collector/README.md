@@ -22,20 +22,20 @@ ASCII 行と ICHP バイナリは同一 UART に多重化。PC は `ICHP` magic 
 |---|---|---|---|
 | 診断 | `PING` | `PING` | `OK PONG <build>` 応答 |
 | 取得 | `GET CONFIG` / `GET HOME` / `GET OPEN` / `GET PINS` | `GET HOME` | 現状を OK 行で返す |
-| 設定 | `SET VOLUME <0..1>` | `SET VOLUME 0.05` | TX ソフト音量 |
+| 設定 | `SET VOLUME <0..100>` | `SET VOLUME 5` | TX ソフト音量 |
 | 設定 | `SET EXCITATION <name>` | `SET EXCITATION multiband` | `chirp` / `multiband` / `silence` |
 | 設定 | `SET REPEATS <N>` | `SET REPEATS 30` | RUN 時の試行回数 |
-| 設定 | `SET PIN <servo> <deg>` | `SET PIN door_AB 0` | 当該扉/窓を RUN 時に固定 |
-| 設定 | `CLEAR PIN <servo>` / `CLEAR PINS` | `CLEAR PIN door_AB` | pin 解除 |
-| 校正 | `SET HOME <servo> <deg>` | `SET HOME window_a 12` | home（閉位置, mechanical）を RAM 更新 |
-| 校正 | `SET OPEN <servo> <deg>` | `SET OPEN window_a 87` | open（全開位置, mechanical）を RAM 更新 |
+| 設定 | `SET PIN <servo> <deg>` | `SET PIN AB 0` | 当該扉/窓を RUN 時に固定 |
+| 設定 | `CLEAR PIN <servo>` / `CLEAR PINS` | `CLEAR PIN AB` | pin 解除 |
+| 校正 | `SET HOME <servo> <deg>` | `SET HOME a 12` | home（閉位置, mechanical）を RAM 更新 |
+| 校正 | `SET OPEN <servo> <deg>` | `SET OPEN a 87` | open（全開位置, mechanical）を RAM 更新 |
 | 校正 | `SAVE HOME` | `SAVE HOME` | 永続化（**現状 NOT_IMPL — 後述**） |
-| マニュアル | `SERVO <servo> <deg>` | `SERVO window_a 45` | 1 ch を即動かす（RUN 外専用） |
+| マニュアル | `SERVO <servo> <deg>` | `SERVO a 45` | 1 ch を即動かす（RUN 外専用） |
 | マニュアル | `SERVO ALL OFF` | `SERVO ALL OFF` | 全 PWM 停止 |
 | 実行 | `RUN` | `RUN` | repeats 回データ採取 |
 | 中断 | `STOP` | `STOP` | 次フレーム境界で中断 |
 
-servo 名: `window_a` / `window_b` / `window_c` / `door_AB` / `door_BC`（大文字小文字無視）。角度引数はすべて **mechanical_deg**（PCA9685 への生 PWM 角）。`SERVO` / `SET HOME` / `SET OPEN` / `SET PIN` 全部 mechanical 系。表示用の logical 系 (閉=0, 開=+, max 75/90) は [docs/servo_coords.md](../../../docs/servo_coords.md) を参照。
+servo 名: `a` / `b` / `c` / `AB` / `BC`（大文字小文字無視）。角度引数はすべて **mechanical_deg**（PCA9685 への生 PWM 角）。`SERVO` / `SET HOME` / `SET OPEN` / `SET PIN` 全部 mechanical 系。表示用の logical 系 (閉=0, 開=+, max 75/90) は [docs/servo_coords.md](../../../docs/servo_coords.md) を参照。
 
 ## 動作シーケンス
 
@@ -108,25 +108,25 @@ Commands forwarded to the MCU (case-insensitive verb):
 > PING
   < OK PONG May 16 2026 18:42:11
 > GET CONFIG
-  < OK CONFIG rate=16000 window=32000 excitation=multiband volume=0.050 repeats=30
+  < OK CONFIG rate=16000 window=32000 excitation=multiband volume=5 repeats=30
 > GET HOME
-  < OK HOME window_a=0.0 window_b=0.0 window_c=0.0 door_AB=0.0 door_BC=0.0
+  < OK HOME a=0.0 b=0.0 c=0.0 AB=0.0 BC=0.0
 ```
 
 **サーボ校正（ホーン取付調整時）**:
 
 ```
-> SERVO window_a 0           # マニュアル角度指定
-  < OK SERVO window_a 0.0
-> SERVO window_a 12
-  < OK SERVO window_a 12.0    # 「閉」になる角度を目視で探す
-> SET HOME window_a 12       # その値を home (閉) として焼く
-  < OK HOME window_a 12.0
-> SERVO window_a 87          # 「開」になる角度を探す
-> SET OPEN window_a 87
-  < OK OPEN window_a 87.0
+> SERVO a 0           # マニュアル角度指定
+  < OK SERVO a 0.0
+> SERVO a 12
+  < OK SERVO a 12.0    # 「閉」になる角度を目視で探す
+> SET HOME a 12       # その値を home (閉) として焼く
+  < OK HOME a 12.0
+> SERVO a 87          # 「開」になる角度を探す
+> SET OPEN a 87
+  < OK OPEN a 87.0
 > GET HOME                    # 5 ch 分の home 一覧
-  < OK HOME window_a=12.0 window_b=0.0 ...
+  < OK HOME a=12.0 b=0.0 ...
 ```
 
 詳細手順は [docs/servo_coords.md §3](../../../docs/servo_coords.md)。
@@ -136,10 +136,10 @@ Commands forwarded to the MCU (case-insensitive verb):
 ```
 > :label door_closed         # PC 側ローカルコマンド (MCU に届かない)
   label set to 'door_closed' (next frames -> <out>/door_closed/)
-> SET PIN door_AB 0           # door_AB を「閉」固定
-  < OK PIN door_AB 0.0
-> SET PIN door_BC 0
-  < OK PIN door_BC 0.0
+> SET PIN AB 0           # AB を「閉」固定
+  < OK PIN AB 0.0
+> SET PIN BC 0
+  < OK PIN BC 0.0
 > SET REPEATS 30
   < OK REPEATS 30
 > RUN
@@ -158,9 +158,9 @@ JSON プランを書いて 1 コマンドで複数条件を順次採取:
 
 ```json
 [
-  {"label": "door_closed", "pins": {"door_AB": 0,  "door_BC": 0},  "repeats": 30},
-  {"label": "door_half",   "pins": {"door_AB": 45, "door_BC": 45}, "repeats": 30},
-  {"label": "door_open",   "pins": {"door_AB": 90, "door_BC": 90}, "repeats": 30},
+  {"label": "door_closed", "pins": {"AB": 0,  "BC": 0},  "repeats": 30},
+  {"label": "door_half",   "pins": {"AB": 45, "BC": 45}, "repeats": 30},
+  {"label": "door_open",   "pins": {"AB": 90, "BC": 90}, "repeats": 30},
   {"label": "amb_silence", "pins": {}, "excitation": "silence", "repeats": 10}
 ]
 ```
@@ -185,7 +185,7 @@ uv run python collector_client.py --port COM7 --plan plan.json --out ../captures
 |---|---|
 | `FAIL opening COM7` | 別ターミナル（TeraTerm 等）が掴んでいる。閉じる |
 | `< INFO IchiPing 09_collector ready` が来ない | ファームが起動していない / COM 番号間違い / ボーレート不一致（921600 固定）|
-| `OK RUN started` 後にフレームが来ない | I²C 不通でサーボ駆動失敗 → `SERVO window_a 45` 単体で動作確認、デバッグ |
+| `OK RUN started` 後にフレームが来ない | I²C 不通でサーボ駆動失敗 → `SERVO a 45` 単体で動作確認、デバッグ |
 | `! frame seq=N CRC BAD` 頻発 | UART バッファ溢れ。USB ケーブル変更、PC 側 USB ハブ介在を外す |
 | サーボが微動するだけ | 外部 5V レール不足 → 1000 µF 電解 + 安定 5V 給電確認 |
 
@@ -199,11 +199,11 @@ python collector_client.py --port COM7 --out ../captures
 > PING
 OK PONG May 16 2026 18:12:34
 > GET HOME
-OK HOME window_a=0.0 window_b=0.0 window_c=0.0 door_AB=0.0 door_BC=0.0
-> SERVO window_a 45        # マニュアル動作確認（ホーン取付調整用）
-> SET HOME window_a 12     # 「閉」位置を 12° に校正
+OK HOME a=0.0 b=0.0 c=0.0 AB=0.0 BC=0.0
+> SERVO a 45        # マニュアル動作確認（ホーン取付調整用）
+> SET HOME a 12     # 「閉」位置を 12° に校正
 > CLEAR PINS
-> SET PIN door_AB 0        # door_AB だけ固定、ほかはランダム
+> SET PIN AB 0        # AB だけ固定、ほかはランダム
 > SET REPEATS 30
 > RUN
 INFO label=...
@@ -221,9 +221,9 @@ python collector_client.py --port COM7 --plan plan.json --out ../captures
 
 ```json
 [
-  {"label": "door_closed", "pins": {"door_AB": 0,  "door_BC": 0},  "repeats": 30},
-  {"label": "door_half",   "pins": {"door_AB": 45, "door_BC": 45}, "repeats": 30},
-  {"label": "door_open",   "pins": {"door_AB": 90, "door_BC": 90}, "repeats": 30},
+  {"label": "door_closed", "pins": {"AB": 0,  "BC": 0},  "repeats": 30},
+  {"label": "door_half",   "pins": {"AB": 45, "BC": 45}, "repeats": 30},
+  {"label": "door_open",   "pins": {"AB": 90, "BC": 90}, "repeats": 30},
   {"label": "amb_silence", "pins": {}, "excitation": "silence", "repeats": 10}
 ]
 ```
@@ -240,8 +240,8 @@ python collector_client.py --port COM7 --plan plan.json --out ../captures
 
 詳細手順は [docs/servo_coords.md §3 校正手順](../../../docs/servo_coords.md) に集約。要点だけ:
 
-1. `SERVO window_a <deg>` で 1 ch ずつ動かして「閉」位置と「全開」位置を探る
-2. `SET HOME window_a 12` / `SET OPEN window_a 87` で焼き付け（窓は `open - home = 75°`、扉は `90°` が目標）
+1. `SERVO a <deg>` で 1 ch ずつ動かして「閉」位置と「全開」位置を探る
+2. `SET HOME a 12` / `SET OPEN a 87` で焼き付け（窓は `open - home = 75°`、扉は `90°` が目標）
 3. 5 ch ぶん繰り返し、`GET HOME` / `GET OPEN` で確認
 4. **`SAVE HOME` は現状 NOT_IMPL**。代わりに [`firmware/shared/source/servo_config.c`](../../shared/source/servo_config.c) の `SERVO_CONFIG_DEFAULTS` に値を書き写してリビルド → 焼き直し
 5. 以降は boot 時に同じ位置に戻る
@@ -256,11 +256,11 @@ python collector_client.py --port COM7 --plan plan.json --out ../captures
 ┌──────────────────────────────────────────┐
 │ IchiPing collector                       │
 ├──────────────────────────────────────────┤
-│ window_a   +45/+75  [====    ]   MID     │  WINDOW (logical_max=75)
-│ window_b    +0/+75  [        ]   CLOSED  │
-│ window_c   +75/+75  [========]   OPEN    │
-│ door_AB    +90/+90  [========]   OPEN    │  DOOR (logical_max=90)
-│ door_BC    +45/+90  [====    ]   MID     │
+│ a   +45/+75  [====    ]   MID     │  WINDOW (logical_max=75)
+│ b    +0/+75  [        ]   CLOSED  │
+│ c   +75/+75  [========]   OPEN    │
+│ AB    +90/+90  [========]   OPEN    │  DOOR (logical_max=90)
+│ BC    +45/+90  [====    ]   MID     │
 ├──────────────────────────────────────────┤
 │ multiband vol 0.05                       │
 │ trial   7/30                             │
@@ -282,7 +282,7 @@ python collector_client.py --port COM7 --plan plan.json --out ../captures
 | SAI1 BCLK / FS / TXD / RXD | J1.1 / J1.11 / J1.5 / J1.15 | 08 と同じ（INMP441 + MAX98357A） |
 | LPI2C2 SDA / SCL | D18 (P4_0) / D19 (P4_1) | 02 と同じ（PCA9685） |
 | OpenSDA UART | LPUART4 | 921600 bps 双方向 |
-| サーボ PWM | PCA9685 ch 0..4 | window_a/b/c, door_AB/BC |
+| サーボ PWM | PCA9685 ch 0..4 | a/b/c, AB/BC |
 | サーボ 5V | 外部 5V レール | MAX98357A と共通、1000 µF 電解必須 |
 | ILI9341 TFT | LPSPI1 + A2/A3/A4/A5 GPIO | 03_ili9341_test と同じ。未接続でもファームは動作 |
 

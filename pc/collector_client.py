@@ -22,7 +22,7 @@ Each plan step supports:
         "label":      "<dir-name>",        # required
         "pins":       {"door_AB": 0, ...}, # optional, otherwise CLEAR PINS
         "excitation": "multiband",         # optional, default current
-        "volume":     0.05,                # optional, default current
+        "volume":     5,                   # optional integer 0..100 percent
         "repeats":    30                   # required
     }
 
@@ -58,7 +58,7 @@ from ichp_frame import (
     crc16_ccitt,
 )
 
-SERVO_NAMES = ("window_a", "window_b", "window_c", "door_AB", "door_BC")
+SERVO_NAMES = ("a", "b", "c", "AB", "BC")   # short physical-mount labels (matches firmware ICHP_SERVO_NAMES)
 EXCITATIONS = ("chirp", "multiband", "silence")
 
 
@@ -286,7 +286,7 @@ class PlanStep:
     repeats: int
     pins: dict = field(default_factory=dict)
     excitation: Optional[str] = None
-    volume: Optional[float] = None
+    volume: Optional[int] = None     # 0..100 percent
 
 
 def load_plan(path: Path) -> list[PlanStep]:
@@ -299,7 +299,7 @@ def load_plan(path: Path) -> list[PlanStep]:
                 repeats=int(entry["repeats"]),
                 pins={k: float(v) for k, v in entry.get("pins", {}).items()},
                 excitation=entry.get("excitation"),
-                volume=(float(entry["volume"]) if "volume" in entry else None),
+                volume=(int(entry["volume"]) if "volume" in entry else None),
             ))
         except (KeyError, TypeError, ValueError) as exc:
             raise SystemExit(f"plan step {i} malformed: {exc}")
@@ -363,29 +363,22 @@ Commands forwarded to the MCU (case-insensitive verb):
 
   PING
   GET CONFIG / GET HOME / GET OPEN / GET PINS
-  SET VOLUME <0..1>
+  SET VOLUME <0..100>          (integer percent)
   SET EXCITATION chirp|multiband|silence
   SET REPEATS <N>
-  SET PIN <servo> <deg>     /  CLEAR PIN <servo>  /  CLEAR PINS
-  SET HOME <servo> <deg>    /  SET OPEN <servo> <deg>  /  SAVE HOME
-  SERVO <servo> <deg>       /  SERVO ALL OFF
-  RUN                       /  STOP
+  SET PIN <servo> <deg>        /  CLEAR PIN <servo>  /  CLEAR PINS
+  SET HOME <servo> <deg>       /  SET OPEN <servo> <deg>  /  SAVE HOME
+  SERVO <servo> <deg>          /  SERVO ALL OFF
+  RUN                          /  STOP
 
-Local helpers (do not reach the MCU):
+Local helpers (MUST start with ":" — keeps the MCU verb space clean):
 
-  help  /  ?            Show this help          (also accepts :help)
-  quit  /  exit         Exit                    (also accepts :quit / :exit)
-  :label <name>         Set capture label       (must use : to disambiguate)
+  :label <name>     Set the capture label (frames go to <out>/<name>/)
+  :help             Show this help
+  :quit  /  :exit   Exit
 
-Servos: window_a window_b window_c door_AB door_BC
+Servos: a b c AB BC   (windows: a b c, doors: AB BC; case-insensitive)
 """
-
-
-# Bare words handled locally without ":" prefix. These verbs are not
-# claimed by any MCU command, so the disambiguation that ":" was added
-# for does not bite here. SOME local commands ("label") still require
-# the ":" since their bare form could plausibly be a future MCU verb.
-_LOCAL_NOCOLON = {"help", "?", "quit", "exit"}
 
 
 def _handle_local(cmd: str, saver: "CaptureSaver") -> str:
@@ -396,33 +389,28 @@ def _handle_local(cmd: str, saver: "CaptureSaver") -> str:
       "quit"    — user asked to exit; caller should return
       "forward" — cmd is not local; caller should send it to the MCU
     """
-    has_colon = cmd.startswith(":")
-    body = cmd[1:] if has_colon else cmd
-    head, *rest = body.split(maxsplit=1)
-    head_lower = head.lower()
+    if not cmd.startswith(":"):
+        return "forward"
 
-    # Always-local words (work with or without colon)
-    if head_lower in ("quit", "exit"):
+    head, *rest = cmd[1:].split(maxsplit=1)
+    head = head.lower()
+
+    if head in ("quit", "exit"):
         return "quit"
-    if head_lower in ("help", "?"):
+    if head == "help":
         print(REPL_HELP)
         return "handled"
-
-    # Colon-only local words (kept colon-required to avoid clashing with
-    # potential future MCU verbs)
-    if has_colon:
-        if head_lower == "label":
-            label = rest[0].strip() if rest else ""
-            if not label:
-                print("  usage: :label <name>")
-                return "handled"
-            saver.set_label(label)
-            print(f"  label set to {label!r} (next frames -> <out>/{label}/)")
+    if head == "label":
+        label = rest[0].strip() if rest else ""
+        if not label:
+            print("  usage: :label <name>")
             return "handled"
-        print(f"  unknown local command: {cmd}")
+        saver.set_label(label)
+        print(f"  label set to {label!r} (next frames -> <out>/{label}/)")
         return "handled"
 
-    return "forward"
+    print(f"  unknown local command: {cmd}")
+    return "handled"
 
 
 def run_repl(ser: serial.Serial, reader: StreamReader, saver: CaptureSaver) -> None:

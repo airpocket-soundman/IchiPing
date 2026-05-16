@@ -13,12 +13,16 @@
 #include <stdlib.h>
 #include <ctype.h>
 
+/* Short physical-mount names — match the labels written on the model.
+ * Index = servo slot in ICHP frame servo_deg[] and PCA9685 / LU9685 PWM
+ * channel. Lookup is case-insensitive (see ichp_servo_lookup), so
+ * operators can type "AB" / "ab" / "Ab" interchangeably. */
 const char *const ICHP_SERVO_NAMES[ICHP_SERVO_COUNT] = {
-    "window_a",
-    "window_b",
-    "window_c",
-    "door_AB",
-    "door_BC",
+    "a",       /* window a  (PWM ch 0) */
+    "b",       /* window b  (PWM ch 1) */
+    "c",       /* window c  (PWM ch 2) */
+    "AB",      /* door AB   (PWM ch 3) */
+    "BC",      /* door BC   (PWM ch 4) */
 };
 
 const char *const ICHP_EXCITATION_NAMES[ICHP_EXCITE__COUNT] = {
@@ -163,10 +167,18 @@ bool ichp_cmd_parse(char *line, ichp_cmd_t *out, const char **err_token,
         if (strcmp(what, "VOLUME") == 0) {
             char *v = next_token(&p);
             if (!v) { if (err_token) *err_token = "BAD_ARGS"; if (err_arg) *err_arg = "VOLUME"; return false; }
-            float f = strtof(v, NULL);
-            if (f < 0.0f || f > 1.0f) { if (err_token) *err_token = "OUT_OF_RANGE"; if (err_arg) *err_arg = v; return false; }
+            /* Integer 0..100 percent. Reject decimal input explicitly so a
+             * caller who still types "0.05" gets a clear error instead of
+             * being silently parsed as 0 (mute). */
+            if (strchr(v, '.') != NULL) {
+                if (err_token) *err_token = "OUT_OF_RANGE";
+                if (err_arg)   *err_arg   = v;
+                return false;
+            }
+            int32_t n = (int32_t)strtol(v, NULL, 10);
+            if (n < 0 || n > 100) { if (err_token) *err_token = "OUT_OF_RANGE"; if (err_arg) *err_arg = v; return false; }
             out->kind = ICHP_CMD_SET_VOLUME;
-            out->volume = f;
+            out->volume_pct = n;
             return true;
         }
         if (strcmp(what, "EXCITATION") == 0) {

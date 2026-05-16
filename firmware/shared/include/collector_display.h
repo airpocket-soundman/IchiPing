@@ -47,7 +47,7 @@ typedef struct {
     float      last_mech[ICHP_SERVO_COUNT];
     /* Footer state */
     char       last_excitation[16];
-    float      last_volume;
+    int32_t    last_volume_pct;
     int32_t    last_trial;
     int32_t    last_repeats;
     /* Dirty bits */
@@ -66,9 +66,9 @@ void collector_display_set_servo(collector_display_t *d,
 void collector_display_set_pattern(collector_display_t *d,
                                    const float mech_deg[ICHP_SERVO_COUNT]);
 
-/* Footer text. Use ""/NaN/-1 to skip a field. */
+/* Footer text. Use ""/-1 to skip a field. volume_pct is 0..100. */
 void collector_display_set_footer(collector_display_t *d,
-                                  const char *excitation, float volume,
+                                  const char *excitation, int32_t volume_pct,
                                   int32_t trial, int32_t repeats);
 
 #ifdef __cplusplus

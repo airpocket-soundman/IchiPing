@@ -108,15 +108,15 @@
   <tbody>
     <tr><td>診断</td><td><code>PING</code></td><td><code>PING</code></td><td><code>OK PONG &lt;build&gt;</code> 応答</td></tr>
     <tr><td>取得</td><td><code>GET CONFIG</code> / <code>GET HOME</code> / <code>GET OPEN</code> / <code>GET PINS</code></td><td><code>GET HOME</code></td><td>現状を OK 行で返す</td></tr>
-    <tr><td>設定</td><td><code>SET VOLUME &lt;0..1&gt;</code></td><td><code>SET VOLUME 0.05</code></td><td>TX ソフト音量</td></tr>
+    <tr><td>設定</td><td><code>SET VOLUME &lt;0..100&gt;</code></td><td><code>SET VOLUME 5</code></td><td>TX ソフト音量（整数 %）</td></tr>
     <tr><td>設定</td><td><code>SET EXCITATION &lt;name&gt;</code></td><td><code>SET EXCITATION multiband</code></td><td><code>chirp</code> / <code>multiband</code> / <code>silence</code></td></tr>
     <tr><td>設定</td><td><code>SET REPEATS &lt;N&gt;</code></td><td><code>SET REPEATS 30</code></td><td>RUN 時の試行回数</td></tr>
-    <tr><td>設定</td><td><code>SET PIN &lt;servo&gt; &lt;deg&gt;</code></td><td><code>SET PIN door_AB 0</code></td><td>当該扉/窓を RUN 時に固定</td></tr>
-    <tr><td>設定</td><td><code>CLEAR PIN &lt;servo&gt;</code> / <code>CLEAR PINS</code></td><td><code>CLEAR PIN door_AB</code></td><td>pin 解除</td></tr>
-    <tr><td>校正</td><td><code>SET HOME &lt;servo&gt; &lt;deg&gt;</code></td><td><code>SET HOME window_a 12</code></td><td>home（閉位置, mechanical）を RAM 更新</td></tr>
-    <tr><td>校正</td><td><code>SET OPEN &lt;servo&gt; &lt;deg&gt;</code></td><td><code>SET OPEN window_a 87</code></td><td>open（全開位置, mechanical）を RAM 更新</td></tr>
+    <tr><td>設定</td><td><code>SET PIN &lt;servo&gt; &lt;deg&gt;</code></td><td><code>SET PIN AB 0</code></td><td>当該扉/窓を RUN 時に固定</td></tr>
+    <tr><td>設定</td><td><code>CLEAR PIN &lt;servo&gt;</code> / <code>CLEAR PINS</code></td><td><code>CLEAR PIN AB</code></td><td>pin 解除</td></tr>
+    <tr><td>校正</td><td><code>SET HOME &lt;servo&gt; &lt;deg&gt;</code></td><td><code>SET HOME a 12</code></td><td>home（閉位置, mechanical）を RAM 更新</td></tr>
+    <tr><td>校正</td><td><code>SET OPEN &lt;servo&gt; &lt;deg&gt;</code></td><td><code>SET OPEN a 87</code></td><td>open（全開位置, mechanical）を RAM 更新</td></tr>
     <tr><td>校正</td><td><code>SAVE HOME</code></td><td><code>SAVE HOME</code></td><td>永続化（<b>現状 NOT_IMPL — 後述</b>）</td></tr>
-    <tr><td>マニュアル</td><td><code>SERVO &lt;servo&gt; &lt;deg&gt;</code></td><td><code>SERVO window_a 45</code></td><td>1 ch を即動かす（RUN 外専用）</td></tr>
+    <tr><td>マニュアル</td><td><code>SERVO &lt;servo&gt; &lt;deg&gt;</code></td><td><code>SERVO a 45</code></td><td>1 ch を即動かす（RUN 外専用）</td></tr>
     <tr><td>マニュアル</td><td><code>SERVO ALL OFF</code></td><td><code>SERVO ALL OFF</code></td><td>全 PWM 停止</td></tr>
     <tr><td>実行</td><td><code>RUN</code></td><td><code>RUN</code></td><td>repeats 回データ採取</td></tr>
     <tr><td>中断</td><td><code>STOP</code></td><td><code>STOP</code></td><td>次フレーム境界で中断</td></tr>
@@ -124,7 +124,7 @@
 </table>
 
 <p>
-  servo 名: <code>window_a</code> / <code>window_b</code> / <code>window_c</code> / <code>door_AB</code> / <code>door_BC</code>（大文字小文字無視）。
+  servo 名: <code>a</code> / <code>b</code> / <code>c</code> / <code>AB</code> / <code>BC</code>（大文字小文字無視）。
   角度引数はすべて <b>mechanical_deg</b>（PCA9685 への生 PWM 角）。
   <code>SERVO</code> / <code>SET HOME</code> / <code>SET OPEN</code> / <code>SET PIN</code> 全部 mechanical 系。
   表示用の logical 系 (閉=0, 開=+, max 75/90) は <a href="../../../docs/servo_coords.html">docs/servo_coords.html</a> を参照。
@@ -201,24 +201,24 @@ Commands forwarded to the MCU (case-insensitive verb):
 <pre><code>&gt; PING
   &lt; OK PONG May 16 2026 18:42:11
 &gt; GET CONFIG
-  &lt; OK CONFIG rate=16000 window=32000 excitation=multiband volume=0.050 repeats=30
+  &lt; OK CONFIG rate=16000 window=32000 excitation=multiband volume=5 repeats=30
 &gt; GET HOME
-  &lt; OK HOME window_a=0.0 window_b=0.0 window_c=0.0 door_AB=0.0 door_BC=0.0
+  &lt; OK HOME a=0.0 b=0.0 c=0.0 AB=0.0 BC=0.0
 </code></pre>
 
 <p><b>サーボ校正（ホーン取付調整時）:</b></p>
 
-<pre><code>&gt; SERVO window_a 0           # マニュアル角度指定
-  &lt; OK SERVO window_a 0.0
-&gt; SERVO window_a 12
-  &lt; OK SERVO window_a 12.0    # 「閉」になる角度を目視で探す
-&gt; SET HOME window_a 12       # その値を home (閉) として焼く
-  &lt; OK HOME window_a 12.0
-&gt; SERVO window_a 87          # 「開」になる角度を探す
-&gt; SET OPEN window_a 87
-  &lt; OK OPEN window_a 87.0
+<pre><code>&gt; SERVO a 0           # マニュアル角度指定
+  &lt; OK SERVO a 0.0
+&gt; SERVO a 12
+  &lt; OK SERVO a 12.0    # 「閉」になる角度を目視で探す
+&gt; SET HOME a 12       # その値を home (閉) として焼く
+  &lt; OK HOME a 12.0
+&gt; SERVO a 87          # 「開」になる角度を探す
+&gt; SET OPEN a 87
+  &lt; OK OPEN a 87.0
 &gt; GET HOME                    # 5 ch 分の home 一覧
-  &lt; OK HOME window_a=12.0 window_b=0.0 ...
+  &lt; OK HOME a=12.0 b=0.0 ...
 </code></pre>
 
 <p>詳細手順は <a href="../../../docs/servo_coords.html">docs/servo_coords.html §3</a>。</p>
@@ -227,10 +227,10 @@ Commands forwarded to the MCU (case-insensitive verb):
 
 <pre><code>&gt; :label door_closed         # PC 側ローカルコマンド (MCU に届かない)
   label set to 'door_closed' (next frames -&gt; &lt;out&gt;/door_closed/)
-&gt; SET PIN door_AB 0           # door_AB を「閉」固定
-  &lt; OK PIN door_AB 0.0
-&gt; SET PIN door_BC 0
-  &lt; OK PIN door_BC 0.0
+&gt; SET PIN AB 0           # AB を「閉」固定
+  &lt; OK PIN AB 0.0
+&gt; SET PIN BC 0
+  &lt; OK PIN BC 0.0
 &gt; SET REPEATS 30
   &lt; OK REPEATS 30
 &gt; RUN
@@ -248,9 +248,9 @@ Commands forwarded to the MCU (case-insensitive verb):
 <p>JSON プランを書いて 1 コマンドで複数条件を順次採取:</p>
 
 <pre><code>[
-  {"label": "door_closed", "pins": {"door_AB": 0,  "door_BC": 0},  "repeats": 30},
-  {"label": "door_half",   "pins": {"door_AB": 45, "door_BC": 45}, "repeats": 30},
-  {"label": "door_open",   "pins": {"door_AB": 90, "door_BC": 90}, "repeats": 30},
+  {"label": "door_closed", "pins": {"AB": 0,  "BC": 0},  "repeats": 30},
+  {"label": "door_half",   "pins": {"AB": 45, "BC": 45}, "repeats": 30},
+  {"label": "door_open",   "pins": {"AB": 90, "BC": 90}, "repeats": 30},
   {"label": "amb_silence", "pins": {}, "excitation": "silence", "repeats": 10}
 ]
 </code></pre>
@@ -282,7 +282,7 @@ Commands forwarded to the MCU (case-insensitive verb):
   <tbody>
     <tr><td><code>FAIL opening COM7</code></td><td>別ターミナル（TeraTerm 等）が掴んでいる。閉じる</td></tr>
     <tr><td><code>&lt; INFO IchiPing 09_collector ready</code> が来ない</td><td>ファームが起動していない / COM 番号間違い / ボーレート不一致（921600 固定）</td></tr>
-    <tr><td><code>OK RUN started</code> 後にフレームが来ない</td><td>I²C 不通でサーボ駆動失敗 → <code>SERVO window_a 45</code> 単体で動作確認、デバッグ</td></tr>
+    <tr><td><code>OK RUN started</code> 後にフレームが来ない</td><td>I²C 不通でサーボ駆動失敗 → <code>SERVO a 45</code> 単体で動作確認、デバッグ</td></tr>
     <tr><td><code>! frame seq=N CRC BAD</code> 頻発</td><td>UART バッファ溢れ。USB ケーブル変更、PC 側 USB ハブ介在を外す</td></tr>
     <tr><td>サーボが微動するだけ</td><td>外部 5V レール不足 → 1000 µF 電解 + 安定 5V 給電確認</td></tr>
   </tbody>
@@ -306,8 +306,8 @@ Commands forwarded to the MCU (case-insensitive verb):
 <p>詳細手順は <a href="../../../docs/servo_coords.html">docs/servo_coords.html §3 校正手順</a> に集約。要点だけ:</p>
 
 <ol>
-  <li><code>SERVO window_a &lt;deg&gt;</code> で 1 ch ずつ動かして「閉」位置と「全開」位置を探る</li>
-  <li><code>SET HOME window_a 12</code> / <code>SET OPEN window_a 87</code> で焼き付け（窓は <code>open - home = 75°</code>、扉は <code>90°</code> が目標）</li>
+  <li><code>SERVO a &lt;deg&gt;</code> で 1 ch ずつ動かして「閉」位置と「全開」位置を探る</li>
+  <li><code>SET HOME a 12</code> / <code>SET OPEN a 87</code> で焼き付け（窓は <code>open - home = 75°</code>、扉は <code>90°</code> が目標）</li>
   <li>5 ch ぶん繰り返し、<code>GET HOME</code> / <code>GET OPEN</code> で確認</li>
   <li><b><code>SAVE HOME</code> は現状 NOT_IMPL</b>。代わりに <a href="../../shared/source/servo_config.c"><code>firmware/shared/source/servo_config.c</code></a> の <code>SERVO_CONFIG_DEFAULTS</code> に値を書き写してリビルド → 焼き直し</li>
   <li>以降は boot 時に同じ位置に戻る</li>
@@ -325,11 +325,11 @@ Commands forwarded to the MCU (case-insensitive verb):
 <pre><code>┌──────────────────────────────────────────┐
 │ IchiPing collector                       │
 ├──────────────────────────────────────────┤
-│ window_a   +45/+75  [====    ]   MID     │  WINDOW (logical_max=75)
-│ window_b    +0/+75  [        ]   CLOSED  │
-│ window_c   +75/+75  [========]   OPEN    │
-│ door_AB    +90/+90  [========]   OPEN    │  DOOR (logical_max=90)
-│ door_BC    +45/+90  [====    ]   MID     │
+│ a   +45/+75  [====    ]   MID     │  WINDOW (logical_max=75)
+│ b    +0/+75  [        ]   CLOSED  │
+│ c   +75/+75  [========]   OPEN    │
+│ AB    +90/+90  [========]   OPEN    │  DOOR (logical_max=90)
+│ BC    +45/+90  [====    ]   MID     │
 ├──────────────────────────────────────────┤
 │ multiband vol 0.05                       │
 │ trial   7/30                             │
@@ -359,7 +359,7 @@ Commands forwarded to the MCU (case-insensitive verb):
     <tr><td>SAI1 BCLK / FS / TXD / RXD</td><td>J1.1 / J1.11 / J1.5 / J1.15</td><td>08 と同じ（INMP441 + MAX98357A）</td></tr>
     <tr><td>LPI2C2 SDA / SCL</td><td>D18 (P4_0) / D19 (P4_1)</td><td>02 と同じ（PCA9685）</td></tr>
     <tr><td>OpenSDA UART</td><td>LPUART4</td><td>921600 bps 双方向</td></tr>
-    <tr><td>サーボ PWM</td><td>PCA9685 ch 0..4</td><td>window_a/b/c, door_AB/BC</td></tr>
+    <tr><td>サーボ PWM</td><td>PCA9685 ch 0..4</td><td>a/b/c, AB/BC</td></tr>
     <tr><td>サーボ 5V</td><td>外部 5V レール</td><td>MAX98357A と共通、1000 µF 電解必須</td></tr>
     <tr><td>ILI9341 TFT</td><td>LPSPI1 + A2/A3/A4/A5 GPIO</td><td>03_ili9341_test と同じ。未接続でもファームは動作</td></tr>
   </tbody>

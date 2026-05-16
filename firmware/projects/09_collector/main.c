@@ -109,7 +109,7 @@ static const float COL_MB_FREQS_HZ[COL_MB_N_BANDS] = {
     2000.0f, 3000.0f, 4000.0f, 5000.0f, 6000.0f, 7000.0f,
 };
 
-#define COL_DEFAULT_VOLUME    0.05f            /* small box concentrates SPL, -26 dB plenty */
+#define COL_DEFAULT_VOLUME    5                /* integer percent (0..100); small box, 5% ≈ -26 dB */
 #define COL_DEFAULT_REPEATS   30
 #define COL_SERVO_SETTLE_MS   400u             /* SG90 worst-case 60deg ~= 400 ms */
 
@@ -146,7 +146,7 @@ static uint8_t s_tx_buf[ICHP_HEADER_SIZE
 /* ---- Runtime state ---- */
 
 typedef struct {
-    float             volume;                 /* 0..1 software gain on TX */
+    int32_t           volume_pct;             /* 0..100 software gain on TX (integer percent) */
     ichp_excitation_t excitation;
     int32_t           repeats;
     bool              pin_present[ICHP_SERVO_COUNT];
@@ -155,7 +155,7 @@ typedef struct {
 } col_state_t;
 
 static col_state_t s_state = {
-    .volume       = COL_DEFAULT_VOLUME,
+    .volume_pct   = COL_DEFAULT_VOLUME,
     .excitation   = ICHP_EXCITE_MULTIBAND,
     .repeats      = COL_DEFAULT_REPEATS,
     .pin_present  = { false, false, false, false, false },
@@ -344,11 +344,11 @@ static void servo_apply_pattern(const float target_deg[ICHP_SERVO_COUNT])
 
 static void say_config(void)
 {
-    uart_printf("OK CONFIG rate=%u window=%u excitation=%s volume=%.3f repeats=%d",
+    uart_printf("OK CONFIG rate=%u window=%u excitation=%s volume=%d repeats=%d",
                 (unsigned)COL_SAMPLE_RATE,
                 (unsigned)COL_WINDOW_SAMP,
                 ICHP_EXCITATION_NAMES[s_state.excitation],
-                (double)s_state.volume,
+                (int)s_state.volume_pct,
                 (int)s_state.repeats);
 }
 
@@ -450,7 +450,7 @@ static void do_run(ichp_cmd_lbuf_t *lb)
     uart_printf("OK RUN started repeats=%d excitation=%s",
                 (int)s_state.repeats, ICHP_EXCITATION_NAMES[s_state.excitation]);
 
-    render_excitation(s_state.excitation, s_state.volume);
+    render_excitation(s_state.excitation, (float)s_state.volume_pct / 100.0f);
 
     int32_t frames = 0;
     for (int32_t i = 0; i < s_state.repeats && !s_state.stop_requested; i++) {
@@ -459,7 +459,7 @@ static void do_run(ichp_cmd_lbuf_t *lb)
         servo_apply_pattern(target_deg);
         collector_display_set_footer(&s_disp,
                                      ICHP_EXCITATION_NAMES[s_state.excitation],
-                                     s_state.volume,
+                                     s_state.volume_pct,
                                      i + 1, s_state.repeats);
         delay_ms(COL_SERVO_SETTLE_MS);
 
@@ -492,8 +492,8 @@ static void apply_cmd(const ichp_cmd_t *cmd, ichp_cmd_lbuf_t *lb)
         case ICHP_CMD_GET_OPEN:      say_open();   break;
         case ICHP_CMD_GET_PINS:      say_pins();   break;
         case ICHP_CMD_SET_VOLUME:
-            s_state.volume = cmd->volume;
-            uart_printf("OK VOLUME %.3f", (double)cmd->volume);
+            s_state.volume_pct = cmd->volume_pct;
+            uart_printf("OK VOLUME %d", (int)cmd->volume_pct);
             break;
         case ICHP_CMD_SET_EXCITATION:
             s_state.excitation = cmd->excite;
@@ -639,7 +639,7 @@ int main(void)
         collector_display_set_pattern(&s_disp, cfg->home_deg);
         collector_display_set_footer(&s_disp,
                                      ICHP_EXCITATION_NAMES[s_state.excitation],
-                                     s_state.volume, 0, s_state.repeats);
+                                     s_state.volume_pct, 0, s_state.repeats);
     }
 
     uart_write_line("INFO IchiPing 09_collector ready");

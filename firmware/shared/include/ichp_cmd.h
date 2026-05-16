@@ -21,11 +21,14 @@
  * Servo channel naming
  * --------------------
  *   The 5 servos on the IchiPing model are named in commands using the
- *   labels below (matching hardware/wiring.md §2.5):
+ *   short physical-mount labels printed on the model:
  *
- *     window_a, window_b, window_c, door_AB, door_BC
+ *     a, b, c    — windows (PWM ch 0, 1, 2)
+ *     AB, BC     — inter-room doors (PWM ch 3, 4)
  *
- *   In ICHP frame metadata they map to servo_deg[0..4] in that order.
+ *   Case-insensitive in commands ("ab" matches door AB; "C" matches
+ *   window c). In ICHP frame metadata they map to servo_deg[0..4] in
+ *   the order listed above. See hardware/wiring.md §2.5.
  *
  * Verbs
  * -----
@@ -36,7 +39,7 @@
  *   GET OPEN                          -> OK OPEN window_a=<deg> ... door_BC=<deg>
  *   GET PINS                          -> OK PINS window_a=<deg|free> ... door_BC=<deg|free>
  *
- *   SET VOLUME <0..1>                 -> OK VOLUME <value>
+ *   SET VOLUME <0..100>               -> OK VOLUME <pct>   (integer percent)
  *   SET EXCITATION <name>             -> OK EXCITATION <name>
  *       name in {chirp, multiband, silence}
  *   SET REPEATS <N>                   -> OK REPEATS <N>
@@ -128,9 +131,9 @@ typedef struct {
     uint8_t  servo_idx;
     /* Common: numeric argument. Meaning depends on verb. */
     float    deg;
-    float    volume;            /* SET_VOLUME            */
-    int32_t  repeats;           /* SET_REPEATS           */
-    ichp_excitation_t excite;   /* SET_EXCITATION        */
+    int32_t  volume_pct;        /* SET_VOLUME (0..100 integer percent) */
+    int32_t  repeats;           /* SET_REPEATS                         */
+    ichp_excitation_t excite;   /* SET_EXCITATION                      */
     /* For SERVO_ALL_OFF: no extra fields. */
 } ichp_cmd_t;
 

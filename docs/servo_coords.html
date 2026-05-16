@@ -112,11 +112,11 @@ mechanical_deg = home_deg[i] + sign × logical_deg
     <tr><th>servo</th><th>kind</th><th>期待 logical_max</th><th>既定 home_deg</th><th>既定 open_deg</th></tr>
   </thead>
   <tbody>
-    <tr><td><code>window_a</code></td><td>WINDOW</td><td><b>75°</b></td><td>0°</td><td>75°</td></tr>
-    <tr><td><code>window_b</code></td><td>WINDOW</td><td><b>75°</b></td><td>0°</td><td>75°</td></tr>
-    <tr><td><code>window_c</code></td><td>WINDOW</td><td><b>75°</b></td><td>0°</td><td>75°</td></tr>
-    <tr><td><code>door_AB</code></td><td>DOOR</td><td><b>90°</b></td><td>0°</td><td>90°</td></tr>
-    <tr><td><code>door_BC</code></td><td>DOOR</td><td><b>90°</b></td><td>0°</td><td>90°</td></tr>
+    <tr><td><code>a</code></td><td>WINDOW</td><td><b>75°</b></td><td>0°</td><td>75°</td></tr>
+    <tr><td><code>b</code></td><td>WINDOW</td><td><b>75°</b></td><td>0°</td><td>75°</td></tr>
+    <tr><td><code>c</code></td><td>WINDOW</td><td><b>75°</b></td><td>0°</td><td>75°</td></tr>
+    <tr><td><code>AB</code></td><td>DOOR</td><td><b>90°</b></td><td>0°</td><td>90°</td></tr>
+    <tr><td><code>BC</code></td><td>DOOR</td><td><b>90°</b></td><td>0°</td><td>90°</td></tr>
   </tbody>
 </table>
 
@@ -136,25 +136,25 @@ mechanical_deg = home_deg[i] + sign × logical_deg
 <ol>
   <li>09_collector を起動して <a href="../pc/collector_client.py"><code>pc/collector_client.py</code></a> を接続</li>
   <li>1 ch ずつマニュアル動作で「閉」位置を探る:
-    <pre><code>&gt; SERVO window_a 0
-&gt; SERVO window_a 5
-&gt; SERVO window_a 10</code></pre>
+    <pre><code>&gt; SERVO a 0
+&gt; SERVO a 5
+&gt; SERVO a 10</code></pre>
   </li>
   <li>当たり位置を home に焼き付け:
-    <pre><code>&gt; SET HOME window_a 12</code></pre>
+    <pre><code>&gt; SET HOME a 12</code></pre>
   </li>
   <li>同様に「全開」を探って焼き付け:
-    <pre><code>&gt; SERVO window_a 80
-&gt; SERVO window_a 85
-&gt; SET OPEN window_a 87</code></pre>
+    <pre><code>&gt; SERVO a 80
+&gt; SERVO a 85
+&gt; SET OPEN a 87</code></pre>
     このとき <code>open − home = 87 − 12 = 75°</code> が logical_max（窓 = 75）と一致するように物理調整するのが理想
   </li>
   <li>全 5 ch ぶん繰り返す</li>
   <li>現値を確認:
     <pre><code>&gt; GET HOME
-OK HOME window_a=12.0 window_b=8.0 window_c=15.0 door_AB=5.0 door_BC=18.0
+OK HOME a=12.0 b=8.0 c=15.0 AB=5.0 BC=18.0
 &gt; GET OPEN
-OK OPEN window_a=87.0 window_b=82.0 window_c=90.0 door_AB=95.0 door_BC=108.0</code></pre>
+OK OPEN a=87.0 b=82.0 c=90.0 AB=95.0 BC=108.0</code></pre>
   </li>
   <li>フラッシュ永続化 — <b>MVP は未実装</b>。代わりに
     <code>firmware/shared/source/servo_config.c</code> の <code>SERVO_CONFIG_DEFAULTS</code>
@@ -172,11 +172,11 @@ OK OPEN window_a=87.0 window_b=82.0 window_c=90.0 door_AB=95.0 door_BC=108.0</co
 <pre><code>┌──────────────────────────────────────────┐
 │ IchiPing collector                       │  header (NAVY)
 ├──────────────────────────────────────────┤
-│ window_a   +45/+75  [====    ]   MID     │  WINDOW (logical_max=75)
-│ window_b    +0/+75  [        ]   CLOSED  │  状態色: 緑
-│ window_c   +75/+75  [========]   OPEN    │  状態色: 橙
-│ door_AB    +90/+90  [========]   OPEN    │  DOOR (logical_max=90)
-│ door_BC    +45/+90  [====    ]   MID     │
+│ a   +45/+75  [====    ]   MID     │  WINDOW (logical_max=75)
+│ b    +0/+75  [        ]   CLOSED  │  状態色: 緑
+│ c   +75/+75  [========]   OPEN    │  状態色: 橙
+│ AB    +90/+90  [========]   OPEN    │  DOOR (logical_max=90)
+│ BC    +45/+90  [====    ]   MID     │
 ├──────────────────────────────────────────┤
 │ multiband vol 0.05                       │  footer
 │ trial   7/30                             │
@@ -212,7 +212,7 @@ OK OPEN window_a=87.0 window_b=82.0 window_c=90.0 door_AB=95.0 door_BC=108.0</co
   PC 側で論理角度に変換したい場合は、<code>servo_config_to_logical()</code> 相当の処理を
   Python 側に実装するか、<code>labels.csv</code> 解析時に
   <code>home_deg</code> / <code>open_deg</code> を別途参照する。
-  <code>captures/&lt;label&gt;/labels.csv</code> の <code>window_a..door_BC</code> 列も
+  <code>captures/&lt;label&gt;/labels.csv</code> の <code>a..BC</code> 列も
   mechanical_deg。
 </p>
 
