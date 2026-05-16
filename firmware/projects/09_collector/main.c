@@ -640,6 +640,7 @@ int main(void)
 
     uart_write_line("INFO IchiPing 09_collector ready");
     uart_printf("INFO build " __DATE__ " " __TIME__);
+    uart_printf("INFO servo backend %s @ 0x%02X", SERVO_BACKEND_NAME, (unsigned)SERVO_DEFAULT_ADDR);
     uart_write_line("INFO send PING to test, GET CONFIG for state, RUN to collect");
 
     /* Command loop. */

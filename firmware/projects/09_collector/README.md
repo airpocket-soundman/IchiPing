@@ -303,11 +303,19 @@ python collector_client.py --port COM7 --plan plan.json --out ../captures
    ../../shared/source/sai_mic.c
    ../../shared/source/sai_speaker.c
    ../../shared/source/pca9685.c
+   ../../shared/source/lu9685.c
    ../../shared/source/ichp_cmd.c
    ../../shared/source/servo_config.c
    ../../shared/source/ili9341.c
    ../../shared/source/collector_display.c
    ```
+   さらに servo バックエンドを選択する define（既定は **LU9685**、02_servo_test と同じ慣例）:
+   ```cmake
+   mcux_add_configuration(
+       CC "-DSERVO_BACKEND_LU9685_I2C"
+   )
+   ```
+   PCA9685（NXP, 16ch, アドレス 0x40）に切替えるなら `-DSERVO_BACKEND_PCA9685` に変更。両方の `.c` を含めているのでマクロ差替えだけでビルド可。
 5. **VS Code → MCUXpresso → Import Project From Folder** → `firmware/projects/09_collector/`
 6. ビルド → OpenSDA で書込
 7. シリアル端末で `PING` 送信 → `OK PONG ...` 確認 → `pc/collector_client.py` へ

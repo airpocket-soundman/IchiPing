@@ -388,11 +388,28 @@ Commands forwarded to the MCU (case-insensitive verb):
 ../../shared/source/sai_mic.c
 ../../shared/source/sai_speaker.c
 ../../shared/source/pca9685.c
+../../shared/source/lu9685.c
 ../../shared/source/ichp_cmd.c
 ../../shared/source/servo_config.c
 ../../shared/source/ili9341.c
 ../../shared/source/collector_display.c
 </code></pre>
+
+<p>
+  servo バックエンドは <b>02_servo_test と同じ慣例</b>で、CMakeLists.txt の
+  <code>mcux_add_configuration</code> でマクロ指定:
+</p>
+
+<pre><code># 既定: LU9685 (20ch, I²C 0x1F)
+mcux_add_configuration(
+    CC "-DSERVO_BACKEND_LU9685_I2C"
+)
+</code></pre>
+
+<p>
+  PCA9685（16ch, 0x40）に切替えるなら <code>-DSERVO_BACKEND_PCA9685</code> へ変更。
+  両 <code>.c</code> がビルド対象に入っているのでマクロ差替えだけで切替可能。
+</p>
 
 <h2>既知の制約 / TODO</h2>
 
