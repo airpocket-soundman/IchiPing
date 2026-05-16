@@ -90,8 +90,7 @@
 <p>
   INMP441（マイク）と MAX98357A（スピーカ）を <b>同一 SAI1 ペリフェラル</b>にぶら下げる。
   BCLK/FS は MCU 側 TX 側マスタが発生し、両デバイスが共用する。これでサンプルクロックが
-  内部で揃うので、インパルス応答計測（<a href="../firmware/projects/08_mic_speaker_test/">08_mic_speaker_test</a>,
-  <a href="../firmware/projects/10_collector/">10_collector</a>）でズレが出ない。
+  内部で揃うので、インパルス応答計測（<a href="../firmware/projects/08_mic_speaker_test/">08_mic_speaker_test</a>）でズレが出ない。
 </p>
 <table>
   <thead>
@@ -149,7 +148,7 @@
 </table>
 
 <div class="callout">
-  <p><b>microSD は本計画では採用しない</b>。よって D10 (P0_27 / <code>FC1_SPI_PCS</code>) は <b>SJ6=2-3 のまま (default)</b> で LED_GREEN として残せる。学習データは PC 側（receiver.py / collector_client.py）で受けて保存するので、ボード側ストレージ不要。</p>
+  <p><b>microSD は本計画では採用しない</b>。よって D10 (P0_27 / <code>FC1_SPI_PCS</code>) は <b>SJ6=2-3 のまま (default)</b> で LED_GREEN として残せる。学習データは PC 側（receiver.py）で受けて保存するので、ボード側ストレージ不要。</p>
   <p><b>重要 1</b>: 旧 wiring.html は "FC? / LPSPI?" と "TODO" を残していたが、実機は <b>LPSPI1 (= FC1)</b> で確定。出典は Board User Manual Table 18。</p>
   <p><b>重要 2</b>: A5 (P0_23) は <b>SJ9=1-2 (default)</b> が必要。SJ9=2-3 にすると Wakeup ピンとして使われて GPIO 出力できない。</p>
   <p><b>検証ソース</b>: SDK の <code>examples/_boards/frdmmcxn947/driver_examples/lpspi/polling_b2b_transfer/master/pin_mux.c</code> も同じ PORT0_24/25/26 + Alt2 を使用。</p>

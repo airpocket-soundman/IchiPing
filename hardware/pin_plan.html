@@ -376,7 +376,7 @@
 </tbody>
 </table>
 <blockquote>
-<p><strong>microSD は本計画では採用しない</strong>。学習データの永続化は PC 側（receiver.py / collector_client.py）が担当する。よって <strong>D10 (P0_27 = <code>FC1_SPI_PCS</code>) は SJ6=2-3 デフォルトのまま</strong>、<code>LED_GREEN</code> として残せる。後で microSD が必要になったら SJ6=1-2 + D10 を HW PCS or GPIO CS として追加。</p>
+<p><strong>microSD は本計画では採用しない</strong>。学習データの永続化は PC 側（receiver.py）が担当する。よって <strong>D10 (P0_27 = <code>FC1_SPI_PCS</code>) は SJ6=2-3 デフォルトのまま</strong>、<code>LED_GREEN</code> として残せる。後で microSD が必要になったら SJ6=1-2 + D10 を HW PCS or GPIO CS として追加。</p>
 <p>ILI9341 の CS は HW PCS（D10）ではなく <strong>A2 の GPIO 手動制御</strong>にしているのは、(1) HW PCS は LPSPI セッション毎にしか制御できず ILI の連続バーストに不向きで、(2) D10 を GPIO のまま空けておけば microSD を後付けする時にも干渉しないため。</p>
 </blockquote>
 <h3>GPIO 入力（J1 + J2 ヘッダ・UI とセンサ）</h3>
@@ -598,7 +598,7 @@
 ✅ LU9685 サーボドライバ代替（同じ I²C バス、addr 違いで両立可）
 ✅ BMP585 気圧センサ（同じ I²C バス）
 ✅ ILI9341 TFT（LPSPI1: 2 pin + GPIO 4 pin）
-⏸️ microSD は本計画では未採用（PC 側 receiver.py / collector_client.py で代替）
+⏸️ microSD は本計画では未採用（PC 側 receiver.py で代替）
 ✅ SG90 サーボ ×5（PCA9685 経由、ヘッダ占有なし）
 ✅ トグルスイッチ ×5 + EXEC ボタン（J1 D3..D7 + J2 D8）
 ✅ 推論中 LED（D2）
@@ -648,14 +648,6 @@
 <tr>
 <td>08_mic_speaker_test</td>
 <td>SAI1 全二重 (J1.1/J1.11/J1.5/J1.15)</td>
-</tr>
-<tr>
-<td>09_audio_stream</td>
-<td>SAI1 RX のみ（06 と同じ）</td>
-</tr>
-<tr>
-<td>10_collector</td>
-<td>SAI1 全二重 (08 と同じ) + ASCII コマンド (OpenSDA UART)</td>
 </tr>
 <tr>
 <td>v1 統合版</td>

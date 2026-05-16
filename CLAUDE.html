@@ -174,6 +174,7 @@ hardware/wiring.{svg,md,csv} と firmware/README.md を更新。</code></pre>
   <li><b>マイク</b>: INMP441（I²S MEMS, 24-bit、DC オフセット問題なしで chirp/RIR 用途に好適）</li>
   <li><b>DAC</b>: MAX98357A</li>
   <li><b>サーボ駆動</b>: PCA9685（I²C, 16ch PWM）→ SG90 ×5</li>
+  <li><b>サーボ座標系</b>: 2 系統共存（mechanical = PCA9685 生角度、logical = 閉 0°/開 + 方向 / 窓 max 75° / 扉 max 90°）。校正値（home/open）はフラッシュ保持（現状 RAM フォールバック）。詳細仕様は <a href="docs/servo_coords.html"><code>docs/servo_coords.html</code></a></li>
   <li><b>データ経路 v0.1</b>: <b>OpenSDA UART 921600 bps</b>（実装難易度最小の選択）。後で USB CDC に置換予定</li>
   <li><b>PC 側環境</b>: conda（<code>pc/environment.yml</code>）を主、venv（<code>pc/requirements.txt</code>）を副</li>
 </ul>

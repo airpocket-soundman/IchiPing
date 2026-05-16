@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>サーボ座標系 — IchiPing</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../index.html">トップ</a>
+      <a href="../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="../docs/spec.html">仕様書 (spec)</a>
+      <a href="../docs/nn_design.html">NN 設計</a>
+      <a href="../docs/mcu_deployment.html">MCU デプロイ</a>
+      <a href="../docs/bringup.html">実機ブリングアップ</a>
+      <a href="../docs/servo_coords.html" class="current">サーボ座標系</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="../hardware/wiring.html">配線テーブル</a>
+      <a href="../hardware/bom.html">BOM (部品表)</a>
+      <a href="../hardware/display_options.html">ディスプレイ候補</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../firmware/README.html">firmware ガイド</a>
+      <a href="../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="../docs/vscode_setup.html">VS Code セットアップ</a>
+      <a href="../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a><br>
+    <a href="https://github.com/airpocket-soundman/digikey_project">正本 digikey_project</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../index.html">← IchiPing トップ</a>
+    ／ <a href="../firmware/projects/09_collector/README.md">09_collector</a>
+    ／ <a href="../hardware/wiring.html">配線</a>
+  </div>
+  <h1>サーボ座標系 と キャリブレーション仕様</h1>
+  <div class="sub">
+    IchiPing の 5 サーボ（窓 × 3、扉 × 2）には <b>2 つの座標系</b>が共存する。
+    本ページは仕様と運用ルールを明確化するためのもの。
+    実装側は <code>firmware/shared/include/servo_config.h</code> と
+    <code>firmware/shared/source/collector_display.c</code> が正本。
+  </div>
+  <div class="meta">
+    <span class="meta-stat"><span class="num">2</span>つの座標系</span>
+    <span class="meta-stat"><span class="num">75°</span>窓 logical max</span>
+    <span class="meta-stat"><span class="num">90°</span>扉 logical max</span>
+  </div>
+</header>
+
+<main>
+
+<h2>1. 2 つの座標系</h2>
+<table>
+  <thead>
+    <tr><th>名前</th><th>単位</th><th>性質</th><th>誰が使うか</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>mechanical_deg</b></td>
+      <td>0〜180°</td>
+      <td>PCA9685 / SG90 への生 PWM 角度。SG90 ホーンの取付角に依存するので<b>個体差あり</b></td>
+      <td>ファーム内 PCA9685 ドライバ、<code>SERVO</code> コマンドの引数</td>
+    </tr>
+    <tr>
+      <td><b>logical_deg</b></td>
+      <td>0〜75° (窓) or 0〜90° (扉)</td>
+      <td>「閉位置をゼロ、開方向を正」の<b>論理表示角度</b>。個体差を吸収済み</td>
+      <td>TFT 表示、ログ、PC 側可視化</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>両者の変換は次の通り:</p>
+
+<pre><code>logical_deg    = sign × (mechanical_deg − home_deg[i])
+sign           = +1 if open_deg[i] &gt; home_deg[i] else −1
+mechanical_deg = home_deg[i] + sign × logical_deg
+</code></pre>
+
+<h2>2. 既定値</h2>
+
+<p>
+  <code>home_deg</code>（閉）と <code>open_deg</code>（全開）は
+  <b>フラッシュに保持される個体校正値</b>。
+  <code>kind</code> は機構固定で WINDOW/DOOR のいずれか。
+</p>
+
+<table>
+  <thead>
+    <tr><th>servo</th><th>kind</th><th>期待 logical_max</th><th>既定 home_deg</th><th>既定 open_deg</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>window_a</code></td><td>WINDOW</td><td><b>75°</b></td><td>0°</td><td>75°</td></tr>
+    <tr><td><code>window_b</code></td><td>WINDOW</td><td><b>75°</b></td><td>0°</td><td>75°</td></tr>
+    <tr><td><code>window_c</code></td><td>WINDOW</td><td><b>75°</b></td><td>0°</td><td>75°</td></tr>
+    <tr><td><code>door_AB</code></td><td>DOOR</td><td><b>90°</b></td><td>0°</td><td>90°</td></tr>
+    <tr><td><code>door_BC</code></td><td>DOOR</td><td><b>90°</b></td><td>0°</td><td>90°</td></tr>
+  </tbody>
+</table>
+
+<ul>
+  <li><b>窓を 75° で止める理由</b>: 模型の窓サッシが完全 90° まで開くと外枠と干渉してビビる。実機で確認した clear 角度。</li>
+  <li><b>扉を 90° で止める理由</b>: 扉は壁直交方向が「全開」。90° を超えるとアクリル壁と接触。</li>
+</ul>
+
+<p>校正後の典型値:</p>
+<ul>
+  <li><code>home_deg</code>: ±10° 程度の個体差</li>
+  <li><code>open_deg</code>: <code>home_deg + logical_max</code> の周辺、機構余裕で ±5° 程度</li>
+</ul>
+
+<h2>3. 校正手順（09_collector）</h2>
+
+<ol>
+  <li>09_collector を起動して <a href="../pc/collector_client.py"><code>pc/collector_client.py</code></a> を接続</li>
+  <li>1 ch ずつマニュアル動作で「閉」位置を探る:
+    <pre><code>&gt; SERVO window_a 0
+&gt; SERVO window_a 5
+&gt; SERVO window_a 10</code></pre>
+  </li>
+  <li>当たり位置を home に焼き付け:
+    <pre><code>&gt; SET HOME window_a 12</code></pre>
+  </li>
+  <li>同様に「全開」を探って焼き付け:
+    <pre><code>&gt; SERVO window_a 80
+&gt; SERVO window_a 85
+&gt; SET OPEN window_a 87</code></pre>
+    このとき <code>open − home = 87 − 12 = 75°</code> が logical_max（窓 = 75）と一致するように物理調整するのが理想
+  </li>
+  <li>全 5 ch ぶん繰り返す</li>
+  <li>現値を確認:
+    <pre><code>&gt; GET HOME
+OK HOME window_a=12.0 window_b=8.0 window_c=15.0 door_AB=5.0 door_BC=18.0
+&gt; GET OPEN
+OK OPEN window_a=87.0 window_b=82.0 window_c=90.0 door_AB=95.0 door_BC=108.0</code></pre>
+  </li>
+  <li>フラッシュ永続化 — <b>MVP は未実装</b>。代わりに
+    <code>firmware/shared/source/servo_config.c</code> の <code>SERVO_CONFIG_DEFAULTS</code>
+    を上の値で書き換えてリビルド・再書込</li>
+  <li>以降は boot 時に同じ home / open 位置に戻る</li>
+</ol>
+
+<h2>4. ディスプレイ表示</h2>
+
+<p>
+  09_collector は ILI9341 240×320 TFT に以下を表示する
+  (<a href="../firmware/shared/source/collector_display.c"><code>collector_display.c</code></a> 参照):
+</p>
+
+<pre><code>┌──────────────────────────────────────────┐
+│ IchiPing collector                       │  header (NAVY)
+├──────────────────────────────────────────┤
+│ window_a   +45/+75  [====    ]   MID     │  WINDOW (logical_max=75)
+│ window_b    +0/+75  [        ]   CLOSED  │  状態色: 緑
+│ window_c   +75/+75  [========]   OPEN    │  状態色: 橙
+│ door_AB    +90/+90  [========]   OPEN    │  DOOR (logical_max=90)
+│ door_BC    +45/+90  [====    ]   MID     │
+├──────────────────────────────────────────┤
+│ multiband vol 0.05                       │  footer
+│ trial   7/30                             │
+└──────────────────────────────────────────┘</code></pre>
+
+<h3>4.1 状態判定（色分け）</h3>
+<table>
+  <thead>
+    <tr><th>状態</th><th>条件</th><th>色</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><b>CLOSED</b></td><td>logical_deg ≤ 3°</td><td>緑 (<code>ILI9341_GREEN</code>)</td></tr>
+    <tr><td><b>OPEN</b></td><td>logical_deg ≥ 95% × logical_max</td><td>橙 (<code>ILI9341_ORANGE</code>)</td></tr>
+    <tr><td><b>MID</b></td><td>それ以外</td><td>黄 (<code>ILI9341_YELLOW</code>)</td></tr>
+  </tbody>
+</table>
+
+<h3>4.2 バー表示</h3>
+<p>
+  <code>fill_w = (logical_deg / logical_max) × bar_width</code> で塗りつぶし。
+  logical_max を越えた値は飽和（バー満タン）して表示。
+</p>
+
+<h2>5. ICHP フレーム内 servo_deg[5] との関係</h2>
+
+<p>
+  09_collector が送出する ICHP フレームの <code>servo_deg[]</code> 5 要素は
+  <b>mechanical_deg</b>（生 PCA9685 角度）。理由は
+  「実機・別 PC で再現する際に PCA9685 へ直接書ける値の方がデバッグしやすい」から。
+</p>
+
+<p>
+  PC 側で論理角度に変換したい場合は、<code>servo_config_to_logical()</code> 相当の処理を
+  Python 側に実装するか、<code>labels.csv</code> 解析時に
+  <code>home_deg</code> / <code>open_deg</code> を別途参照する。
+  <code>captures/&lt;label&gt;/labels.csv</code> の <code>window_a..door_BC</code> 列も
+  mechanical_deg。
+</p>
+
+<h2>6. 仕様 vs 実装の対応表</h2>
+<table>
+  <thead>
+    <tr><th>仕様項目</th><th>実装場所</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>home / open / kind の構造体</td><td><a href="../firmware/shared/include/servo_config.h"><code>servo_config.h</code></a> <code>servo_config_t</code></td></tr>
+    <tr><td>既定値（リビルド前提のハードコード）</td><td><a href="../firmware/shared/source/servo_config.c"><code>servo_config.c</code></a> <code>SERVO_CONFIG_DEFAULTS</code></td></tr>
+    <tr><td>logical ↔ mechanical 変換</td><td><a href="../firmware/shared/source/servo_config.c"><code>servo_config.c</code></a> <code>servo_config_to_logical</code> / <code>_to_mechanical</code></td></tr>
+    <tr><td>TFT パネルレイアウト</td><td><a href="../firmware/shared/source/collector_display.c"><code>collector_display.c</code></a></td></tr>
+    <tr><td><code>SET HOME</code> / <code>SET OPEN</code> コマンド</td><td><a href="../firmware/shared/include/ichp_cmd.h"><code>ichp_cmd.h</code></a> <code>ICHP_CMD_SET_HOME</code></td></tr>
+    <tr><td>ランダムパターン生成（home / open 二値）</td><td><a href="../firmware/projects/09_collector/main.c"><code>09_collector/main.c</code></a> <code>build_trial_pattern</code></td></tr>
+    <tr><td>校正運用手順</td><td>本ドキュメント §校正手順</td></tr>
+  </tbody>
+</table>
+
+<h2>関連ドキュメント</h2>
+<ul>
+  <li><a href="../firmware/projects/09_collector/README.md">09_collector/README.md</a> — コマンド一覧、ビルド手順</li>
+  <li><a href="spec.html">docs/spec.html</a> §7 — 実験模型の機構と寸法</li>
+  <li><a href="../hardware/wiring.html">hardware/wiring.html</a> §2.5 — PCA9685 チャネル割当</li>
+</ul>
+
+</main>
+
+</body>
+</html>

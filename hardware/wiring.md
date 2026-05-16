@@ -22,7 +22,7 @@
 
 ### 2.1 I²S（音響系, SAI1 full-duplex）
 
-INMP441（マイク）と MAX98357A（スピーカ）を **同一 SAI1 ペリフェラル**にぶら下げる。BCLK/FS は MCU 側 TX 側マスタが発生し、両デバイスが共用する。これでサンプルクロックが内部で揃うので、インパルス応答計測（[08_mic_speaker_test](../firmware/projects/08_mic_speaker_test/), [10_collector](../firmware/projects/10_collector/)）でズレが出ない。
+INMP441（マイク）と MAX98357A（スピーカ）を **同一 SAI1 ペリフェラル**にぶら下げる。BCLK/FS は MCU 側 TX 側マスタが発生し、両デバイスが共用する。これでサンプルクロックが内部で揃うので、インパルス応答計測（[08_mic_speaker_test](../firmware/projects/08_mic_speaker_test/)）でズレが出ない。
 
 | MCU pin | Alt | SDK 機能 | 接続先 | 信号 | 方向 |
 |---|---|---|---|---|---|
@@ -64,7 +64,7 @@ FRDM-MCXN947 Board User Manual Table 18（Arduino J2）と Table 20（J4）に�
 | **A4** | J4.10 | P0_15 | Alt0 (GPIO) | `ARD_A4` | DC | **SJ8: 1-2** (default) | Data/Command 切替 |
 | **A5** | J4.12 | P0_23 | Alt0 (GPIO) | `ARD_A5` | LED/BL | **SJ9: 1-2** (default) | バックライト。SJ9=2-3 だと Wakeup ピンに切替わる |
 
-> **microSD は本計画では採用しない**。よって D10 (P0_27 / `FC1_SPI_PCS`) は **SJ6=2-3 のまま (default)** で LED_GREEN として残せる。学習データは PC 側（receiver.py / collector_client.py）で受けて保存するので、ボード側ストレージ不要。
+> **microSD は本計画では採用しない**。よって D10 (P0_27 / `FC1_SPI_PCS`) は **SJ6=2-3 のまま (default)** で LED_GREEN として残せる。学習データは PC 側（receiver.py）で受けて保存するので、ボード側ストレージ不要。
 >
 > **重要 1**: 旧 wiring.md は "FC? / LPSPI?" と "TODO" を残していたが、実機は **LPSPI1 (= FC1)** で確定。出典は Board User Manual Table 18。
 >

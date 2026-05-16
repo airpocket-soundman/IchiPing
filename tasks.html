@@ -306,7 +306,7 @@
           （<code>virtual_com.c</code> の <code>APPInit</code> → <code>USB_DeviceApplicationInit</code> rename + <code>g_UsbCdcVcomReady</code> 追加 + DTR ハンドラ整備）。
           target USB-C (J21) で VID:PID 1FC9:0094 として enumerate、<code>receiver.py</code> 無修正で受信成功。<b>20 フレーム × 100% CRC OK</b>。
           実測 <b>3.44 fps（~291 ms / フレーム）</b> = OpenSDA UART 比 <b>13× 高速化</b>。残差は MCU 側
-          <code>dummy_audio_generate</code> + CRC 演算で、09_audio_stream で実マイクに置換すれば自然に解消する見込み。
+          <code>dummy_audio_generate</code> + CRC 演算で、08_mic_speaker_test の実マイク経路に置換すれば自然に解消する見込み。
         </p>
         <div class="task-meta">
           <span>担当: <b>MCU + PC 統合</b></span>

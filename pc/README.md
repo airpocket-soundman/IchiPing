@@ -13,7 +13,31 @@ MCU から **OpenSDA UART 921600 bps** で流れてくる IchiPing バイナリ�
 
 v0.1 の目的（シリアル経路と保存パイプラインを通す）には UART で十分。
 
-## セットアップ — conda（推奨）
+## セットアップ — uv（推奨, 最速）
+
+[uv](https://docs.astral.sh/uv/) を使えば `pyproject.toml` から仮想環境作成 + 依存解決 + Python 取得まで一発:
+
+```powershell
+# uv 初導入 (1 回だけ。https://docs.astral.sh/uv/getting-started/installation/)
+# Windows PowerShell:
+irm https://astral.sh/uv/install.ps1 | iex
+
+# pc/ ディレクトリで仮想環境作成 + 依存インストール
+cd pc
+uv sync                        # pyserial だけの最小構成 (受信・採取・推論モニタ)
+uv sync --extra training       # + NN 訓練系 (torch / onnx / numpy / scipy 等)
+uv sync --all-extras           # + dev (pytest)
+
+# 実行は uv run 経由で venv が自動で activate される
+uv run python receiver.py --port COM7 --baud 921600 --out ../captures
+uv run python collector_client.py --port COM7 --out ../captures
+uv run python inference_client.py --port COM7
+uv run python -m unittest test_frame_format test_loopback -v
+```
+
+Python バージョンは [.python-version](.python-version) で 3.11 に固定（uv が自動で必要に応じてダウンロード）。`uv.lock` が初回 `uv sync` で生成されるのでコミットして再現性確保。
+
+## セットアップ — conda（代替）
 
 ```powershell
 # Miniconda / Anaconda 前提
@@ -32,7 +56,7 @@ conda deactivate
 conda env remove -n ichiping
 ```
 
-## セットアップ — venv（conda を使わない場合）
+## セットアップ — venv + pip（最小依存のみ）
 
 ```powershell
 python -m venv .venv
@@ -49,27 +73,36 @@ pip install -r requirements.txt
 python receiver.py --port COM7 --baud 921600 --out ../captures
 ```
 
-### A'. ラベル付き学習データを採取する（10_collector）
+### A'. ラベル付き学習データを採取する（v0.5 訓練用）
+
+[09_collector](../firmware/projects/09_collector/) ファーム ＋ [`collector_client.py`](collector_client.py) で **サーボパターン自動掃引 + ラベル振り分け保存**を行う。MCU 側でランダム / pin 制約をかけ、PC 側でラベル付き WAV + CSV に保存:
 
 ```powershell
-# インタラクティブ — REPL で SET / START / STOP
-python collector_client.py --port COM7 --out ../captures/10
+# インタラクティブ REPL（サーボのマニュアル校正・home 位置決め含む）
+python collector_client.py --port COM7 --out ../captures
+> SERVO window_a 0        # ホーン取付調整
+> SET HOME window_a 12    # 「閉」位置を 12° に校正
+> SET PIN door_AB 0       # door_AB だけ閉固定、ほかランダム
+> SET REPEATS 30
+> :label door_AB_closed
+> RUN
 
-# プラン実行 — JSON で条件×繰返しを一気に
-python collector_client.py --port COM7 --plan plan.json --out ../captures/10
+# スクリプト実行 — JSON で条件×繰返しを一気に
+python collector_client.py --port COM7 --plan plan.json --out ../captures
 ```
 
 `plan.json` 例:
+
 ```json
 [
-  {"label": "door_closed", "tone": "chirp",   "repeats": 30},
-  {"label": "door_half",   "tone": "chirp",   "repeats": 30},
-  {"label": "door_open",   "tone": "chirp",   "repeats": 30},
-  {"label": "amb_silence", "tone": "silence", "repeats": 10}
+  {"label": "door_closed", "pins": {"door_AB": 0,  "door_BC": 0},  "repeats": 30},
+  {"label": "door_half",   "pins": {"door_AB": 45, "door_BC": 45}, "repeats": 30},
+  {"label": "door_open",   "pins": {"door_AB": 90, "door_BC": 90}, "repeats": 30},
+  {"label": "amb_silence", "pins": {}, "excitation": "silence", "repeats": 10}
 ]
 ```
 
-各 step で `SET label / tone / repeats / window / rate` → `START` を自動発行し、フレーム受信ごとに `<label>_<epoch>_NNNNNN.wav` ＋ `labels.csv` の 1 行を追加する。
+`captures/<label>/labels.csv` がクラスごとに独立して残り、`training/dataset.py` はディレクトリ名をラベルとして読む。コマンド一覧は [09_collector/README.md](../firmware/projects/09_collector/README.md) 参照。
 
 ### B. 実機なしでパイプラインを試す（loopback）
 
@@ -153,8 +186,9 @@ gcc/MinGW があれば `test_ctypes_packer.py` も走り、C 側 `ichp_pack_fram
 | ファイル | 役割 |
 |---|---|
 | [`ichp_frame.py`](ichp_frame.py) | フレーム形式の単一情報源（Python 側）。`MAGIC` / `HEADER_FMT` / `crc16_ccitt` / `pack_frame` / `unpack_header` |
-| [`receiver.py`](receiver.py) | シリアル / TCP / ファイル → CRC 検証 → WAV+CSV 保存のメインスクリプト（01 / 05 / 08 / 09 で使用） |
-| [`collector_client.py`](collector_client.py) | [`firmware/projects/10_collector`](../firmware/projects/10_collector/) と対向。PC→MCU に SET/START/STOP の ASCII コマンドを送り、MCU→PC のラベル付き ICHP フレームを受け取って WAV+CSV 保存。インタラクティブと plan.json 両対応 |
+| [`receiver.py`](receiver.py) | シリアル / TCP / ファイル → CRC 検証 → WAV+CSV 保存のメインスクリプト（01 / 05 / 08 で使用） |
+| [`collector_client.py`](collector_client.py) | [09_collector](../firmware/projects/09_collector/) と対向。PC→MCU の ASCII コマンド（SET / SERVO / RUN / STOP）と MCU→PC の ICHP フレームを多重で処理。インタラクティブ REPL / `--plan plan.json` 両対応。`captures/<label>/` にラベル分け保存 |
+| [`inference_client.py`](inference_client.py) | [10_inference](../firmware/projects/10_inference/) と対向（読み専用モニタ）。RESULT 行をパースして整形表示 + 任意で CSV 記録。`:label <name>` で真値タグを付けてオンライン精度確認可 |
 | [`emulator.py`](emulator.py) | 実機なしでダミーフレームを生成する偽 MCU。stdout / TCP / file の 3 出口 |
 | [`verify.py`](verify.py) | 受信ストリームを 8 項目（type/CRC/seq 連番/ts 単調/n_samples/rate/サーボ範囲/サンプル範囲）で検証する CLI。`--strict` で CI 利用可 |
 | [`test_frame_format.py`](test_frame_format.py) | unittest 9 件。ヘッダ層 + CRC ラウンドトリップ |
