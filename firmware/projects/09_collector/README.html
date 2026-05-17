@@ -322,19 +322,9 @@ Commands forwarded to the MCU (case-insensitive verb):
   パネル不在でもファームはヘッドレス動作（display 関数は no-op）。
 </p>
 
-<pre><code>┌──────────────────────────────────────────┐
-│ IchiPing collector                       │
-├──────────────────────────────────────────┤
-│ a   +45/+75  [====    ]   MID     │  WINDOW (logical_max=75)
-│ b    +0/+75  [        ]   CLOSED  │
-│ c   +75/+75  [========]   OPEN    │
-│ AB    +90/+90  [========]   OPEN    │  DOOR (logical_max=90)
-│ BC    +45/+90  [====    ]   MID     │
-├──────────────────────────────────────────┤
-│ multiband vol 0.05                       │
-│ trial   7/30                             │
-└──────────────────────────────────────────┘
-</code></pre>
+<img src="../../../docs/img/collector_display_panel.svg"
+     alt="09_collector の ILI9341 240×320 ステータスパネル"
+     style="max-width: 320px; display: block; margin: 14px 0; background: #000; border: 1px solid #444;">
 
 <ul>
   <li>表示角度は <b>logical_deg</b>（閉 = 0, 開方向 = +）。mechanical_deg からの変換は <code>servo_config_to_logical()</code> 経由</li>

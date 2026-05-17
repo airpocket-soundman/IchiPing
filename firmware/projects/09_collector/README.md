@@ -252,20 +252,7 @@ python collector_client.py --port COM7 --plan plan.json --out ../captures
 
 09_collector は TFT を持っていれば自動で 5 サーボのリアルタイム状態パネルを描画する。パネル不在でもファームはヘッドレス動作（display 関数は no-op）。
 
-```
-┌──────────────────────────────────────────┐
-│ IchiPing collector                       │
-├──────────────────────────────────────────┤
-│ a   +45/+75  [====    ]   MID     │  WINDOW (logical_max=75)
-│ b    +0/+75  [        ]   CLOSED  │
-│ c   +75/+75  [========]   OPEN    │
-│ AB    +90/+90  [========]   OPEN    │  DOOR (logical_max=90)
-│ BC    +45/+90  [====    ]   MID     │
-├──────────────────────────────────────────┤
-│ multiband vol 0.05                       │
-│ trial   7/30                             │
-└──────────────────────────────────────────┘
-```
+![09_collector の ILI9341 240×320 ステータスパネル](../../../docs/img/collector_display_panel.svg)
 
 - 表示角度は **logical_deg**（閉 = 0, 開方向 = +）。mechanical_deg からの変換は `servo_config_to_logical()` 経由
 - 色: 緑 = CLOSED（logical ≤ 3°）／橙 = OPEN（logical ≥ 95% × max）／黄 = MID

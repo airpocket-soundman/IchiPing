@@ -169,18 +169,17 @@ OK OPEN a=87.0 b=82.0 c=90.0 AB=95.0 BC=108.0</code></pre>
   (<a href="../firmware/shared/source/collector_display.c"><code>collector_display.c</code></a> 参照):
 </p>
 
-<pre><code>┌──────────────────────────────────────────┐
-│ IchiPing collector                       │  header (NAVY)
-├──────────────────────────────────────────┤
-│ a   +45/+75  [====    ]   MID     │  WINDOW (logical_max=75)
-│ b    +0/+75  [        ]   CLOSED  │  状態色: 緑
-│ c   +75/+75  [========]   OPEN    │  状態色: 橙
-│ AB    +90/+90  [========]   OPEN    │  DOOR (logical_max=90)
-│ BC    +45/+90  [====    ]   MID     │
-├──────────────────────────────────────────┤
-│ multiband vol 0.05                       │  footer
-│ trial   7/30                             │
-└──────────────────────────────────────────┘</code></pre>
+<img src="img/collector_display_panel.svg"
+     alt="09_collector の ILI9341 240×320 ステータスパネル"
+     style="max-width: 320px; display: block; margin: 14px 0; background: #000; border: 1px solid #444;">
+
+<p>
+  行は <b><code>a</code> / <code>b</code> / <code>c</code>（WINDOW, max +75°）</b>と
+  <b><code>AB</code> / <code>BC</code>（DOOR, max +90°）</b>の 5 サーボぶん。
+  各行は「名前 / 値&nbsp;/&nbsp;max / 進捗バー / 状態バッジ」の構成、状態は
+  CLOSED 緑 / OPEN 橙 / MID 黄。フッタは励起モード + ソフト音量（%）と
+  <code>trial 現在/総数</code>。
+</p>
 
 <h3>4.1 状態判定（色分け）</h3>
 <table>

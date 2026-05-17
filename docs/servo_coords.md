@@ -71,20 +71,9 @@ mechanical_deg = home_deg[i] + sign × logical_deg
 
 09_collector は ILI9341 240×320 TFT に以下を表示します（[collector_display.c](../firmware/shared/source/collector_display.c) 参照）:
 
-```
-┌──────────────────────────────────────────┐
-│ IchiPing collector                       │  header (NAVY)
-├──────────────────────────────────────────┤
-│ a   +45/+75  [====    ]   MID     │  WINDOW (logical_max=75)
-│ b    +0/+75  [        ]   CLOSED  │  状態色: 緑
-│ c   +75/+75  [========]   OPEN    │  状態色: 橙
-│ AB    +90/+90  [========]   OPEN    │  DOOR (logical_max=90)
-│ BC    +45/+90  [====    ]   MID     │
-├──────────────────────────────────────────┤
-│ multiband vol 0.05                       │  footer
-│ trial   7/30                             │
-└──────────────────────────────────────────┘
-```
+![09_collector の ILI9341 240×320 ステータスパネル](img/collector_display_panel.svg)
+
+行は **`a` / `b` / `c`（WINDOW, max +75°）** と **`AB` / `BC`（DOOR, max +90°）** の 5 サーボぶん。`値 / max`、進捗バー、状態バッジ（CLOSED 緑 / OPEN 橙 / MID 黄）の順。フッタは励起モード + ソフト音量（%）と `trial 現在/総数`。
 
 ### 状態判定（色分け）
 

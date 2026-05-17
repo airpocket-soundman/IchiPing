@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 320" width="320" height="427"
+     role="img" aria-label="09_collector の ILI9341 240x320 TFT パネルレイアウト">
+  <!-- IchiPing 09_collector status panel mockup.
+       Geometry mirrors firmware/shared/source/collector_display.c
+       (PANEL_W=240, PANEL_H=320, HEADER_H=28, ROW_H=36, BAR_W=100, BAR_H=10).
+       Colours decoded from the ILI9341 RGB565 values used in
+       collector_display.c:
+         BG       0x0000 → #000000
+         FG       0xFFFF → #FFFFFF
+         NAVY     0x000F → #000078
+         GREEN    0x07E0 → #00FF00   (CLOSED)
+         ORANGE   0xFD20 → #FFA800   (OPEN)
+         YELLOW   0xFFE0 → #FFFF00   (MID)
+         GREY     0x8410 → #808080   (bar bg / dividers)
+  -->
+
+  <!-- Panel background -->
+  <rect x="0" y="0" width="240" height="320" fill="#000000"/>
+
+  <!-- Header band -->
+  <rect x="0" y="0" width="240" height="28" fill="#000078"/>
+  <text x="6" y="20" font-family="Consolas, 'Courier New', monospace" font-size="14"
+        font-weight="bold" fill="#FFFFFF" xml:space="preserve">IchiPing collector</text>
+  <rect x="0" y="28" width="240" height="2" fill="#808080"/>
+
+  <!-- Servo rows: name (scale 2) at x=4, value at x=100, bar at x=100 y+22, state at x=210 -->
+
+  <!-- Row 0: a   +45/+75  MID -->
+  <g transform="translate(0, 32)">
+    <text x="4"   y="14" font-family="Consolas, 'Courier New', monospace" font-size="14"
+          font-weight="bold" fill="#FFFFFF">a</text>
+    <text x="100" y="14" font-family="Consolas, 'Courier New', monospace" font-size="14"
+          font-weight="bold" fill="#FFFF00" xml:space="preserve">+45/+75</text>
+    <rect x="100" y="22" width="100" height="10" fill="#808080"/>
+    <rect x="100" y="22" width="60"  height="10" fill="#FFFF00"/>
+    <text x="210" y="14" font-family="Consolas, 'Courier New', monospace" font-size="7"
+          fill="#FFFF00">MID</text>
+  </g>
+
+  <!-- Row 1: b    +0/+75  CLOSED  (no fill bar) -->
+  <g transform="translate(0, 68)">
+    <text x="4"   y="14" font-family="Consolas, 'Courier New', monospace" font-size="14"
+          font-weight="bold" fill="#FFFFFF">b</text>
+    <text x="100" y="14" font-family="Consolas, 'Courier New', monospace" font-size="14"
+          font-weight="bold" fill="#00FF00" xml:space="preserve"> +0/+75</text>
+    <rect x="100" y="22" width="100" height="10" fill="#808080"/>
+    <text x="210" y="14" font-family="Consolas, 'Courier New', monospace" font-size="7"
+          fill="#00FF00">CLOSED</text>
+  </g>
+
+  <!-- Row 2: c   +75/+75  OPEN  (full bar) -->
+  <g transform="translate(0, 104)">
+    <text x="4"   y="14" font-family="Consolas, 'Courier New', monospace" font-size="14"
+          font-weight="bold" fill="#FFFFFF">c</text>
+    <text x="100" y="14" font-family="Consolas, 'Courier New', monospace" font-size="14"
+          font-weight="bold" fill="#FFA800" xml:space="preserve">+75/+75</text>
+    <rect x="100" y="22" width="100" height="10" fill="#FFA800"/>
+    <text x="210" y="14" font-family="Consolas, 'Courier New', monospace" font-size="7"
+          fill="#FFA800">OPEN</text>
+  </g>
+
+  <!-- Row 3: AB  +90/+90  OPEN  (full bar, DOOR max) -->
+  <g transform="translate(0, 140)">
+    <text x="4"   y="14" font-family="Consolas, 'Courier New', monospace" font-size="14"
+          font-weight="bold" fill="#FFFFFF">AB</text>
+    <text x="100" y="14" font-family="Consolas, 'Courier New', monospace" font-size="14"
+          font-weight="bold" fill="#FFA800" xml:space="preserve">+90/+90</text>
+    <rect x="100" y="22" width="100" height="10" fill="#FFA800"/>
+    <text x="210" y="14" font-family="Consolas, 'Courier New', monospace" font-size="7"
+          fill="#FFA800">OPEN</text>
+  </g>
+
+  <!-- Row 4: BC  +45/+90  MID  -->
+  <g transform="translate(0, 176)">
+    <text x="4"   y="14" font-family="Consolas, 'Courier New', monospace" font-size="14"
+          font-weight="bold" fill="#FFFFFF">BC</text>
+    <text x="100" y="14" font-family="Consolas, 'Courier New', monospace" font-size="14"
+          font-weight="bold" fill="#FFFF00" xml:space="preserve">+45/+90</text>
+    <rect x="100" y="22" width="100" height="10" fill="#808080"/>
+    <rect x="100" y="22" width="50"  height="10" fill="#FFFF00"/>
+    <text x="210" y="14" font-family="Consolas, 'Courier New', monospace" font-size="7"
+          fill="#FFFF00">MID</text>
+  </g>
+
+  <!-- Divider between rows and footer -->
+  <rect x="0" y="212" width="240" height="2" fill="#808080"/>
+
+  <!-- Footer: excitation + volume, trial count -->
+  <text x="4" y="232" font-family="Consolas, 'Courier New', monospace" font-size="14"
+        font-weight="bold" fill="#FFFFFF" xml:space="preserve">multiband vol 5%</text>
+  <text x="4" y="254" font-family="Consolas, 'Courier New', monospace" font-size="14"
+        font-weight="bold" fill="#FFFFFF" xml:space="preserve">trial   7/30</text>
+
+  <!-- Legend (outside the panel — left margin annotation, hand-drawn explanation) -->
+  <!-- Use viewBox extension on the right to label WINDOW vs DOOR groups. -->
+</svg>
