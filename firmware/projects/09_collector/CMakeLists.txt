@@ -33,6 +33,7 @@ mcux_add_source(
             ../../shared/source/ichp_cmd.c
             ../../shared/source/servo_config.c
             ../../shared/source/collector_display.c
+            ../../shared/source/pattern_lib.c
 )
 
 mcux_add_include(

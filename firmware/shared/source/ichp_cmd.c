@@ -25,12 +25,6 @@ const char *const ICHP_SERVO_NAMES[ICHP_SERVO_COUNT] = {
     "BC",      /* door BC   (PWM ch 4) */
 };
 
-const char *const ICHP_EXCITATION_NAMES[ICHP_EXCITE__COUNT] = {
-    "chirp",
-    "multiband",
-    "silence",
-};
-
 static int strcasecmp_local(const char *a, const char *b)
 {
     while (*a && *b) {
@@ -48,17 +42,6 @@ int ichp_servo_lookup(const char *name)
     for (uint8_t i = 0; i < ICHP_SERVO_COUNT; i++) {
         if (strcasecmp_local(name, ICHP_SERVO_NAMES[i]) == 0) {
             return (int)i;
-        }
-    }
-    return -1;
-}
-
-int ichp_excitation_lookup(const char *name)
-{
-    if (!name) return -1;
-    for (int i = 0; i < (int)ICHP_EXCITE__COUNT; i++) {
-        if (strcasecmp_local(name, ICHP_EXCITATION_NAMES[i]) == 0) {
-            return i;
         }
     }
     return -1;
@@ -181,14 +164,9 @@ bool ichp_cmd_parse(char *line, ichp_cmd_t *out, const char **err_token,
             out->volume_pct = n;
             return true;
         }
-        if (strcmp(what, "EXCITATION") == 0) {
-            char *v = next_token(&p);
-            int e = ichp_excitation_lookup(v);
-            if (e < 0) { if (err_token) *err_token = "OUT_OF_RANGE"; if (err_arg) *err_arg = v; return false; }
-            out->kind = ICHP_CMD_SET_EXCITATION;
-            out->excite = (ichp_excitation_t)e;
-            return true;
-        }
+        /* SET EXCITATION was retired — the chirp/multiband/silence built-ins
+         * now live in pc/patterns.yaml and are pushed to the MCU at startup.
+         * Use PAT SELECT <idx> / EMIT <idx> instead. */
         if (strcmp(what, "REPEATS") == 0) {
             char *v = next_token(&p);
             if (!v) { if (err_token) *err_token = "BAD_ARGS"; if (err_arg) *err_arg = "REPEATS"; return false; }
@@ -272,6 +250,103 @@ bool ichp_cmd_parse(char *line, ichp_cmd_t *out, const char **err_token,
         out->kind = ICHP_CMD_SERVO;
         out->servo_idx = (uint8_t)idx;
         out->deg = d;
+        return true;
+    }
+
+    /* ---- PAT verb (pattern library management) ---- */
+    if (strcmp(verb, "PAT") == 0) {
+        char *sub = next_token(&p);
+        if (!sub) { if (err_token) *err_token = "BAD_ARGS"; if (err_arg) *err_arg = "PAT"; return false; }
+        for (char *q = sub; *q; q++) *q = (char)toupper((unsigned char)*q);
+
+        if (strcmp(sub, "CLEAR") == 0) {
+            out->kind = ICHP_CMD_PAT_CLEAR;
+            return true;
+        }
+        if (strcmp(sub, "INFO") == 0) {
+            out->kind = ICHP_CMD_PAT_INFO;
+            return true;
+        }
+        if (strcmp(sub, "SELECT") == 0) {
+            char *v = next_token(&p);
+            if (!v) { if (err_token) *err_token = "BAD_ARGS"; if (err_arg) *err_arg = "PAT SELECT"; return false; }
+            out->kind = ICHP_CMD_PAT_SELECT;
+            out->pat_i = (int32_t)strtol(v, NULL, 10);
+            return true;
+        }
+        if (strcmp(sub, "TONE") == 0) {
+            char *vhz  = next_token(&p);
+            char *von  = next_token(&p);
+            char *voff = next_token(&p);
+            if (!vhz || !von || !voff) {
+                if (err_token) *err_token = "BAD_ARGS";
+                if (err_arg)   *err_arg   = "PAT TONE";
+                return false;
+            }
+            out->kind  = ICHP_CMD_PAT_TONE;
+            out->pat_a = (uint32_t)strtoul(vhz,  NULL, 10);
+            out->pat_b = (uint32_t)strtoul(von,  NULL, 10);
+            out->pat_c = (uint32_t)strtoul(voff, NULL, 10);
+            return true;
+        }
+        if (strcmp(sub, "PULSE") == 0) {
+            char *p2 = next_token(&p);
+            if (!p2) { if (err_token) *err_token = "BAD_ARGS"; if (err_arg) *err_arg = "PAT PULSE"; return false; }
+            for (char *q = p2; *q; q++) *q = (char)toupper((unsigned char)*q);
+            if (strcmp(p2, "BEGIN") == 0) {
+                char *name = next_token(&p);
+                out->kind = ICHP_CMD_PAT_PULSE_BEGIN;
+                out->pat_name[0] = '\0';
+                if (name) {
+                    size_t i;
+                    for (i = 0; i < ICHP_PAT_NAME_LEN - 1u && name[i]; i++) out->pat_name[i] = name[i];
+                    out->pat_name[i] = '\0';
+                }
+                return true;
+            }
+            if (strcmp(p2, "END") == 0) {
+                char *r = next_token(&p);
+                out->kind  = ICHP_CMD_PAT_PULSE_END;
+                out->pat_i = r ? (int32_t)strtol(r, NULL, 10) : 1;
+                return true;
+            }
+            if (err_token) *err_token = "BAD_ARGS";
+            if (err_arg)   *err_arg   = p2;
+            return false;
+        }
+        if (strcmp(sub, "SWEEP") == 0) {
+            char *name     = next_token(&p);
+            char *vstart   = next_token(&p);
+            char *vend     = next_token(&p);
+            char *vsweep   = next_token(&p);
+            char *vsilence = next_token(&p);
+            if (!name || !vstart || !vend || !vsweep || !vsilence) {
+                if (err_token) *err_token = "BAD_ARGS";
+                if (err_arg)   *err_arg   = "PAT SWEEP";
+                return false;
+            }
+            out->kind = ICHP_CMD_PAT_SWEEP;
+            {
+                size_t i;
+                for (i = 0; i < ICHP_PAT_NAME_LEN - 1u && name[i]; i++) out->pat_name[i] = name[i];
+                out->pat_name[i] = '\0';
+            }
+            out->pat_a = (uint32_t)strtoul(vstart,   NULL, 10);
+            out->pat_b = (uint32_t)strtoul(vend,     NULL, 10);
+            out->pat_c = (uint32_t)strtoul(vsweep,   NULL, 10);
+            out->pat_d = (uint32_t)strtoul(vsilence, NULL, 10);
+            return true;
+        }
+        if (err_token) *err_token = "BAD_ARGS";
+        if (err_arg)   *err_arg   = sub;
+        return false;
+    }
+
+    if (strcmp(verb, "EMIT") == 0) {
+        char *v = next_token(&p);
+        if (!v) { if (err_token) *err_token = "BAD_ARGS"; if (err_arg) *err_arg = "EMIT"; return false; }
+        out->kind  = ICHP_CMD_EMIT;
+        out->pat_i = (int32_t)strtol(v, NULL, 10);
         return true;
     }
 

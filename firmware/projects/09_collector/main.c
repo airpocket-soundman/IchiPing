@@ -62,6 +62,7 @@
 #include "sai_speaker.h"
 #include "ichiping_frame.h"
 #include "ichp_cmd.h"
+#include "pattern_lib.h"
 #include "servo_config.h"
 #include "servo_driver.h"
 #include "ili9341.h"
@@ -75,39 +76,15 @@
 
 extern void BOARD_InitHardware(void);
 
-/* ---- Audio constants (same as 08, knob-able from PC at runtime) ---- */
+/* ---- Audio constants ---- */
 
 #define COL_SAMPLE_RATE       16000u
-#define COL_WINDOW_MS         2000u            /* 2 s per trial — multiband click fits with margin */
-#define COL_WINDOW_SAMP       ((COL_SAMPLE_RATE * COL_WINDOW_MS) / 1000u)
+#define COL_WINDOW_MAX_MS     2000u            /* upper bound on per-frame recording window */
+#define COL_WINDOW_SAMP       ((COL_SAMPLE_RATE * COL_WINDOW_MAX_MS) / 1000u)
 
-#define COL_CHIRP_MS          2000u            /* legacy chirp path (08 parity) */
-#define COL_CHIRP_SAMP        ((COL_SAMPLE_RATE * COL_CHIRP_MS) / 1000u)
-#define COL_CHIRP_F0_HZ       200.0f
-#define COL_CHIRP_F1_HZ       6000.0f
-
-/* Multiband click train — see docs discussion: 6 freq x 6 cycles in 2 s,
- * 300 ms per cycle, 0.7 ms burst at each of {2,3,4,5,6,7} kHz with 0.2 ms
- * raised-cosine fades. Pre-rendered into s_excite at boot.
- *
- * Sample-level layout (constant offsets in s_excite buffer):
- *   cycle c in 0..N_CYCLES-1, burst b in 0..N_BANDS-1:
- *     start_samp = c * SAMP_PER_CYCLE + b * SAMP_PER_BURST_SLOT
- *     burst spans SAMP_PER_BURST samples; rest of slot is silent.
- */
-#define COL_MB_N_BANDS        6u
-#define COL_MB_N_CYCLES       6u
-#define COL_MB_BURST_MS       0.7f
-#define COL_MB_FADE_MS        0.2f
-#define COL_MB_BURST_GAP_MS   50.0f                /* burst-to-burst within cycle */
-#define COL_MB_CYCLE_GAP_MS   0.0f                 /* cycle slot is N_BANDS*GAP, no extra */
-#define COL_MB_SAMP_PER_BURST_SLOT  ((uint32_t)((COL_MB_BURST_GAP_MS * COL_SAMPLE_RATE) / 1000.0f))
-#define COL_MB_SAMP_PER_CYCLE       (COL_MB_N_BANDS * COL_MB_SAMP_PER_BURST_SLOT)
-#define COL_MB_TOTAL_SAMP           (COL_MB_N_CYCLES * COL_MB_SAMP_PER_CYCLE)
-
-static const float COL_MB_FREQS_HZ[COL_MB_N_BANDS] = {
-    2000.0f, 3000.0f, 4000.0f, 5000.0f, 6000.0f, 7000.0f,
-};
+/* Excitation waveform now comes from pattern_lib (pushed via PAT_* commands
+ * from pc/patterns.yaml). The per-trial window length equals the selected
+ * pattern's total_samples; it must fit in COL_WINDOW_SAMP. */
 
 #define COL_DEFAULT_VOLUME    5                /* integer percent (0..100); small box, 5% ≈ -26 dB */
 #define COL_DEFAULT_REPEATS   30
@@ -147,7 +124,6 @@ static uint8_t s_tx_buf[ICHP_HEADER_SIZE
 
 typedef struct {
     int32_t           volume_pct;             /* 0..100 software gain on TX (integer percent) */
-    ichp_excitation_t excitation;
     int32_t           repeats;
     bool              pin_present[ICHP_SERVO_COUNT];
     float             pin_deg[ICHP_SERVO_COUNT];
@@ -155,11 +131,10 @@ typedef struct {
 } col_state_t;
 
 static col_state_t s_state = {
-    .volume_pct   = COL_DEFAULT_VOLUME,
-    .excitation   = ICHP_EXCITE_MULTIBAND,
-    .repeats      = COL_DEFAULT_REPEATS,
-    .pin_present  = { false, false, false, false, false },
-    .pin_deg      = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
+    .volume_pct     = COL_DEFAULT_VOLUME,
+    .repeats        = COL_DEFAULT_REPEATS,
+    .pin_present    = { false, false, false, false, false },
+    .pin_deg        = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
     .stop_requested = false,
 };
 
@@ -213,65 +188,6 @@ static void uart_printf(const char *fmt, ...)
         LPUART_WriteBlocking(COL_UART_BASE, (const uint8_t *)buf, (size_t)n);
         static const uint8_t crlf[2] = { '\r', '\n' };
         LPUART_WriteBlocking(COL_UART_BASE, crlf, 2);
-    }
-}
-
-/* ---- Excitation rendering ---- */
-
-static void render_chirp_into(int16_t *out, size_t n_total, float volume)
-{
-    const float two_pi = 6.28318530718f;
-    const float dur    = (float)COL_CHIRP_SAMP / (float)COL_SAMPLE_RATE;
-    const float k      = (COL_CHIRP_F1_HZ - COL_CHIRP_F0_HZ) / dur;
-    const size_t fade  = (size_t)(0.005f * (float)COL_SAMPLE_RATE);
-
-    for (size_t i = 0; i < n_total; i++) {
-        if (i >= COL_CHIRP_SAMP) { out[i] = 0; continue; }
-        float t     = (float)i / (float)COL_SAMPLE_RATE;
-        float phase = two_pi * (COL_CHIRP_F0_HZ * t + 0.5f * k * t * t);
-        float env   = 1.0f;
-        if (i < fade)                       env = 0.5f * (1.0f - cosf(3.14159265f * (float)i / (float)fade));
-        else if (i > COL_CHIRP_SAMP - fade) env = 0.5f * (1.0f - cosf(3.14159265f * (float)(COL_CHIRP_SAMP - i) / (float)fade));
-        float s = 0.6f * env * sinf(phase);
-        out[i]  = (int16_t)(s * 30000.0f * volume);
-    }
-}
-
-static void render_multiband_into(int16_t *out, size_t n_total, float volume)
-{
-    /* Zero everything first, then overwrite each burst region. Lets
-     * subsequent gaps stay silent without explicit zeroing. */
-    memset(out, 0, n_total * sizeof(int16_t));
-
-    const float two_pi   = 6.28318530718f;
-    const uint32_t burst_n = (uint32_t)((COL_MB_BURST_MS * COL_SAMPLE_RATE) / 1000.0f);
-    const uint32_t fade_n  = (uint32_t)((COL_MB_FADE_MS  * COL_SAMPLE_RATE) / 1000.0f);
-
-    for (uint32_t c = 0; c < COL_MB_N_CYCLES; c++) {
-        for (uint32_t b = 0; b < COL_MB_N_BANDS; b++) {
-            const uint32_t start = c * COL_MB_SAMP_PER_CYCLE
-                                 + b * COL_MB_SAMP_PER_BURST_SLOT;
-            if (start + burst_n > n_total) return;
-            const float f = COL_MB_FREQS_HZ[b];
-            for (uint32_t i = 0; i < burst_n; i++) {
-                float t = (float)i / (float)COL_SAMPLE_RATE;
-                float env = 1.0f;
-                if (i < fade_n)              env = 0.5f * (1.0f - cosf(3.14159265f * (float)i / (float)fade_n));
-                else if (i > burst_n - fade_n) env = 0.5f * (1.0f - cosf(3.14159265f * (float)(burst_n - i) / (float)fade_n));
-                float s = env * sinf(two_pi * f * t);
-                out[start + i] = (int16_t)(s * 30000.0f * volume);
-            }
-        }
-    }
-}
-
-static void render_excitation(ichp_excitation_t kind, float volume)
-{
-    switch (kind) {
-        case ICHP_EXCITE_CHIRP:     render_chirp_into(s_excite, COL_WINDOW_SAMP, volume); break;
-        case ICHP_EXCITE_MULTIBAND: render_multiband_into(s_excite, COL_WINDOW_SAMP, volume); break;
-        case ICHP_EXCITE_SILENCE:
-        default:                    memset(s_excite, 0, COL_WINDOW_SAMP * sizeof(int16_t)); break;
     }
 }
 
@@ -344,34 +260,66 @@ static void servo_apply_pattern(const float target_deg[ICHP_SERVO_COUNT])
 
 static void say_config(void)
 {
-    uart_printf("OK CONFIG rate=%u window=%u excitation=%s volume=%d repeats=%d",
+    const pattern_t *p = pattern_lib_get(g_pattern_lib.selected);
+    uart_printf("OK CONFIG rate=%u max_window=%u pattern=%s sel_idx=%u count=%u volume=%d repeats=%d",
                 (unsigned)COL_SAMPLE_RATE,
                 (unsigned)COL_WINDOW_SAMP,
-                ICHP_EXCITATION_NAMES[s_state.excitation],
+                p ? p->name : "(none)",
+                (unsigned)g_pattern_lib.selected,
+                (unsigned)g_pattern_lib.count,
                 (int)s_state.volume_pct,
                 (int)s_state.repeats);
 }
 
+static void say_pat_info(void)
+{
+    uart_printf("OK PAT count=%u selected=%u",
+                (unsigned)g_pattern_lib.count, (unsigned)g_pattern_lib.selected);
+    for (uint8_t i = 0; i < g_pattern_lib.count; i++) {
+        const pattern_t *p = &g_pattern_lib.entries[i];
+        uint32_t samp = pattern_total_samples(p, COL_SAMPLE_RATE);
+        uint32_t ms   = (samp * 1000u) / COL_SAMPLE_RATE;
+        if (p->kind == PATTERN_KIND_PULSE) {
+            uart_printf("  [%u] pulse name=%s tones=%u repeat=%u dur=%ums",
+                        (unsigned)i, p->name,
+                        (unsigned)p->pulse.n_tones,
+                        (unsigned)p->pulse.repeat,
+                        (unsigned)ms);
+        } else if (p->kind == PATTERN_KIND_SWEEP) {
+            uart_printf("  [%u] sweep name=%s %u..%uHz sweep=%ums silence=%ums dur=%ums",
+                        (unsigned)i, p->name,
+                        (unsigned)p->sweep.start_hz, (unsigned)p->sweep.end_hz,
+                        (unsigned)p->sweep.sweep_ms, (unsigned)p->sweep.silence_ms,
+                        (unsigned)ms);
+        }
+    }
+}
+
+/* Servo angles are emitted as integer degrees: newlib-nano's default
+ * printf drops %f formatting, and 1° precision is enough for servo
+ * control. If sub-degree precision is ever needed, add -u _printf_float
+ * to the linker flags and switch these back to %.1f. */
+
 static void say_home(void)
 {
     const servo_config_t *cfg = servo_config_get();
-    uart_printf("OK HOME %s=%.1f %s=%.1f %s=%.1f %s=%.1f %s=%.1f",
-                ICHP_SERVO_NAMES[0], (double)cfg->home_deg[0],
-                ICHP_SERVO_NAMES[1], (double)cfg->home_deg[1],
-                ICHP_SERVO_NAMES[2], (double)cfg->home_deg[2],
-                ICHP_SERVO_NAMES[3], (double)cfg->home_deg[3],
-                ICHP_SERVO_NAMES[4], (double)cfg->home_deg[4]);
+    uart_printf("OK HOME %s=%d %s=%d %s=%d %s=%d %s=%d",
+                ICHP_SERVO_NAMES[0], (int)cfg->home_deg[0],
+                ICHP_SERVO_NAMES[1], (int)cfg->home_deg[1],
+                ICHP_SERVO_NAMES[2], (int)cfg->home_deg[2],
+                ICHP_SERVO_NAMES[3], (int)cfg->home_deg[3],
+                ICHP_SERVO_NAMES[4], (int)cfg->home_deg[4]);
 }
 
 static void say_open(void)
 {
     const servo_config_t *cfg = servo_config_get();
-    uart_printf("OK OPEN %s=%.1f %s=%.1f %s=%.1f %s=%.1f %s=%.1f",
-                ICHP_SERVO_NAMES[0], (double)cfg->open_deg[0],
-                ICHP_SERVO_NAMES[1], (double)cfg->open_deg[1],
-                ICHP_SERVO_NAMES[2], (double)cfg->open_deg[2],
-                ICHP_SERVO_NAMES[3], (double)cfg->open_deg[3],
-                ICHP_SERVO_NAMES[4], (double)cfg->open_deg[4]);
+    uart_printf("OK OPEN %s=%d %s=%d %s=%d %s=%d %s=%d",
+                ICHP_SERVO_NAMES[0], (int)cfg->open_deg[0],
+                ICHP_SERVO_NAMES[1], (int)cfg->open_deg[1],
+                ICHP_SERVO_NAMES[2], (int)cfg->open_deg[2],
+                ICHP_SERVO_NAMES[3], (int)cfg->open_deg[3],
+                ICHP_SERVO_NAMES[4], (int)cfg->open_deg[4]);
 }
 
 static void say_pins(void)
@@ -381,8 +329,8 @@ static void say_pins(void)
     for (uint8_t i = 0; i < ICHP_SERVO_COUNT; i++) {
         int n;
         if (s_state.pin_present[i]) {
-            n = snprintf(buf + off, sizeof(buf) - off, " %s=%.1f",
-                         ICHP_SERVO_NAMES[i], (double)s_state.pin_deg[i]);
+            n = snprintf(buf + off, sizeof(buf) - off, " %s=%d",
+                         ICHP_SERVO_NAMES[i], (int)s_state.pin_deg[i]);
         } else {
             n = snprintf(buf + off, sizeof(buf) - off, " %s=free",
                          ICHP_SERVO_NAMES[i]);
@@ -394,11 +342,11 @@ static void say_pins(void)
 }
 
 /* Build + ship one ICHP audio frame. servo_deg holds the actual angles
- * applied this trial. */
+ * applied this trial. n_samples is variable per pattern. */
 static void send_frame(uint16_t seq, const float servo_deg[ICHP_SERVO_COUNT],
-                       const int16_t *rec_payload)
+                       const int16_t *rec_payload, uint16_t n_samples)
 {
-    const size_t payload_bytes = (size_t)COL_WINDOW_SAMP * sizeof(int16_t);
+    const size_t payload_bytes = (size_t)n_samples * sizeof(int16_t);
     const size_t framed = ICHP_HEADER_SIZE + payload_bytes + ICHP_CRC_SIZE;
 
     ichp_frame_header_t *h = (ichp_frame_header_t *)s_tx_buf;
@@ -410,7 +358,7 @@ static void send_frame(uint16_t seq, const float servo_deg[ICHP_SERVO_COUNT],
     h->reserved    = 0;
     h->seq         = seq;
     h->timestamp_ms = s_uptime_ms;
-    h->n_samples   = COL_WINDOW_SAMP;
+    h->n_samples   = n_samples;
     h->rate_hz     = COL_SAMPLE_RATE;
     for (int i = 0; i < ICHP_SERVO_COUNT; i++) { h->servo_deg[i] = servo_deg[i]; }
 
@@ -447,10 +395,22 @@ static void poll_for_stop_only(ichp_cmd_lbuf_t *lb)
 static void do_run(ichp_cmd_lbuf_t *lb)
 {
     s_state.stop_requested = false;
-    uart_printf("OK RUN started repeats=%d excitation=%s",
-                (int)s_state.repeats, ICHP_EXCITATION_NAMES[s_state.excitation]);
 
-    render_excitation(s_state.excitation, (float)s_state.volume_pct / 100.0f);
+    const pattern_t *p = pattern_lib_get(g_pattern_lib.selected);
+    if (!p) {
+        uart_write_line("ERR RUN no_pattern (push patterns first)");
+        return;
+    }
+    uint32_t n_samp = pattern_render(p, s_excite, COL_WINDOW_SAMP,
+                                     COL_SAMPLE_RATE, s_state.volume_pct);
+    if (n_samp == 0u) {
+        uart_write_line("ERR RUN render_failed");
+        return;
+    }
+    if (n_samp > COL_WINDOW_SAMP) n_samp = COL_WINDOW_SAMP;
+
+    uart_printf("OK RUN started repeats=%d pattern=%s samples=%u",
+                (int)s_state.repeats, p->name, (unsigned)n_samp);
 
     int32_t frames = 0;
     for (int32_t i = 0; i < s_state.repeats && !s_state.stop_requested; i++) {
@@ -458,15 +418,15 @@ static void do_run(ichp_cmd_lbuf_t *lb)
         build_trial_pattern(target_deg);
         servo_apply_pattern(target_deg);
         collector_display_set_footer(&s_disp,
-                                     ICHP_EXCITATION_NAMES[s_state.excitation],
+                                     p->name,
                                      s_state.volume_pct,
                                      i + 1, s_state.repeats);
         delay_ms(COL_SERVO_SETTLE_MS);
 
         int16_t *rec_payload = (int16_t *)(s_tx_buf + ICHP_HEADER_SIZE);
-        play_and_capture(s_excite, rec_payload, COL_WINDOW_SAMP);
+        play_and_capture(s_excite, rec_payload, n_samp);
 
-        send_frame((uint16_t)(i + 1), target_deg, rec_payload);
+        send_frame((uint16_t)(i + 1), target_deg, rec_payload, (uint16_t)n_samp);
         frames++;
 
         /* Watch for STOP between trials only — the play/capture loop is
@@ -479,6 +439,36 @@ static void do_run(ichp_cmd_lbuf_t *lb)
     } else {
         uart_printf("OK RUN done frames=%d", (int)frames);
     }
+}
+
+/* EMIT <idx>: play a pattern once, no recording, no servo movement.
+ * Useful for testing the speaker / verifying a YAML edit before RUN.
+ *
+ * Uses sai_speaker_play_blocking (TX-only) rather than play_and_capture
+ * (TX+RX) — same pattern as 07_speaker_test. Avoids any dependency on
+ * the mic side: if INMP441 is mis-wired or RX FIFO stalls, EMIT still
+ * works and we get sound proof that the speaker path is alive. */
+static void do_emit(int32_t index)
+{
+    if (index < 0 || index >= (int32_t)g_pattern_lib.count) {
+        uart_printf("ERR EMIT index_out_of_range %d (count=%u)",
+                    (int)index, (unsigned)g_pattern_lib.count);
+        return;
+    }
+    const pattern_t *p = pattern_lib_get((uint8_t)index);
+    uint32_t n_samp = pattern_render(p, s_excite, COL_WINDOW_SAMP,
+                                     COL_SAMPLE_RATE, s_state.volume_pct);
+    if (n_samp == 0u) {
+        uart_write_line("ERR EMIT render_failed");
+        return;
+    }
+    status_t s = sai_speaker_play_blocking(&s_spk, s_excite, (size_t)n_samp);
+    if (s != kStatus_Success) {
+        uart_printf("ERR EMIT speaker status=%ld", (long)s);
+        return;
+    }
+    uart_printf("OK EMIT idx=%d name=%s samples=%u",
+                (int)index, p->name, (unsigned)n_samp);
 }
 
 static void apply_cmd(const ichp_cmd_t *cmd, ichp_cmd_lbuf_t *lb)
@@ -495,10 +485,6 @@ static void apply_cmd(const ichp_cmd_t *cmd, ichp_cmd_lbuf_t *lb)
             s_state.volume_pct = cmd->volume_pct;
             uart_printf("OK VOLUME %d", (int)cmd->volume_pct);
             break;
-        case ICHP_CMD_SET_EXCITATION:
-            s_state.excitation = cmd->excite;
-            uart_printf("OK EXCITATION %s", ICHP_EXCITATION_NAMES[cmd->excite]);
-            break;
         case ICHP_CMD_SET_REPEATS:
             s_state.repeats = cmd->repeats;
             uart_printf("OK REPEATS %d", (int)cmd->repeats);
@@ -506,7 +492,7 @@ static void apply_cmd(const ichp_cmd_t *cmd, ichp_cmd_lbuf_t *lb)
         case ICHP_CMD_SET_PIN:
             s_state.pin_present[cmd->servo_idx] = true;
             s_state.pin_deg[cmd->servo_idx]     = cmd->deg;
-            uart_printf("OK PIN %s %.1f", ICHP_SERVO_NAMES[cmd->servo_idx], (double)cmd->deg);
+            uart_printf("OK PIN %s %d", ICHP_SERVO_NAMES[cmd->servo_idx], (int)cmd->deg);
             break;
         case ICHP_CMD_CLEAR_PIN:
             s_state.pin_present[cmd->servo_idx] = false;
@@ -518,11 +504,11 @@ static void apply_cmd(const ichp_cmd_t *cmd, ichp_cmd_lbuf_t *lb)
             break;
         case ICHP_CMD_SET_HOME:
             (void)servo_config_set_home(cmd->servo_idx, cmd->deg);
-            uart_printf("OK HOME %s %.1f", ICHP_SERVO_NAMES[cmd->servo_idx], (double)cmd->deg);
+            uart_printf("OK HOME %s %d", ICHP_SERVO_NAMES[cmd->servo_idx], (int)cmd->deg);
             break;
         case ICHP_CMD_SET_OPEN:
             (void)servo_config_set_open(cmd->servo_idx, cmd->deg);
-            uart_printf("OK OPEN %s %.1f", ICHP_SERVO_NAMES[cmd->servo_idx], (double)cmd->deg);
+            uart_printf("OK OPEN %s %d", ICHP_SERVO_NAMES[cmd->servo_idx], (int)cmd->deg);
             break;
         case ICHP_CMD_SAVE_HOME: {
             int r = servo_config_save_flash();
@@ -530,19 +516,89 @@ static void apply_cmd(const ichp_cmd_t *cmd, ichp_cmd_lbuf_t *lb)
             else        uart_write_line("ERR NOT_IMPL SAVE_HOME (rebuild with SERVO_CONFIG_DEFAULTS updated to GET HOME values)");
             break;
         }
-        case ICHP_CMD_SERVO:
-            (void)servo_set_deg(&s_servo, cmd->servo_idx, cmd->deg);
+        case ICHP_CMD_SERVO: {
+            status_t s = servo_set_deg(&s_servo, cmd->servo_idx, cmd->deg);
+            if (s != kStatus_Success) {
+                uart_printf("ERR SERVO_I2C %s status=%ld",
+                            ICHP_SERVO_NAMES[cmd->servo_idx], (long)s);
+                break;
+            }
             collector_display_set_servo(&s_disp, cmd->servo_idx, cmd->deg);
-            uart_printf("OK SERVO %s %.1f", ICHP_SERVO_NAMES[cmd->servo_idx], (double)cmd->deg);
+            uart_printf("OK SERVO %s deg=%d",
+                        ICHP_SERVO_NAMES[cmd->servo_idx], (int)cmd->deg);
             break;
-        case ICHP_CMD_SERVO_ALL_OFF:
-            (void)servo_all_off(&s_servo);
-            uart_write_line("OK SERVO all off");
+        }
+        case ICHP_CMD_SERVO_ALL_OFF: {
+            status_t s = servo_all_off(&s_servo);
+            if (s != kStatus_Success) {
+                uart_printf("ERR SERVO_I2C all off status=%ld", (long)s);
+            } else {
+                uart_write_line("OK SERVO all off");
+            }
             break;
+        }
         case ICHP_CMD_RUN:           do_run(lb);   break;
         case ICHP_CMD_STOP:
             /* If we get STOP outside a RUN, just acknowledge. */
             uart_write_line("OK STOP idle");
+            break;
+        case ICHP_CMD_PAT_CLEAR:
+            pattern_lib_clear();
+            uart_write_line("OK PAT cleared");
+            break;
+        case ICHP_CMD_PAT_PULSE_BEGIN:
+            if (pattern_lib_pulse_begin(cmd->pat_name)) {
+                uart_printf("OK PAT pulse begin name=%s", cmd->pat_name);
+            } else {
+                uart_write_line("ERR PAT lib_full");
+            }
+            break;
+        case ICHP_CMD_PAT_TONE:
+            if (pattern_lib_pulse_add_tone(cmd->pat_a, cmd->pat_b, cmd->pat_c)) {
+                uart_printf("OK PAT tone hz=%u on=%u off=%u",
+                            (unsigned)cmd->pat_a, (unsigned)cmd->pat_b, (unsigned)cmd->pat_c);
+            } else {
+                uart_write_line("ERR PAT not_building_or_tone_full");
+            }
+            break;
+        case ICHP_CMD_PAT_PULSE_END: {
+            uint8_t rep = (cmd->pat_i < 1) ? 1u : (uint8_t)cmd->pat_i;
+            if (pattern_lib_pulse_end(rep)) {
+                uart_printf("OK PAT pulse end count=%u",
+                            (unsigned)g_pattern_lib.count);
+            } else {
+                uart_write_line("ERR PAT pulse_end_failed");
+            }
+            break;
+        }
+        case ICHP_CMD_PAT_SWEEP:
+            if (pattern_lib_add_sweep(cmd->pat_name, cmd->pat_a, cmd->pat_b,
+                                      cmd->pat_c, cmd->pat_d)) {
+                uart_printf("OK PAT sweep name=%s start=%u end=%u sweep=%u silence=%u",
+                            cmd->pat_name,
+                            (unsigned)cmd->pat_a, (unsigned)cmd->pat_b,
+                            (unsigned)cmd->pat_c, (unsigned)cmd->pat_d);
+            } else {
+                uart_write_line("ERR PAT lib_full");
+            }
+            break;
+        case ICHP_CMD_PAT_INFO:
+            say_pat_info();
+            break;
+        case ICHP_CMD_PAT_SELECT:
+            if (cmd->pat_i < 0 || (uint8_t)cmd->pat_i >= g_pattern_lib.count) {
+                uart_printf("ERR PAT index_out_of_range %d (count=%u)",
+                            (int)cmd->pat_i, (unsigned)g_pattern_lib.count);
+            } else if (pattern_lib_select((uint8_t)cmd->pat_i)) {
+                const pattern_t *p = pattern_lib_get((uint8_t)cmd->pat_i);
+                uart_printf("OK PAT select idx=%d name=%s",
+                            (int)cmd->pat_i, p ? p->name : "?");
+            } else {
+                uart_write_line("ERR PAT select_failed");
+            }
+            break;
+        case ICHP_CMD_EMIT:
+            do_emit(cmd->pat_i);
             break;
         default:
             uart_write_line("ERR BAD_VERB");
@@ -550,7 +606,7 @@ static void apply_cmd(const ichp_cmd_t *cmd, ichp_cmd_lbuf_t *lb)
     }
 }
 
-/* ---- I2C init (for PCA9685) ---- */
+/* ---- I2C init (for PCA9685 / LU9685) ---- */
 
 static void i2c_init(void)
 {
@@ -560,9 +616,42 @@ static void i2c_init(void)
     LPI2C_MasterInit(COL_I2C_BASE, &i2c, COL_I2C_CLK_FREQ);
 }
 
+/* Probe every 7-bit I²C address (1..119) by issuing a zero-byte write
+ * and reporting which ones ACK. Mirrors 02_servo_test::i2c_scan so the
+ * same diagnostic is available without an external tool. */
+static void i2c_scan_print(void)
+{
+    int found = 0;
+    char line[80];
+    int len = snprintf(line, sizeof(line), "INFO BOOT I2C scan:");
+    for (uint8_t a = 1u; a < 0x78u; a++) {
+        lpi2c_master_transfer_t xfer = {
+            .flags          = (uint32_t)kLPI2C_TransferDefaultFlag,
+            .slaveAddress   = (uint16_t)a,
+            .direction      = kLPI2C_Write,
+            .subaddress     = 0u,
+            .subaddressSize = 0u,
+            .data           = NULL,
+            .dataSize       = 0u,
+        };
+        if (LPI2C_MasterTransferBlocking(COL_I2C_BASE, &xfer) == kStatus_Success) {
+            int n = snprintf(line + len, sizeof(line) - (size_t)len,
+                             " 0x%02X", (unsigned)a);
+            if (n > 0 && (size_t)(len + n) < sizeof(line)) len += n;
+            found++;
+        }
+    }
+    if (found == 0) {
+        uart_write_line("INFO BOOT I2C scan: no devices ACK");
+        uart_write_line("INFO check pull-ups on D18/D19, 5V on V+, and ground");
+    } else {
+        uart_write_line(line);
+    }
+}
+
 /* ---- TFT init (for ILI9341 status display) ---- */
 
-static void tft_init(void)
+static status_t tft_init(void)
 {
     /* GPIOs for CS / RES / DC / BL are driven by hardware_init.c (copy
      * from 03_ili9341_test). Mark them as outputs idle-high. */
@@ -582,11 +671,13 @@ static void tft_init(void)
         .bl_gpio      = BOARD_ILI_BL_GPIO,  .bl_pin  = BOARD_ILI_BL_PIN,
         .rotation     = ILI9341_ROT_PORTRAIT,
     };
-    if (ili9341_init(&s_tft) == kStatus_Success) {
+    status_t s = ili9341_init(&s_tft);
+    if (s == kStatus_Success) {
         collector_display_init(&s_disp, &s_tft);
     }
     /* If init fails (likely cause: TFT not wired), the collector still
-     * runs headless — log it and carry on. */
+     * runs headless — caller logs it and carries on. */
+    return s;
 }
 
 /* ---- main ---- */
@@ -598,7 +689,19 @@ int main(void)
 
     uart_init_bidi();
 
-    /* Audio bring-up — same init order as 08_mic_speaker_test. */
+    /* Boot banner first so the operator can match diagnostics against the
+     * build they actually have on the board. */
+    uart_write_line("INFO BOOT IchiPing 09_collector starting");
+    uart_printf("INFO BOOT build " __DATE__ " " __TIME__);
+
+    /* Pattern library: empty at boot. PC client pushes pc/patterns.yaml
+     * via PAT_* commands once the connection comes up. */
+    pattern_lib_init();
+    uart_printf("INFO BOOT pattern_lib ready (max %u patterns x %u tones)",
+                (unsigned)PATTERN_LIB_MAX_PATTERNS, (unsigned)PATTERN_MAX_TONES);
+
+    /* ---- Audio bring-up (same init order as 08_mic_speaker_test) ---- */
+
     sai_mic_config_t mcfg = {
         .sai_base       = BOARD_MIC_SAI_BASE,
         .sai_clk_hz     = BOARD_MIC_SAI_CLK_FREQ,
@@ -610,44 +713,90 @@ int main(void)
         .sai_clk_hz     = BOARD_SPK_SAI_CLK_FREQ,
         .sample_rate_hz = COL_SAMPLE_RATE,
     };
-    if (sai_mic_init(&s_mic, &mcfg) != kStatus_Success ||
-        sai_speaker_init(&s_spk, &scfg) != kStatus_Success) {
-        uart_write_line("ERR INIT sai");
+    if (sai_mic_init(&s_mic, &mcfg) != kStatus_Success) {
+        uart_write_line("ERR BOOT SAI mic init -- halting");
         for (;;) { __WFI(); }
     }
+    uart_printf("INFO BOOT SAI mic OK rate=%uHz", (unsigned)COL_SAMPLE_RATE);
 
-    /* Servo bring-up. */
-    i2c_init();
-    if (servo_init(&s_servo, COL_I2C_BASE, SERVO_DEFAULT_ADDR, SERVO_DEFAULT_FREQ_HZ) != kStatus_Success) {
-        uart_write_line("ERR INIT servo");
+    if (sai_speaker_init(&s_spk, &scfg) != kStatus_Success) {
+        uart_write_line("ERR BOOT SAI speaker init -- halting");
         for (;;) { __WFI(); }
+    }
+    uart_printf("INFO BOOT SAI speaker OK rate=%uHz", (unsigned)COL_SAMPLE_RATE);
+
+    /* ---- Servo bring-up (I2C + PCA9685 / LU9685) ---- */
+
+    i2c_init();
+    uart_printf("INFO BOOT I2C OK base=LPI2C2 baud=%uHz", (unsigned)COL_I2C_BAUD);
+
+    /* Scan first so the operator can see if the LU9685 (or PCA9685) is
+     * actually where we think it is — saves a lot of jumper-fiddling
+     * when the address differs from the firmware default. */
+    i2c_scan_print();
+
+    {
+        status_t s = servo_init(&s_servo, COL_I2C_BASE,
+                                SERVO_DEFAULT_ADDR, SERVO_DEFAULT_FREQ_HZ);
+        if (s != kStatus_Success) {
+            uart_printf("ERR BOOT %s init addr=0x%02X status=%ld -- halting",
+                        SERVO_BACKEND_NAME, (unsigned)SERVO_DEFAULT_ADDR, (long)s);
+            uart_write_line("INFO check 5V on V+, D18/D19 wiring, and addr jumpers");
+            for (;;) { __WFI(); }
+        }
+        uart_printf("INFO BOOT %s OK addr=0x%02X freq=%uHz",
+                    SERVO_BACKEND_NAME, (unsigned)SERVO_DEFAULT_ADDR,
+                    (unsigned)SERVO_DEFAULT_FREQ_HZ);
     }
 
     /* Load home/open config (RAM defaults for now), drive servos to home. */
     (void)servo_config_init();
     {
         const servo_config_t *cfg = servo_config_get();
-        (void)servo_set_first_n_deg(&s_servo, cfg->home_deg, ICHP_SERVO_COUNT);
+        status_t s = servo_set_first_n_deg(&s_servo, cfg->home_deg, ICHP_SERVO_COUNT);
+        if (s == kStatus_Success) {
+            /* Use %d (int) for the angles — newlib-nano's default printf
+             * drops %f unless -u _printf_float is in LD flags. Integer
+             * degrees are sufficient for the boot sanity check. */
+            uart_printf("INFO BOOT servo home OK (%u ch -> ch0=%d ch%u=%d deg)",
+                        (unsigned)ICHP_SERVO_COUNT,
+                        (int)cfg->home_deg[0],
+                        (unsigned)(ICHP_SERVO_COUNT - 1),
+                        (int)cfg->home_deg[ICHP_SERVO_COUNT - 1]);
+        } else {
+            uart_printf("WARN BOOT servo home write status=%ld (chip may be unresponsive)",
+                        (long)s);
+        }
     }
     delay_ms(COL_SERVO_SETTLE_MS);
 
-    /* TFT bring-up. Optional — collector runs headless if the panel
-     * isn't wired (s_disp stays zero-inited, display_set_* are no-ops). */
-    tft_init();
+    /* ---- TFT bring-up (SPI + ILI9341). Optional: collector runs headless
+     * if the panel isn't wired. ---- */
+
     {
-        const servo_config_t *cfg = servo_config_get();
-        collector_display_set_pattern(&s_disp, cfg->home_deg);
-        collector_display_set_footer(&s_disp,
-                                     ICHP_EXCITATION_NAMES[s_state.excitation],
-                                     s_state.volume_pct, 0, s_state.repeats);
+        status_t s = tft_init();
+        if (s == kStatus_Success) {
+            uart_write_line("INFO BOOT TFT ILI9341 OK 240x320");
+            const servo_config_t *cfg = servo_config_get();
+            collector_display_set_pattern(&s_disp, cfg->home_deg);
+            /* Pattern library is empty at boot — PC client pushes patterns
+             * after connecting, then RUN footer shows the actual name. */
+            collector_display_set_footer(&s_disp, "(no pattern)",
+                                         s_state.volume_pct, 0, s_state.repeats);
+        } else {
+            uart_printf("WARN BOOT TFT not detected status=%ld (running headless)",
+                        (long)s);
+        }
     }
 
     uart_write_line("INFO IchiPing 09_collector ready");
-    uart_printf("INFO build " __DATE__ " " __TIME__);
-    uart_printf("INFO servo backend %s @ 0x%02X", SERVO_BACKEND_NAME, (unsigned)SERVO_DEFAULT_ADDR);
     uart_write_line("INFO send PING to test, GET CONFIG for state, RUN to collect");
 
-    /* Command loop. */
+    /* Command loop. Busy-poll RX rather than __WFI: at 921600 baud the
+     * SysTick wake interval (~1 ms) is far longer than the LPUART RX FIFO
+     * (~8 entries) can buffer, so any line longer than the FIFO would
+     * overflow between wake-ups and the CR/LF would get dropped before
+     * line completion fired. Busy-polling drains the FIFO in real time. */
     ichp_cmd_lbuf_t lb;
     ichp_cmd_lbuf_reset(&lb);
 
@@ -669,8 +818,6 @@ int main(void)
                 }
                 ichp_cmd_lbuf_reset(&lb);
             }
-        } else {
-            __WFI();
         }
     }
 }

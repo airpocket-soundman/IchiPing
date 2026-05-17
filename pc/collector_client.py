@@ -19,11 +19,11 @@ Plan-driven (JSON list of steps):
 
 Each plan step supports:
     {
-        "label":      "<dir-name>",        # required
-        "pins":       {"door_AB": 0, ...}, # optional, otherwise CLEAR PINS
-        "excitation": "multiband",         # optional, default current
-        "volume":     5,                   # optional integer 0..100 percent
-        "repeats":    30                   # required
+        "label":   "<dir-name>",                  # required
+        "pins":    {"AB": 0, ...},                # optional, otherwise CLEAR PINS
+        "pattern": "multiband_default",           # optional, name from patterns.yaml
+        "volume":  5,                             # optional integer 0..100 percent
+        "repeats": 30                             # required
     }
 
 Saves WAVs to <out>/<label>/frame_NNNNNN.wav with one CSV row in
@@ -57,9 +57,10 @@ from ichp_frame import (
     CRC_SIZE,
     crc16_ccitt,
 )
+from patterns import PatternLibrary, summary as pattern_summary
 
 SERVO_NAMES = ("a", "b", "c", "AB", "BC")   # short physical-mount labels (matches firmware ICHP_SERVO_NAMES)
-EXCITATIONS = ("chirp", "multiband", "silence")
+DEFAULT_PATTERNS_PATH = Path(__file__).resolve().parent / "patterns.yaml"
 
 
 # ---------------------------------------------------------------------------
@@ -288,6 +289,21 @@ def wait_for_prefix(reader: StreamReader, prefix: str, timeout: float = 5.0) -> 
     return None
 
 
+def wait_for_ack(reader: StreamReader, timeout: float = 2.0) -> Optional[str]:
+    """Drain `reader.lines` until one starts with 'OK' or 'ERR'. Used for
+    pacing the PAT push so the LPUART RX FIFO never overflows."""
+    end = time.monotonic() + timeout
+    while time.monotonic() < end:
+        try:
+            line = reader.lines.get(timeout=0.2)
+        except Empty:
+            continue
+        print(f"  < {line}")
+        if line.startswith("OK") or line.startswith("ERR"):
+            return line
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Plan execution
 # ---------------------------------------------------------------------------
@@ -297,7 +313,7 @@ class PlanStep:
     label: str
     repeats: int
     pins: dict = field(default_factory=dict)
-    excitation: Optional[str] = None
+    pattern: Optional[str] = None    # name from patterns.yaml
     volume: Optional[int] = None     # 0..100 percent
 
 
@@ -310,7 +326,7 @@ def load_plan(path: Path) -> list[PlanStep]:
                 label=entry["label"],
                 repeats=int(entry["repeats"]),
                 pins={k: float(v) for k, v in entry.get("pins", {}).items()},
-                excitation=entry.get("excitation"),
+                pattern=entry.get("pattern"),
                 volume=(int(entry["volume"]) if "volume" in entry else None),
             ))
         except (KeyError, TypeError, ValueError) as exc:
@@ -319,16 +335,18 @@ def load_plan(path: Path) -> list[PlanStep]:
 
 
 def run_plan(plan: list[PlanStep], ser: serial.Serial, reader: StreamReader,
-             saver: CaptureSaver) -> None:
+             saver: CaptureSaver, lib: PatternLibrary) -> None:
     for step in plan:
         print(f"\n=== step: label={step.label} repeats={step.repeats} ===")
         if step.volume is not None:
             send(ser, f"SET VOLUME {step.volume}")
             wait_for_prefix(reader, "OK", timeout=2)
-        if step.excitation is not None:
-            if step.excitation not in EXCITATIONS:
-                raise SystemExit(f"unknown excitation: {step.excitation}")
-            send(ser, f"SET EXCITATION {step.excitation}")
+        if step.pattern is not None:
+            try:
+                idx, _ = lib.find(step.pattern)
+            except KeyError as exc:
+                raise SystemExit(f"plan step {step.label!r}: {exc}")
+            send(ser, f"PAT SELECT {idx}")
             wait_for_prefix(reader, "OK", timeout=2)
         send(ser, "CLEAR PINS")
         wait_for_prefix(reader, "OK", timeout=2)
@@ -376,24 +394,58 @@ Commands forwarded to the MCU (case-insensitive verb):
   PING
   GET CONFIG / GET HOME / GET OPEN / GET PINS
   SET VOLUME <0..100>          (integer percent)
-  SET EXCITATION chirp|multiband|silence
   SET REPEATS <N>
   SET PIN <servo> <deg>        /  CLEAR PIN <servo>  /  CLEAR PINS
   SET HOME <servo> <deg>       /  SET OPEN <servo> <deg>  /  SAVE HOME
   SERVO <servo> <deg>          /  SERVO ALL OFF
+  PAT INFO                     /  PAT SELECT <idx>
+  EMIT <idx>                   (test-play current pattern, no recording)
   RUN                          /  STOP
+
+Pattern playback test:
+  EMIT <idx>         Play pattern at that index once (use :patterns for idx)
+                     The REPL blocks on the MCU's OK EMIT reply so back-to-
+                     back EMITs don't race during the play.
 
 Local helpers (MUST start with ":" — keeps the MCU verb space clean):
 
-  :label <name>     Set the capture label (frames go to <out>/<name>/)
-  :help             Show this help
-  :quit  /  :exit   Exit
+  :label <name>      Set the capture label (frames go to <out>/<name>/)
+  :patterns          List patterns loaded from patterns.yaml (PC cache)
+  :select <name|idx> PAT SELECT helper (resolves name to idx, sets RUN source)
+  :reload            Re-read patterns.yaml and re-push to the MCU
+  :help              Show this help
+  :quit  /  :exit    Exit
 
 Servos: a b c AB BC   (windows: a b c, doors: AB BC; case-insensitive)
 """
 
 
-def _handle_local(cmd: str, saver: "CaptureSaver") -> str:
+def _emit_blocking(ser: "serial.Serial", lib: "PatternLibrary",
+                   reader: "StreamReader", idx: int) -> None:
+    """Send EMIT <idx> and block until the MCU's OK EMIT reply (or timeout).
+
+    The block prevents a follow-up command from racing into the LPUART RX
+    FIFO while the MCU is stuck in sai_speaker_play_blocking; without it
+    the trailing CR/LF of the next command gets dropped and the firmware
+    desynchronises. Detaches reader.line_callback so wait_for_ack can read
+    from the queue, then restores it."""
+    # Compute timeout from the cached pattern duration if known, otherwise
+    # default to the firmware's max window (2 s) plus margin.
+    timeout = 4.0
+    if 0 <= idx < len(lib.patterns):
+        timeout = max(2.0, lib.patterns[idx].total_ms() / 1000.0 + 1.0)
+    saved_cb = reader.line_callback
+    reader.line_callback = None
+    try:
+        send(ser, f"EMIT {idx}")
+        wait_for_ack(reader, timeout=timeout)
+    finally:
+        reader.line_callback = saved_cb
+
+
+def _handle_local(cmd: str, saver: "CaptureSaver",
+                  ser: "serial.Serial", lib: "PatternLibrary",
+                  reader: "StreamReader") -> str:
     """Try to handle `cmd` as a local REPL command.
 
     Returns one of:
@@ -420,12 +472,66 @@ def _handle_local(cmd: str, saver: "CaptureSaver") -> str:
         saver.set_label(label)
         print(f"  label set to {label!r} (next frames -> <out>/{label}/)")
         return "handled"
+    if head == "patterns":
+        if not lib.patterns:
+            print("  (no patterns loaded — check patterns.yaml)")
+        else:
+            for i, p in enumerate(lib.patterns):
+                print(f"  [{i}] {pattern_summary(p)}")
+        return "handled"
+    if head == "select":
+        key = rest[0].strip() if rest else ""
+        if not key:
+            print("  usage: :select <name|idx>")
+            return "handled"
+        try:
+            idx, p = lib.find(key)
+        except KeyError as exc:
+            print(f"  {exc}")
+            return "handled"
+        # Block on the OK PAT select reply (same rationale as EMIT).
+        print(f"  -> PAT SELECT {idx}  ({p.name})")
+        saved_cb = reader.line_callback
+        reader.line_callback = None
+        try:
+            send(ser, f"PAT SELECT {idx}")
+            wait_for_ack(reader, timeout=2.0)
+        finally:
+            reader.line_callback = saved_cb
+        return "handled"
+    if head == "reload":
+        try:
+            lib.reload()
+        except Exception as exc:
+            print(f"  reload failed: {exc}")
+            return "handled"
+        print(f"  patterns.yaml reloaded ({len(lib.patterns)} entries); pushing to MCU...")
+        # Temporarily detach the REPL line callback so wait_for_ack can see
+        # the OK replies via reader.lines. Without this the callback steals
+        # the lines and the wait would time out, leaving us without flow
+        # control on the push (which overflows the LPUART RX FIFO).
+        saved_cb = reader.line_callback
+        reader.line_callback = None
+        try:
+            lib.push(
+                send_line=lambda line: send(ser, line),
+                wait_ack=lambda: wait_for_ack(reader, timeout=2.0),
+                log=lambda line: print(f"  > {line}"),
+            )
+            if lib.patterns:
+                send(ser, "PAT SELECT 0")
+                wait_for_ack(reader, timeout=2.0)
+        finally:
+            reader.line_callback = saved_cb
+        print(f"  reload complete. use :patterns to verify.")
+        return "handled"
 
     print(f"  unknown local command: {cmd}")
     return "handled"
 
 
-def run_repl(ser: serial.Serial, reader: StreamReader, saver: CaptureSaver) -> None:
+def run_repl(ser: serial.Serial, reader: StreamReader, saver: CaptureSaver,
+             lib: PatternLibrary) -> None:
     print(REPL_HELP)
 
     # Print lock so async background prints (MCU lines, saved frames) do
@@ -464,16 +570,25 @@ def run_repl(ser: serial.Serial, reader: StreamReader, saver: CaptureSaver) -> N
                 return
             if not cmd:
                 continue
-            decision = _handle_local(cmd, saver)
+            decision = _handle_local(cmd, saver, ser, lib, reader)
             if decision == "quit":
                 return
             if decision == "handled":
                 continue
             # decision == "forward"
-            send(ser, cmd)
-            # No sleep / no drain needed — on_line will print the MCU
-            # response asynchronously when it arrives, including the
-            # fresh "> " prompt for the next command.
+            # Special-case EMIT <idx>: the MCU enters sai_speaker_play_blocking
+            # for ~1-2 s and stops polling UART RX during the play. Without a
+            # block here a follow-up command races into the RX FIFO and gets
+            # its CR/LF clipped (the FIFO is 8 bytes deep on MCXN947 LPUART).
+            # Other MCU commands are quick enough to pass through normally.
+            parts = cmd.split()
+            if (len(parts) == 2 and parts[0].upper() == "EMIT"
+                    and parts[1].lstrip("-").isdigit()):
+                _emit_blocking(ser, lib, reader, int(parts[1]))
+            else:
+                send(ser, cmd)
+            # on_line will print MCU responses asynchronously when they
+            # arrive, including the fresh "> " prompt for the next command.
     finally:
         # Detach callbacks so a subsequent plan run (if any) can use the
         # queue path again.
@@ -495,7 +610,16 @@ def main() -> int:
                    help="JSON plan file; if omitted, run interactive REPL")
     p.add_argument("--label", default=None,
                    help="initial label for REPL (default: 'unlabeled')")
+    p.add_argument("--patterns", type=Path, default=DEFAULT_PATTERNS_PATH,
+                   help="YAML file describing the excitation pattern library "
+                        "(default: pc/patterns.yaml)")
     args = p.parse_args()
+
+    try:
+        lib = PatternLibrary.load_yaml(args.patterns)
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"FAIL loading {args.patterns}: {exc}", file=sys.stderr)
+        return 2
 
     try:
         ser = serial.Serial(args.port, args.baud, timeout=0.1)
@@ -510,13 +634,41 @@ def main() -> int:
         saver.set_label(args.label)
 
     print(f"connected {args.port} @ {args.baud} bps, output -> {args.out}")
+    print(f"loaded {len(lib.patterns)} patterns from {args.patterns}")
+
+    # Wait for the MCU boot to finish before pushing patterns. The firmware
+    # emits "INFO IchiPing 09_collector ready" at the very end of init; up
+    # to that point the command loop is not yet running and any PAT lines
+    # we send sit in the RX FIFO until they overflow it, losing CR/LF and
+    # leaving the firmware out of sync. Opening the OpenSDA port can also
+    # toggle DTR and reset the MCU, so we must always honour this gate.
+    print("waiting for MCU boot...")
+    ready = wait_for_prefix(reader, "INFO IchiPing", timeout=6.0)
+    if ready is None:
+        print("  (no boot banner seen in 6 s; assuming MCU was already up)")
+
+    # Push the YAML library to the MCU. After reset the firmware's pattern
+    # library is empty, so RUN won't work until this completes. Pace each
+    # command with wait_for_ack — without it the MCU's TX echo outlasts the
+    # incoming byte rate and overflows the LPUART RX FIFO.
+    def _push_log(line: str) -> None:
+        print(f"  > {line}")
+    lib.push(
+        send_line=lambda line: send(ser, line),
+        wait_ack=lambda: wait_for_ack(reader, timeout=2.0),
+        log=_push_log,
+    )
+    # Auto-select pattern 0 so RUN works without an explicit :select.
+    if lib.patterns:
+        send(ser, "PAT SELECT 0")
+        wait_for_ack(reader, timeout=2.0)
 
     try:
         if args.plan:
             plan = load_plan(args.plan)
-            run_plan(plan, ser, reader, saver)
+            run_plan(plan, ser, reader, saver, lib)
         else:
-            run_repl(ser, reader, saver)
+            run_repl(ser, reader, saver, lib)
     finally:
         reader.stop()
         saver.close()

@@ -1,0 +1,56 @@
+# IchiPing audio excitation patterns.
+#
+# The 09_collector firmware reads this YAML via collector_client.py at
+# startup and stores each entry in its in-RAM pattern library
+# (firmware/shared/include/pattern_lib.h). The library is empty after
+# MCU reset, so the PC always pushes the full set on connect; use
+# `:reload` in the REPL to re-push after editing this file.
+#
+# Pattern kinds
+# -------------
+#   pulse  — sequence of {freq_hz, on_ms, off_ms} tones, optionally repeated.
+#            Recording window = sum(on+off across tones) × repeat (ms).
+#   sweep  — linear chirp from start_hz to end_hz over sweep_ms, then
+#            silence_ms of trailing silence.
+#            Recording window = sweep_ms + silence_ms.
+#
+# Limits (matched to firmware constants in pattern_lib.h):
+#   - up to 16 patterns total
+#   - up to 64 tones per pulse pattern
+#   - total window per pattern <= 2000 ms (COL_WINDOW_MAX_MS)
+
+patterns:
+  # 6-band multiband click train, 6 cycles. 1.8 s total. The original
+  # hardcoded "multiband" excitation from firmware v0.5.
+  - name: multiband_default
+    type: pulse
+    repeat: 6
+    tones:
+      - {freq_hz: 2000, on_ms: 1, off_ms: 49}
+      - {freq_hz: 3000, on_ms: 1, off_ms: 49}
+      - {freq_hz: 4000, on_ms: 1, off_ms: 49}
+      - {freq_hz: 5000, on_ms: 1, off_ms: 49}
+      - {freq_hz: 6000, on_ms: 1, off_ms: 49}
+      - {freq_hz: 7000, on_ms: 1, off_ms: 49}
+
+  # Linear chirp 200 Hz -> 6 kHz over 2 s. Original "chirp" excitation.
+  - name: chirp_200_6k
+    type: sweep
+    start_hz: 200
+    end_hz: 6000
+    sweep_ms: 2000
+    silence_ms: 0
+
+  # Pure silence for ambient baseline frames. Original "silence" excitation.
+  - name: silence_2s
+    type: pulse
+    tones:
+      - {freq_hz: 0, on_ms: 0, off_ms: 2000}
+
+  # Quick two-tone test pattern (low + high) for speaker / mic loopback
+  # verification before running a full data-collection plan.
+  - name: dual_low_high
+    type: pulse
+    tones:
+      - {freq_hz: 1000, on_ms: 100, off_ms: 100}
+      - {freq_hz: 5000, on_ms: 100, off_ms: 100}

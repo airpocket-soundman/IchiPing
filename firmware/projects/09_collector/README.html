@@ -109,7 +109,7 @@
     <tr><td>診断</td><td><code>PING</code></td><td><code>PING</code></td><td><code>OK PONG &lt;build&gt;</code> 応答</td></tr>
     <tr><td>取得</td><td><code>GET CONFIG</code> / <code>GET HOME</code> / <code>GET OPEN</code> / <code>GET PINS</code></td><td><code>GET HOME</code></td><td>現状を OK 行で返す</td></tr>
     <tr><td>設定</td><td><code>SET VOLUME &lt;0..100&gt;</code></td><td><code>SET VOLUME 5</code></td><td>TX ソフト音量（整数 %）</td></tr>
-    <tr><td>設定</td><td><code>SET EXCITATION &lt;name&gt;</code></td><td><code>SET EXCITATION multiband</code></td><td><code>chirp</code> / <code>multiband</code> / <code>silence</code></td></tr>
+    <tr><td>パターン</td><td><code>PAT INFO</code> / <code>PAT SELECT &lt;idx&gt;</code> / <code>EMIT &lt;idx&gt;</code></td><td><code>PAT SELECT 1</code></td><td>パターンライブラリ（<a href="../../../pc/patterns.yaml"><code>pc/patterns.yaml</code></a> 定義）から選択／テスト発音。詳細は §パターン</td></tr>
     <tr><td>設定</td><td><code>SET REPEATS &lt;N&gt;</code></td><td><code>SET REPEATS 30</code></td><td>RUN 時の試行回数</td></tr>
     <tr><td>設定</td><td><code>SET PIN &lt;servo&gt; &lt;deg&gt;</code></td><td><code>SET PIN AB 0</code></td><td>当該扉/窓を RUN 時に固定</td></tr>
     <tr><td>設定</td><td><code>CLEAR PIN &lt;servo&gt;</code> / <code>CLEAR PINS</code></td><td><code>CLEAR PIN AB</code></td><td>pin 解除</td></tr>
@@ -141,7 +141,7 @@ loop:
     │       for i in 0..repeats-1:
     │         build trial pattern (pinned values + random fill)
     │         drive servos, settle 400 ms
-    │         render excitation (cached if unchanged)
+    │         render selected pattern from pattern_lib (cached at start)
     │         play_and_capture (full-duplex SAI1, 2 s window)
     │         send ICHP frame (servo_deg[] = actual angles applied)
     │         poll for STOP between trials
@@ -177,7 +177,7 @@ uv run python collector_client.py --port COM7 --out ../captures
 
 <pre><code>connected COM7 @ 921600 bps, output -> ../captures
   &lt; INFO IchiPing 09_collector ready
-  &lt; INFO build May 16 2026 18:42:11
+  &lt; INFO build May 17 2026 10:25:09
   &lt; INFO send PING to test, GET CONFIG for state, RUN to collect
 
 Commands forwarded to the MCU (case-insensitive verb):
@@ -199,27 +199,32 @@ Commands forwarded to the MCU (case-insensitive verb):
 <p><b>疎通確認:</b></p>
 
 <pre><code>&gt; PING
-  &lt; OK PONG May 16 2026 18:42:11
+  &lt; OK PONG May 17 2026 10:25:09
 &gt; GET CONFIG
-  &lt; OK CONFIG rate=16000 window=32000 excitation=multiband volume=5 repeats=30
+  &lt; OK CONFIG rate=16000 max_window=32000 pattern=multiband_default sel_idx=0 count=4 volume=5 repeats=30
 &gt; GET HOME
-  &lt; OK HOME a=0.0 b=0.0 c=0.0 AB=0.0 BC=0.0
+  &lt; OK HOME a=0 b=0 c=0 AB=0 BC=0
 </code></pre>
 
 <p><b>サーボ校正（ホーン取付調整時）:</b></p>
 
 <pre><code>&gt; SERVO a 0           # マニュアル角度指定
-  &lt; OK SERVO a 0.0
+  &lt; OK SERVO a deg=0
 &gt; SERVO a 12
-  &lt; OK SERVO a 12.0    # 「閉」になる角度を目視で探す
+  &lt; OK SERVO a deg=12   # 「閉」になる角度を目視で探す
 &gt; SET HOME a 12       # その値を home (閉) として焼く
-  &lt; OK HOME a 12.0
+  &lt; OK HOME a 12
 &gt; SERVO a 87          # 「開」になる角度を探す
 &gt; SET OPEN a 87
-  &lt; OK OPEN a 87.0
-&gt; GET HOME                    # 5 ch 分の home 一覧
-  &lt; OK HOME a=12.0 b=0.0 ...
+  &lt; OK OPEN a 87
+&gt; GET HOME            # 5 ch 分の home 一覧
+  &lt; OK HOME a=12 b=0 c=0 AB=0 BC=0
 </code></pre>
+
+<blockquote>
+  角度は整数のみ表示（newlib-nano の既定で <code>%f</code> がリンクされないため整数化）。
+  サーボ精度として 1° で十分。サブ度精度が必要になったら CMake LD に <code>-u _printf_float</code> 追加で復活可。
+</blockquote>
 
 <p>詳細手順は <a href="../../../docs/servo_coords.html">docs/servo_coords.html §3</a>。</p>
 
@@ -228,13 +233,13 @@ Commands forwarded to the MCU (case-insensitive verb):
 <pre><code>&gt; :label door_closed         # PC 側ローカルコマンド (MCU に届かない)
   label set to 'door_closed' (next frames -&gt; &lt;out&gt;/door_closed/)
 &gt; SET PIN AB 0           # AB を「閉」固定
-  &lt; OK PIN AB 0.0
+  &lt; OK PIN AB 0
 &gt; SET PIN BC 0
-  &lt; OK PIN BC 0.0
+  &lt; OK PIN BC 0
 &gt; SET REPEATS 30
   &lt; OK REPEATS 30
 &gt; RUN
-  &lt; OK RUN started repeats=30 excitation=multiband
+  &lt; OK RUN started repeats=30 pattern=multiband_default samples=28800
   &gt; saved frame_000000.wav (seq=1)
   &gt; saved frame_000001.wav (seq=2)
   ...
@@ -251,7 +256,7 @@ Commands forwarded to the MCU (case-insensitive verb):
   {"label": "door_closed", "pins": {"AB": 0,  "BC": 0},  "repeats": 30},
   {"label": "door_half",   "pins": {"AB": 45, "BC": 45}, "repeats": 30},
   {"label": "door_open",   "pins": {"AB": 90, "BC": 90}, "repeats": 30},
-  {"label": "amb_silence", "pins": {}, "excitation": "silence", "repeats": 10}
+  {"label": "amb_silence", "pins": {}, "pattern": "silence_2s", "repeats": 10}
 ]
 </code></pre>
 
@@ -336,6 +341,119 @@ Commands forwarded to the MCU (case-insensitive verb):
   配線は <a href="../03_ili9341_test/README.html">03_ili9341_test</a> と同一（LPSPI1 + A2/A3/A4/A5 GPIO）。
   本パネルの詳細仕様は <a href="../../../docs/servo_coords.html">docs/servo_coords.html §4 ディスプレイ表示</a>。
 </p>
+
+<h2>パターンライブラリ</h2>
+
+<p>
+  発振波形は MCU 内にハードコードせず、PC 側 <a href="../../../pc/patterns.yaml"><code>pc/patterns.yaml</code></a> が正本。
+  <code>collector_client.py</code> 起動時に MCU の RAM ライブラリへ全パターンを push し、
+  <code>PAT SELECT &lt;idx&gt;</code> で切替、<code>RUN</code> または <code>EMIT &lt;idx&gt;</code> で発音。
+</p>
+
+<h3>YAML フォーマット</h3>
+
+<p>2 種類。</p>
+
+<p><b>pulse</b> — 連続トーンのリスト。録音時間 = Σ(on+off) × repeat:</p>
+
+<pre><code>- name: multiband_default
+  type: pulse
+  repeat: 6
+  tones:
+    - {freq_hz: 2000, on_ms: 1, off_ms: 49}
+    - {freq_hz: 3000, on_ms: 1, off_ms: 49}
+    # ...
+</code></pre>
+
+<p><b>sweep</b> — リニア chirp + 静音。録音時間 = sweep_ms + silence_ms:</p>
+
+<pre><code>- name: chirp_200_6k
+  type: sweep
+  start_hz: 200
+  end_hz: 6000
+  sweep_ms: 2000
+  silence_ms: 0
+</code></pre>
+
+<p>無音は <code>freq_hz: 0</code> の 1-tone pulse で表現（特別な type 不要）:</p>
+
+<pre><code>- name: silence_2s
+  type: pulse
+  tones:
+    - {freq_hz: 0, on_ms: 0, off_ms: 2000}
+</code></pre>
+
+<p>
+  上限（<a href="../../shared/include/pattern_lib.h"><code>pattern_lib.h</code></a>）:
+  ライブラリ 16 パターン、pulse 64 tones、合計 2000 ms。
+</p>
+
+<h3>REPL での操作</h3>
+
+<pre><code>&gt; :patterns                    # PC キャッシュ表示
+  [0] pulse  tones=6 repeat=6 dur=1800ms  multiband_default
+  [1] sweep  200..6000Hz sweep=2000ms silence=0ms dur=2000ms  chirp_200_6k
+  [2] pulse  tones=1 repeat=1 dur=2000ms  silence_2s
+  [3] pulse  tones=2 repeat=1 dur=400ms   dual_low_high
+
+&gt; EMIT 3                       # パターン 3 を 1 回テスト発音
+  &lt; OK EMIT idx=3 name=dual_low_high samples=6400
+
+&gt; :select multiband_default    # RUN で使うパターンを切替 (名前→idx 解決はローカル)
+  -&gt; PAT SELECT 0  (multiband_default)
+  &lt; OK PAT select idx=0 name=multiband_default
+
+&gt; RUN                          # 選択中のパターンで採取
+  &lt; OK RUN started repeats=30 pattern=multiband_default samples=28800
+  ...
+</code></pre>
+
+<p>
+  <code>EMIT &lt;idx&gt;</code> は MCU 側コマンド（<a href="../../shared/include/ichp_cmd.h"><code>ichp_cmd.h</code></a> の <code>ICHP_CMD_EMIT</code>）。
+  PC 側 REPL は <code>EMIT N</code> を検知すると再生終了 (OK EMIT) まで次の入力をブロックし、
+  再生中に次のコマンドを送って MCU の UART RX FIFO を取りこぼさせる事故を防ぎます。
+</p>
+
+<h3>MCU 側コマンド（直叩き用）</h3>
+
+<table>
+  <thead><tr><th>コマンド</th><th>機能</th></tr></thead>
+  <tbody>
+    <tr><td><code>PAT INFO</code></td><td>ライブラリ内容を一覧表示</td></tr>
+    <tr><td><code>PAT SELECT &lt;idx&gt;</code></td><td>RUN で使うパターン選択</td></tr>
+    <tr><td><code>EMIT &lt;idx&gt;</code></td><td>パターン 1 回発音（録音なし、サーボ動かさず）</td></tr>
+    <tr><td><code>PAT CLEAR</code></td><td>ライブラリ全消去</td></tr>
+    <tr><td><code>PAT PULSE BEGIN &lt;name&gt;</code> / <code>PAT TONE &lt;hz&gt; &lt;on_ms&gt; &lt;off_ms&gt;</code> / <code>PAT PULSE END &lt;repeat&gt;</code></td><td>pulse 追加（手動ロード用）</td></tr>
+    <tr><td><code>PAT SWEEP &lt;name&gt; &lt;start_hz&gt; &lt;end_hz&gt; &lt;sweep_ms&gt; &lt;silence_ms&gt;</code></td><td>sweep 追加（1コマンド完結）</td></tr>
+  </tbody>
+</table>
+
+<p>通常は YAML 経由でロードするので、<code>PAT PULSE *</code> / <code>PAT SWEEP</code> を直接打つ必要はないはず。</p>
+
+<h3>YAML 編集後の反映</h3>
+
+<pre><code>&gt; :reload                      # patterns.yaml を再読込 + MCU に再 push
+  patterns.yaml reloaded (4 entries); pushing to MCU...
+  &gt; PAT CLEAR
+  &gt; PAT PULSE BEGIN multiband_default
+  ...
+  reload complete. use :patterns to verify.
+</code></pre>
+
+<p>ボード RESET 不要。新しい name や型変更がそのまま使える。</p>
+
+<h3>プラン実行モードでのパターン指定</h3>
+
+<p><code>plan.json</code> の各 step に <code>pattern: &lt;name&gt;</code> を入れると、step ごとに自動切替:</p>
+
+<pre><code>[
+  {"label": "door_closed", "pins": {"AB": 0, "BC": 0}, "pattern": "multiband_default", "repeats": 30},
+  {"label": "door_chirp",  "pins": {"AB": 0, "BC": 0}, "pattern": "chirp_200_6k",      "repeats": 30},
+  {"label": "amb_silence", "pins": {},                  "pattern": "silence_2s",        "repeats": 10}
+]
+</code></pre>
+
+<p>省略すると前 step のパターン継続（または起動時の auto-select pattern 0）。</p>
 
 <h2>配線</h2>
 

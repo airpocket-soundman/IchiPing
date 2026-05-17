@@ -23,7 +23,7 @@ ASCII 行と ICHP バイナリは同一 UART に多重化。PC は `ICHP` magic 
 | 診断 | `PING` | `PING` | `OK PONG <build>` 応答 |
 | 取得 | `GET CONFIG` / `GET HOME` / `GET OPEN` / `GET PINS` | `GET HOME` | 現状を OK 行で返す |
 | 設定 | `SET VOLUME <0..100>` | `SET VOLUME 5` | TX ソフト音量 |
-| 設定 | `SET EXCITATION <name>` | `SET EXCITATION multiband` | `chirp` / `multiband` / `silence` |
+| パターン | `PAT INFO` / `PAT SELECT <idx>` / `EMIT <idx>` | `PAT SELECT 1` | パターンライブラリ（[`pc/patterns.yaml`](../../../pc/patterns.yaml) で定義）から選択／テスト発音。詳細は §パターン |
 | 設定 | `SET REPEATS <N>` | `SET REPEATS 30` | RUN 時の試行回数 |
 | 設定 | `SET PIN <servo> <deg>` | `SET PIN AB 0` | 当該扉/窓を RUN 時に固定 |
 | 設定 | `CLEAR PIN <servo>` / `CLEAR PINS` | `CLEAR PIN AB` | pin 解除 |
@@ -49,8 +49,8 @@ loop:
     │       for i in 0..repeats-1:
     │         build trial pattern (pinned values + random fill)
     │         drive servos, settle 400 ms
-    │         render excitation (cached if unchanged)
-    │         play_and_capture (full-duplex SAI1, 2 s window)
+    │         render selected pattern from pattern_lib (cached at start)
+    │         play_and_capture (full-duplex SAI1, n_samples per pattern)
     │         send ICHP frame (servo_deg[] = actual angles applied)
     │         poll for STOP between trials
     └ idle → __WFI
@@ -106,28 +106,30 @@ Commands forwarded to the MCU (case-insensitive verb):
 
 ```
 > PING
-  < OK PONG May 16 2026 18:42:11
+  < OK PONG May 17 2026 10:25:09
 > GET CONFIG
-  < OK CONFIG rate=16000 window=32000 excitation=multiband volume=5 repeats=30
+  < OK CONFIG rate=16000 max_window=32000 pattern=multiband_default sel_idx=0 count=4 volume=5 repeats=30
 > GET HOME
-  < OK HOME a=0.0 b=0.0 c=0.0 AB=0.0 BC=0.0
+  < OK HOME a=0 b=0 c=0 AB=0 BC=0
 ```
 
 **サーボ校正（ホーン取付調整時）**:
 
 ```
 > SERVO a 0           # マニュアル角度指定
-  < OK SERVO a 0.0
+  < OK SERVO a deg=0
 > SERVO a 12
-  < OK SERVO a 12.0    # 「閉」になる角度を目視で探す
+  < OK SERVO a deg=12   # 「閉」になる角度を目視で探す
 > SET HOME a 12       # その値を home (閉) として焼く
-  < OK HOME a 12.0
+  < OK HOME a 12
 > SERVO a 87          # 「開」になる角度を探す
 > SET OPEN a 87
-  < OK OPEN a 87.0
-> GET HOME                    # 5 ch 分の home 一覧
-  < OK HOME a=12.0 b=0.0 ...
+  < OK OPEN a 87
+> GET HOME            # 5 ch 分の home 一覧
+  < OK HOME a=12 b=0 c=0 AB=0 BC=0
 ```
+
+> 角度は整数のみ表示（newlib-nano の既定で `%f` がリンクされないため整数化）。サーボ精度として 1° で十分。サブ度精度が必要になったら CMake LD に `-u _printf_float` 追加で復活可。
 
 詳細手順は [docs/servo_coords.md §3](../../../docs/servo_coords.md)。
 
@@ -137,13 +139,13 @@ Commands forwarded to the MCU (case-insensitive verb):
 > :label door_closed         # PC 側ローカルコマンド (MCU に届かない)
   label set to 'door_closed' (next frames -> <out>/door_closed/)
 > SET PIN AB 0           # AB を「閉」固定
-  < OK PIN AB 0.0
+  < OK PIN AB 0
 > SET PIN BC 0
-  < OK PIN BC 0.0
+  < OK PIN BC 0
 > SET REPEATS 30
   < OK REPEATS 30
 > RUN
-  < OK RUN started repeats=30 excitation=multiband
+  < OK RUN started repeats=30 pattern=multiband_default samples=28800
   > saved frame_000000.wav (seq=1)
   > saved frame_000001.wav (seq=2)
   ...
@@ -161,7 +163,7 @@ JSON プランを書いて 1 コマンドで複数条件を順次採取:
   {"label": "door_closed", "pins": {"AB": 0,  "BC": 0},  "repeats": 30},
   {"label": "door_half",   "pins": {"AB": 45, "BC": 45}, "repeats": 30},
   {"label": "door_open",   "pins": {"AB": 90, "BC": 90}, "repeats": 30},
-  {"label": "amb_silence", "pins": {}, "excitation": "silence", "repeats": 10}
+  {"label": "amb_silence", "pins": {}, "pattern": "silence_2s", "repeats": 10}
 ]
 ```
 
@@ -197,9 +199,9 @@ uv run python collector_client.py --port COM7 --plan plan.json --out ../captures
 cd pc
 python collector_client.py --port COM7 --out ../captures
 > PING
-OK PONG May 16 2026 18:12:34
+OK PONG May 17 2026 10:25:09
 > GET HOME
-OK HOME a=0.0 b=0.0 c=0.0 AB=0.0 BC=0.0
+OK HOME a=0 b=0 c=0 AB=0 BC=0
 > SERVO a 45        # マニュアル動作確認（ホーン取付調整用）
 > SET HOME a 12     # 「閉」位置を 12° に校正
 > CLEAR PINS
@@ -224,11 +226,11 @@ python collector_client.py --port COM7 --plan plan.json --out ../captures
   {"label": "door_closed", "pins": {"AB": 0,  "BC": 0},  "repeats": 30},
   {"label": "door_half",   "pins": {"AB": 45, "BC": 45}, "repeats": 30},
   {"label": "door_open",   "pins": {"AB": 90, "BC": 90}, "repeats": 30},
-  {"label": "amb_silence", "pins": {}, "excitation": "silence", "repeats": 10}
+  {"label": "amb_silence", "pins": {}, "pattern": "silence_2s", "repeats": 10}
 ]
 ```
 
-各 step ごとに `CLEAR PINS` → `SET PIN ...` → `SET REPEATS N` → `INFO label=<label>` ASCII 注記 → `RUN`。フレーム受信側で「直前の `label=` 行」を取って `captures/<label>/frame_NNNNNN.wav` ＋ `labels.csv` の 1 行を追加する。
+各 step ごとに `CLEAR PINS` → `SET PIN ...` → `SET REPEATS N` → `PAT SELECT <idx>` → `INFO label=<label>` ASCII 注記 → `RUN`。フレーム受信側で「直前の `label=` 行」を取って `captures/<label>/frame_NNNNNN.wav` ＋ `labels.csv` の 1 行を追加する。
 
 ## ICHP フレーム内 `servo_deg[5]` の意味
 
@@ -260,6 +262,111 @@ python collector_client.py --port COM7 --plan plan.json --out ../captures
 
 配線は [03_ili9341_test](../03_ili9341_test/README.md) と同一（LPSPI1 + A2/A3/A4/A5 GPIO）。本パネルの詳細仕様は [docs/servo_coords.md §4 ディスプレイ表示](../../../docs/servo_coords.md)。
 
+## パターンライブラリ
+
+発振波形は MCU 内にハードコードせず、PC 側 [`pc/patterns.yaml`](../../../pc/patterns.yaml) が正本。`collector_client.py` 起動時に MCU の RAM ライブラリへ全パターンを push し、`PAT SELECT <idx>` で切替、`RUN` または `EMIT <idx>` で発音。
+
+### YAML フォーマット
+
+2 種類:
+
+**pulse** — 連続トーンのリスト。録音時間 = Σ(on+off) × repeat:
+
+```yaml
+- name: multiband_default
+  type: pulse
+  repeat: 6
+  tones:
+    - {freq_hz: 2000, on_ms: 1, off_ms: 49}
+    - {freq_hz: 3000, on_ms: 1, off_ms: 49}
+    # ...
+```
+
+**sweep** — リニア chirp + 静音。録音時間 = sweep_ms + silence_ms:
+
+```yaml
+- name: chirp_200_6k
+  type: sweep
+  start_hz: 200
+  end_hz: 6000
+  sweep_ms: 2000
+  silence_ms: 0
+```
+
+無音は `freq_hz: 0` の 1-tone pulse で表現（特別な type 不要）:
+
+```yaml
+- name: silence_2s
+  type: pulse
+  tones:
+    - {freq_hz: 0, on_ms: 0, off_ms: 2000}
+```
+
+上限（[`pattern_lib.h`](../../shared/include/pattern_lib.h)）: ライブラリ 16 パターン、pulse 64 tones、合計 2000 ms。
+
+### REPL での操作
+
+```
+> :patterns                    # PC キャッシュ表示
+  [0] pulse  tones=6 repeat=6 dur=1800ms  multiband_default
+  [1] sweep  200..6000Hz sweep=2000ms silence=0ms dur=2000ms  chirp_200_6k
+  [2] pulse  tones=1 repeat=1 dur=2000ms  silence_2s
+  [3] pulse  tones=2 repeat=1 dur=400ms   dual_low_high
+
+> EMIT 3                       # パターン 3 を 1 回テスト発音
+  < OK EMIT idx=3 name=dual_low_high samples=6400
+
+> :select multiband_default    # RUN で使うパターンを切替 (名前→idx 解決はローカル)
+  -> PAT SELECT 0  (multiband_default)
+  < OK PAT select idx=0 name=multiband_default
+
+> RUN                          # 選択中のパターンで採取
+  < OK RUN started repeats=30 pattern=multiband_default samples=28800
+  ...
+```
+
+`EMIT <idx>` は MCU 側コマンド（[`ichp_cmd.h`](../../shared/include/ichp_cmd.h) の `ICHP_CMD_EMIT`）。PC 側 REPL は `EMIT N` を検知すると再生終了 (OK EMIT) まで次の入力をブロックし、再生中に次のコマンドを送って MCU の UART RX FIFO を取りこぼさせる事故を防ぎます。
+
+### MCU 側コマンド（直叩き用）
+
+| コマンド | 機能 |
+|---|---|
+| `PAT INFO` | ライブラリ内容を一覧表示 |
+| `PAT SELECT <idx>` | RUN で使うパターン選択 |
+| `EMIT <idx>` | パターン 1 回発音（録音なし、サーボ動かさず）|
+| `PAT CLEAR` | ライブラリ全消去 |
+| `PAT PULSE BEGIN <name>` / `PAT TONE <hz> <on_ms> <off_ms>` / `PAT PULSE END <repeat>` | pulse 追加（手動ロード用） |
+| `PAT SWEEP <name> <start_hz> <end_hz> <sweep_ms> <silence_ms>` | sweep 追加（1コマンド完結） |
+
+通常は YAML 経由でロードするので、`PAT PULSE *` / `PAT SWEEP` を直接打つ必要はないはず。
+
+### YAML 編集後の反映
+
+```
+> :reload                      # patterns.yaml を再読込 + MCU に再 push
+  patterns.yaml reloaded (4 entries); pushing to MCU...
+  > PAT CLEAR
+  > PAT PULSE BEGIN multiband_default
+  ...
+  reload complete. use :patterns to verify.
+```
+
+ボード RESET 不要。新しい name や型変更がそのまま使える。
+
+### プラン実行モードでのパターン指定
+
+`plan.json` の各 step に `pattern: <name>` を入れると、step ごとに自動切替:
+
+```json
+[
+  {"label": "door_closed", "pins": {"AB": 0, "BC": 0}, "pattern": "multiband_default", "repeats": 30},
+  {"label": "door_chirp",  "pins": {"AB": 0, "BC": 0}, "pattern": "chirp_200_6k",      "repeats": 30},
+  {"label": "amb_silence", "pins": {},                  "pattern": "silence_2s",        "repeats": 10}
+]
+```
+
+省略すると前 step のパターン継続（または起動時の auto-select pattern 0）。
+
 ## 配線
 
 [08_mic_speaker_test](../08_mic_speaker_test/) の和集合 + [02_servo_test](../02_servo_test/) の I²C:
@@ -275,37 +382,25 @@ python collector_client.py --port COM7 --plan plan.json --out ../captures
 
 ## ビルド手順（MCUXpresso for VS Code）
 
-このプロジェクトは MCUXpresso Config Tools 生成物（`frdmmcxn947_cm33_core0/`、`CMakeLists.txt`、`prj.conf` 等）を含まない。以下の手順で組み立てる:
+このプロジェクトは設定一式（`frdmmcxn947_cm33_core0/`、`CMakeLists.txt`、`prj.conf` 等）を完備しているので、雛形コピーは不要:
 
-1. **08_mic_speaker_test を雛形にコピー**
-   ```
-   cp -r firmware/projects/08_mic_speaker_test/frdmmcxn947_cm33_core0 firmware/projects/09_collector/
-   cp firmware/projects/08_mic_speaker_test/{CMakeLists.txt,CMakePresets.json,Kconfig,example.yml,prj.conf} firmware/projects/09_collector/
-   ```
-2. **pin_mux に LPI2C2 を追加**: Config Tools で `D18=P4_0 Alt2 (LP_FLEXCOMM2_P0)` / `D19=P4_1 Alt2 (LP_FLEXCOMM2_P1)` を有効化
-3. **TFT 用 pin_mux も追加**: 03_ili9341_test の `frdmmcxn947_cm33_core0/pins/pin_mux.c` から LPSPI1 + A2/A3/A4/A5 GPIO 部を移植、`app.h` の `BOARD_ILI_*` マクロを定義
-4. **CMakeLists.txt のソース追加**:
-   ```cmake
-   ../../shared/source/ichiping_frame.c
-   ../../shared/source/sai_mic.c
-   ../../shared/source/sai_speaker.c
-   ../../shared/source/pca9685.c
-   ../../shared/source/lu9685.c
-   ../../shared/source/ichp_cmd.c
-   ../../shared/source/servo_config.c
-   ../../shared/source/ili9341.c
-   ../../shared/source/collector_display.c
-   ```
-   さらに servo バックエンドを選択する define（既定は **LU9685**、02_servo_test と同じ慣例）:
-   ```cmake
-   mcux_add_configuration(
-       CC "-DSERVO_BACKEND_LU9685_I2C"
-   )
-   ```
-   PCA9685（NXP, 16ch, アドレス 0x40）に切替えるなら `-DSERVO_BACKEND_PCA9685` に変更。両方の `.c` を含めているのでマクロ差替えだけでビルド可。
-5. **VS Code → MCUXpresso → Import Project From Folder** → `firmware/projects/09_collector/`
-6. ビルド → OpenSDA で書込
-7. シリアル端末で `PING` 送信 → `OK PONG ...` 確認 → `pc/collector_client.py` へ
+1. **VS Code → MCUXpresso → Import Project From Folder** → `firmware/projects/09_collector/`
+2. **ビルド → OpenSDA で書込**
+3. **`pc/collector_client.py --port COMx --out ../captures` で接続** → `PING` 応答確認
+
+### サーボバックエンド切替
+
+`CMakeLists.txt` の `mcux_add_configuration` で選択:
+
+```cmake
+mcux_add_configuration(
+    CC "-DSERVO_BACKEND_LU9685_I2C"
+)
+```
+
+既定は **LU9685**（20ch, I²C 0x1F, 02_servo_test と同じ慣例）。**PCA9685**（NXP, 16ch, 0x40）に切替えるなら `-DSERVO_BACKEND_PCA9685` に変更してリビルド。両バックエンドの `.c` を CMake に含めているのでマクロ差替えだけで OK。
+
+> 起動時の `INFO BOOT I2C scan: 0xXX` 行で実際に ACK したアドレスが分かるので、ジャンパ設定と firmware の `LU9685_DEFAULT_ADDR` / `PCA9685_DEFAULT_ADDR` の整合は boot ログで確認可。
 
 ## 既知の制約 / TODO
 

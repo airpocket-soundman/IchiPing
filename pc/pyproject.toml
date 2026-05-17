@@ -13,6 +13,7 @@ authors = [
 # stays as the alternative path for users who prefer conda.
 dependencies = [
     "pyserial>=3.5",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]

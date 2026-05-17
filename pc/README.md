@@ -98,7 +98,7 @@ python collector_client.py --port COM7 --plan plan.json --out ../captures
   {"label": "door_closed", "pins": {"AB": 0,  "BC": 0},  "repeats": 30},
   {"label": "door_half",   "pins": {"AB": 45, "BC": 45}, "repeats": 30},
   {"label": "door_open",   "pins": {"AB": 90, "BC": 90}, "repeats": 30},
-  {"label": "amb_silence", "pins": {}, "excitation": "silence", "repeats": 10}
+  {"label": "amb_silence", "pins": {}, "pattern": "silence_2s", "repeats": 10}
 ]
 ```
 

@@ -87,17 +87,10 @@ extern "C" {
  * Index matches ICHP frame servo_deg[] slot and PCA9685 channel. */
 extern const char *const ICHP_SERVO_NAMES[ICHP_SERVO_COUNT];
 
-/* Excitation kinds — values are the indices used by firmware's excite
- * dispatcher and embedded in ICHP frame servo_deg[2] when running under
- * the data-collection protocol. */
-typedef enum {
-    ICHP_EXCITE_CHIRP     = 0,
-    ICHP_EXCITE_MULTIBAND = 1,
-    ICHP_EXCITE_SILENCE   = 2,
-    ICHP_EXCITE__COUNT
-} ichp_excitation_t;
-
-extern const char *const ICHP_EXCITATION_NAMES[ICHP_EXCITE__COUNT];
+/* Excitation patterns no longer live in a fixed enum on the firmware
+ * side; pc/patterns.yaml is the source of truth, and the host pushes
+ * each entry via PAT_* commands into the in-RAM pattern_lib at startup
+ * (see firmware/shared/include/pattern_lib.h). */
 
 /* Parsed command. The verb plus a small union of args. The parser fills
  * one of the variant fields based on verb. Pointers into the original
@@ -110,7 +103,6 @@ typedef enum {
     ICHP_CMD_GET_OPEN,
     ICHP_CMD_GET_PINS,
     ICHP_CMD_SET_VOLUME,
-    ICHP_CMD_SET_EXCITATION,
     ICHP_CMD_SET_REPEATS,
     ICHP_CMD_SET_PIN,
     ICHP_CMD_CLEAR_PIN,
@@ -122,7 +114,20 @@ typedef enum {
     ICHP_CMD_SERVO_ALL_OFF,
     ICHP_CMD_RUN,
     ICHP_CMD_STOP,
+    /* Pattern library — see firmware/shared/include/pattern_lib.h and
+     * pc/patterns.yaml. Built-in chirp/multiband excitations were retired
+     * in favour of host-defined patterns pushed at startup. */
+    ICHP_CMD_PAT_CLEAR,
+    ICHP_CMD_PAT_PULSE_BEGIN,
+    ICHP_CMD_PAT_TONE,
+    ICHP_CMD_PAT_PULSE_END,
+    ICHP_CMD_PAT_SWEEP,
+    ICHP_CMD_PAT_INFO,
+    ICHP_CMD_PAT_SELECT,
+    ICHP_CMD_EMIT,
 } ichp_cmd_kind_t;
+
+#define ICHP_PAT_NAME_LEN  32u
 
 typedef struct {
     ichp_cmd_kind_t kind;
@@ -133,8 +138,19 @@ typedef struct {
     float    deg;
     int32_t  volume_pct;        /* SET_VOLUME (0..100 integer percent) */
     int32_t  repeats;           /* SET_REPEATS                         */
-    ichp_excitation_t excite;   /* SET_EXCITATION                      */
-    /* For SERVO_ALL_OFF: no extra fields. */
+    /* Pattern command fields. Only the subset relevant to each kind is
+     * valid; the dispatcher reads accordingly.
+     *   PAT_PULSE_BEGIN : pat_name
+     *   PAT_TONE        : pat_a = freq_hz, pat_b = on_ms, pat_c = off_ms
+     *   PAT_PULSE_END   : pat_i = repeat (>=1)
+     *   PAT_SWEEP       : pat_name, pat_a = start_hz, pat_b = end_hz,
+     *                     pat_c = sweep_ms, pat_d = silence_ms
+     *   PAT_SELECT      : pat_i = index
+     *   EMIT            : pat_i = index
+     */
+    char     pat_name[ICHP_PAT_NAME_LEN];
+    uint32_t pat_a, pat_b, pat_c, pat_d;
+    int32_t  pat_i;
 } ichp_cmd_t;
 
 /* Parse one line. `line` is NUL-terminated, in/out. Returns true on a
@@ -150,9 +166,6 @@ bool ichp_cmd_parse(char *line, ichp_cmd_t *out, const char **err_token,
 /* Convenience: lookup a servo by name (case-insensitive on the well-known
  * names "window_a" ... "door_BC"). Returns -1 on no match. */
 int  ichp_servo_lookup(const char *name);
-
-/* Convenience: lookup an excitation name. Returns -1 on no match. */
-int  ichp_excitation_lookup(const char *name);
 
 /* ---- Byte-oriented line buffer ----
  *
