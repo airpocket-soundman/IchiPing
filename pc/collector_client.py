@@ -118,6 +118,17 @@ class StreamReader(threading.Thread):
             except serial.SerialException:
                 break
             if not chunk:
+                # 100 ms read timeout fired with no bytes. The
+                # 4-byte trailing window is only there to detect ICHP
+                # magic that arrives in one piece — the firmware writes
+                # frames atomically, so a stalled window can no longer be
+                # the start of a frame. Drain it through the ASCII pipe
+                # so trailing "\r\n" of an MCU response finally triggers
+                # _flush_line. Without this, the last 4 bytes of every
+                # response sit in the window until the user types
+                # another command and shifts them out.
+                while window:
+                    self._flush_one_ascii(window.pop(0))
                 continue
             for b in chunk:
                 window.append(b)
@@ -127,8 +138,9 @@ class StreamReader(threading.Thread):
                     self._flush_line()
                     window.clear()
                     self._read_frame_body()
-            # Whatever remains in the window is not a magic prefix; let
-            # the next iteration roll it through.
+            # Whatever remains in the window may include the tail of a
+            # short ASCII line ("...01\r\n" with len ≤ 4). The next
+            # read-timeout iteration above will drain it.
 
     def _flush_one_ascii(self, b: int) -> None:
         c = bytes([b])
