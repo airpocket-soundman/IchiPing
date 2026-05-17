@@ -167,19 +167,27 @@
   </tbody>
 </table>
 
-<h3>2.5 PWM サーボ（PCA9685 経由）</h3>
+<h3>2.5 PWM サーボ（PCA9685 / LU9685 経由）</h3>
 <table>
   <thead>
-    <tr><th>PCA9685 ch</th><th>機構</th><th>サーボ役割</th><th>角度範囲（仮）</th></tr>
+    <tr><th>PWM ch</th><th>servo 名</th><th>機構</th><th>サーボ役割</th><th>角度範囲（仮）</th></tr>
   </thead>
   <tbody>
-    <tr><td>PWM0</td><td>窓 a</td><td>開閉</td><td>0°（閉） – 90°（全開）</td></tr>
-    <tr><td>PWM1</td><td>窓 b</td><td>開閉</td><td>0° – 90°</td></tr>
-    <tr><td>PWM2</td><td>窓 c</td><td>開閉</td><td>0° – 90°</td></tr>
-    <tr><td>PWM3</td><td>扉 AB</td><td>開閉</td><td>0° – 90°</td></tr>
-    <tr><td>PWM4</td><td>扉 BC</td><td>開閉</td><td>0° – 90°</td></tr>
+    <tr><td>0</td><td><code>a</code></td><td>窓 a</td><td>開閉</td><td>0°（閉） – 90°（全開）</td></tr>
+    <tr><td>1</td><td><code>b</code></td><td>窓 b</td><td>開閉</td><td>0° – 90°</td></tr>
+    <tr><td>2</td><td><code>c</code></td><td>窓 c</td><td>開閉</td><td>0° – 90°</td></tr>
+    <tr><td>3</td><td><code>AB</code></td><td>扉 AB</td><td>開閉</td><td>0° – 90°</td></tr>
+    <tr><td>4</td><td><code>BC</code></td><td>扉 BC</td><td>開閉</td><td>0° – 90°</td></tr>
   </tbody>
 </table>
+<p>
+  チャネル番号は <b>PCA9685 (16ch 中の 0..4) でも LU9685 (20ch 中の 0..4) でも共通</b>。
+  サーボ抽象層 <a href="../firmware/shared/include/servo_driver.h"><code>servo_driver.h</code></a> が
+  どちらのバックエンドでも同じ配列インデックスをチップのチャネル番号として書き込むため、
+  ハーネスを差し替えるだけで切替可能。LU9685 を使う場合 ch 5..19 は未使用
+  （bulk-write モードで <code>LU9685_DISABLED = 0xFF</code> 送出）。詳細は
+  <a href="../docs/servo_coords.html">servo_coords §2 既定値</a>。
+</p>
 <p>サーボ電源 V+ は <b>5V 専用レール</b>（MCU の 3.3V から分離）。V+ ↔ GND 間に 1000 µF 電解で突入電流吸収。</p>
 
 <h3>2.6 GPIO 入力（プルアップ有効、アクティブ Low）</h3>

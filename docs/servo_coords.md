@@ -21,13 +21,15 @@ mechanical_deg = home_deg[i] + sign × logical_deg
 
 `home_deg`（閉）と `open_deg`（全開）は **フラッシュに保持される個体校正値**。`kind` は機構固定で WINDOW/DOOR のいずれか。
 
-| servo | kind | 期待 logical_max | 既定 home_deg | 既定 open_deg |
-|---|---|---|---|---|
-| `a` | WINDOW | **75°** | 0° | 75° |
-| `b` | WINDOW | **75°** | 0° | 75° |
-| `c` | WINDOW | **75°** | 0° | 75° |
-| `AB` | DOOR | **90°** | 0° | 90° |
-| `BC` | DOOR | **90°** | 0° | 90° |
+| servo | PWM ch | kind | 期待 logical_max | 既定 home_deg | 既定 open_deg |
+|---|---|---|---|---|---|
+| `a`  | **0** | WINDOW | **75°** | 0° | 75° |
+| `b`  | **1** | WINDOW | **75°** | 0° | 75° |
+| `c`  | **2** | WINDOW | **75°** | 0° | 75° |
+| `AB` | **3** | DOOR   | **90°** | 0° | 90° |
+| `BC` | **4** | DOOR   | **90°** | 0° | 90° |
+
+**PWM ch** は **PCA9685 / LU9685 どちらのバックエンドでも同じ番号**。サーボ抽象層 [`servo_driver.h`](../firmware/shared/include/servo_driver.h) が `servo_set_first_n_deg(deg, 5)` で配列インデックス = チップのチャネル番号として書き込むため、PCA9685 (ch 0..15 の最初 5) でも LU9685 (ch 0..19 の最初 5) でも `a → 0` / `b → 1` / `c → 2` / `AB → 3` / `BC → 4` の対応が共通で成り立つ。ビルド時に `-D SERVO_BACKEND_PCA9685` / `-D SERVO_BACKEND_LU9685_I2C` のどちらを定義しても、ICHP フレームの `servo_deg[0..4]` も同じ順序で並ぶ。
 
 - **窓を 75° で止める理由**: 模型の窓サッシが完全 90° まで開くと外枠と干渉してビビる。実機で確認した clear 角度。
 - **扉を 90° で止める理由**: 扉は壁直交方向が「全開」。90° を超えるとアクリル壁と接触。

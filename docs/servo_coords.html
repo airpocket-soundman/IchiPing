@@ -109,16 +109,27 @@ mechanical_deg = home_deg[i] + sign × logical_deg
 
 <table>
   <thead>
-    <tr><th>servo</th><th>kind</th><th>期待 logical_max</th><th>既定 home_deg</th><th>既定 open_deg</th></tr>
+    <tr><th>servo</th><th>PWM ch</th><th>kind</th><th>期待 logical_max</th><th>既定 home_deg</th><th>既定 open_deg</th></tr>
   </thead>
   <tbody>
-    <tr><td><code>a</code></td><td>WINDOW</td><td><b>75°</b></td><td>0°</td><td>75°</td></tr>
-    <tr><td><code>b</code></td><td>WINDOW</td><td><b>75°</b></td><td>0°</td><td>75°</td></tr>
-    <tr><td><code>c</code></td><td>WINDOW</td><td><b>75°</b></td><td>0°</td><td>75°</td></tr>
-    <tr><td><code>AB</code></td><td>DOOR</td><td><b>90°</b></td><td>0°</td><td>90°</td></tr>
-    <tr><td><code>BC</code></td><td>DOOR</td><td><b>90°</b></td><td>0°</td><td>90°</td></tr>
+    <tr><td><code>a</code></td><td><b>0</b></td><td>WINDOW</td><td><b>75°</b></td><td>0°</td><td>75°</td></tr>
+    <tr><td><code>b</code></td><td><b>1</b></td><td>WINDOW</td><td><b>75°</b></td><td>0°</td><td>75°</td></tr>
+    <tr><td><code>c</code></td><td><b>2</b></td><td>WINDOW</td><td><b>75°</b></td><td>0°</td><td>75°</td></tr>
+    <tr><td><code>AB</code></td><td><b>3</b></td><td>DOOR</td><td><b>90°</b></td><td>0°</td><td>90°</td></tr>
+    <tr><td><code>BC</code></td><td><b>4</b></td><td>DOOR</td><td><b>90°</b></td><td>0°</td><td>90°</td></tr>
   </tbody>
 </table>
+
+<p>
+  <b>PWM ch</b> は <b>PCA9685 / LU9685 どちらのバックエンドでも同じ番号</b>。
+  サーボ抽象層 <a href="../firmware/shared/include/servo_driver.h"><code>servo_driver.h</code></a>
+  が <code>servo_set_first_n_deg(deg, 5)</code> で配列インデックス = チップのチャネル番号と
+  して書き込むため、PCA9685 (ch 0..15 の最初 5) でも LU9685 (ch 0..19 の最初 5) でも
+  <code>a → 0</code> / <code>b → 1</code> / <code>c → 2</code> / <code>AB → 3</code> / <code>BC → 4</code> の
+  対応が共通で成り立つ。ビルド時に <code>-D SERVO_BACKEND_PCA9685</code> /
+  <code>-D SERVO_BACKEND_LU9685_I2C</code> のどちらを定義しても、ICHP フレームの
+  <code>servo_deg[0..4]</code> も同じ順序で並ぶ。
+</p>
 
 <ul>
   <li><b>窓を 75° で止める理由</b>: 模型の窓サッシが完全 90° まで開くと外枠と干渉してビビる。実機で確認した clear 角度。</li>
