@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 320" font-family="Hiragino Sans, Yu Gothic UI, Segoe UI, sans-serif" font-size="13">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#6ea8fe"/>
+    </marker>
+  </defs>
+
+  <!-- Phase 1 -->
+  <rect x="20" y="40" width="200" height="180" rx="8" fill="#181b22" stroke="#6ea8fe" stroke-width="2"/>
+  <text x="120" y="65" fill="#7be0a4" text-anchor="middle" font-weight="700" font-size="14">Phase 1</text>
+  <text x="120" y="85" fill="#e5e9f0" text-anchor="middle" font-weight="600">キャラクタリゼーション</text>
+  <text x="120" y="110" fill="#8b95a7" text-anchor="middle">ゲート式バーストスイープ</text>
+  <text x="120" y="128" fill="#8b95a7" text-anchor="middle">500–6000 Hz, 50 Hz 刻み</text>
+  <text x="120" y="146" fill="#8b95a7" text-anchor="middle">110 段 × 200 ms = 22 s</text>
+  <text x="120" y="172" fill="#ffb454" text-anchor="middle">32 状態 × 3 reps</text>
+  <text x="120" y="190" fill="#ffb454" text-anchor="middle">≈ 35 分</text>
+  <text x="120" y="210" fill="#6ea8fe" text-anchor="middle" font-size="11">→ captures/modal_chars/</text>
+
+  <!-- arrow -->
+  <line x1="225" y1="130" x2="265" y2="130" stroke="#6ea8fe" stroke-width="2" marker-end="url(#arr)"/>
+
+  <!-- Phase 2 -->
+  <rect x="270" y="40" width="200" height="180" rx="8" fill="#181b22" stroke="#6ea8fe" stroke-width="2"/>
+  <text x="370" y="65" fill="#7be0a4" text-anchor="middle" font-weight="700" font-size="14">Phase 2</text>
+  <text x="370" y="85" fill="#e5e9f0" text-anchor="middle" font-weight="600">判別性解析</text>
+  <text x="370" y="110" fill="#8b95a7" text-anchor="middle">OFF 区間 RMS / FFT</text>
+  <text x="370" y="128" fill="#8b95a7" text-anchor="middle">状態間/状態内分散比</text>
+  <text x="370" y="146" fill="#8b95a7" text-anchor="middle">top 16 周波選定</text>
+  <text x="370" y="172" fill="#ff7ab6" text-anchor="middle" font-size="12">★ 早期判定</text>
+  <text x="370" y="188" fill="#ff7ab6" text-anchor="middle" font-size="11">物理的に違いが見えるか</text>
+  <text x="370" y="210" fill="#6ea8fe" text-anchor="middle" font-size="11">→ resonances.json</text>
+
+  <line x1="475" y1="130" x2="515" y2="130" stroke="#6ea8fe" stroke-width="2" marker-end="url(#arr)"/>
+
+  <!-- Phase 3 -->
+  <rect x="520" y="40" width="180" height="180" rx="8" fill="#181b22" stroke="#6ea8fe" stroke-width="2"/>
+  <text x="610" y="65" fill="#7be0a4" text-anchor="middle" font-weight="700" font-size="14">Phase 3</text>
+  <text x="610" y="85" fill="#e5e9f0" text-anchor="middle" font-weight="600">ターゲット励振設計</text>
+  <text x="610" y="110" fill="#8b95a7" text-anchor="middle">16 周波 × 50 ms バースト</text>
+  <text x="610" y="128" fill="#8b95a7" text-anchor="middle">全長 ≈ 2 s</text>
+  <text x="610" y="146" fill="#8b95a7" text-anchor="middle">Phase 1 データで</text>
+  <text x="610" y="164" fill="#8b95a7" text-anchor="middle">予測 AUROC 検証</text>
+  <text x="610" y="210" fill="#6ea8fe" text-anchor="middle" font-size="11">→ targeted_v1 YAML</text>
+
+  <line x1="705" y1="130" x2="745" y2="130" stroke="#6ea8fe" stroke-width="2" marker-end="url(#arr)"/>
+
+  <!-- Phase 4 -->
+  <rect x="750" y="40" width="160" height="180" rx="8" fill="#181b22" stroke="#6ea8fe" stroke-width="2"/>
+  <text x="830" y="65" fill="#7be0a4" text-anchor="middle" font-weight="700" font-size="14">Phase 4</text>
+  <text x="830" y="85" fill="#e5e9f0" text-anchor="middle" font-weight="600">本収集 + 学習</text>
+  <text x="830" y="110" fill="#8b95a7" text-anchor="middle">32 状態 × 30 reps</text>
+  <text x="830" y="128" fill="#8b95a7" text-anchor="middle">≈ 32 分</text>
+  <text x="830" y="148" fill="#8b95a7" text-anchor="middle">small MLP / Linear</text>
+  <text x="830" y="166" fill="#8b95a7" text-anchor="middle">2 K params</text>
+  <text x="830" y="186" fill="#7be0a4" text-anchor="middle" font-weight="600">&lt; 5 ms 推論</text>
+  <text x="830" y="210" fill="#6ea8fe" text-anchor="middle" font-size="11">→ 10_inference</text>
+
+  <!-- Bottom annotation -->
+  <text x="460" y="265" fill="#8b95a7" text-anchor="middle" font-size="12">
+    キャラクタリゼーション (Phase 1-2) は設置 1 回のみ実行。本番運用は Phase 4 の励振だけ。
+  </text>
+  <text x="460" y="285" fill="#8b95a7" text-anchor="middle" font-size="12">
+    Phase 2 の早期判定で「物理ベース励振が効くか」を CNN 学習前に確認 → デッドエンドリスク最小化。
+  </text>
+</svg>

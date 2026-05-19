@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>励振パターン設計 — IchiPing</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.5 NN 訓練フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../index.html">トップ</a>
+      <a href="../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="../docs/spec.html">仕様書 (spec)</a>
+      <a href="../docs/nn_design.html">NN 設計</a>
+      <a href="../docs/acoustic_excitation.html" class="current">励振パターン設計</a>
+      <a href="../docs/mcu_deployment.html">MCU デプロイ</a>
+      <a href="../docs/bringup.html">実機ブリングアップ</a>
+      <a href="../docs/servo_coords.html">サーボ座標系</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="../hardware/wiring.html">配線テーブル</a>
+      <a href="../hardware/bom.html">BOM (部品表)</a>
+      <a href="../hardware/display_options.html">ディスプレイ候補</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../firmware/README.html">firmware ガイド</a>
+      <a href="../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="../docs/vscode_setup.html">VS Code セットアップ</a>
+      <a href="../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a><br>
+    <a href="https://github.com/airpocket-soundman/digikey_project">正本 digikey_project</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../index.html">← IchiPing トップ</a>
+    ／ <a href="../docs/nn_design.html">NN 設計</a>
+    ／ <a href="../firmware/projects/09_collector/README.html">09_collector</a>
+  </div>
+  <h1>励振パターン設計 — 共鳴周波数ベースの状態推論戦略</h1>
+  <div class="sub">
+    <a href="nn_design.html">マルチタスク 1D-CNN</a> と <a href="spec.html">spec §4.3</a> は
+    「入力 = 1024 bin log-mag スペクトル」を前提に汎用 backbone で全状態を学習する設計。
+    本ノートは <b>励振側を物理ベースで最適化することで、学習が必要な特徴量を絞り込み、
+    データ効率と推論精度を同時に上げる</b> ための追加戦略をまとめたもの。
+  </div>
+  <div class="meta">
+    <span class="meta-stat"><span class="num">32</span>状態 (5 要素)</span>
+    <span class="meta-stat"><span class="num">110</span>周波 (Phase 1)</span>
+    <span class="meta-stat"><span class="num">16</span>周波 (Phase 4 目標)</span>
+    <span class="meta-stat"><span class="num">2 K</span>params (期待モデルサイズ)</span>
+  </div>
+</header>
+
+<main>
+
+<h2>1. 問題設定</h2>
+
+<p>
+  5 つの可動要素 (窓 a/b/c + 扉 AB/BC) の開閉組合せ 32 状態を、マイク 1 個 + スピーカ 1 個の
+  アクティブ計測で判別する。
+</p>
+
+<p>
+  現在のアプローチ (<a href="../pc/patterns.yaml"><code>pc/patterns.yaml</code></a> の
+  <code>multiband_default</code> / <code>chirp_200_6k</code>):
+</p>
+
+<ul>
+  <li>広帯域励振を撃って、生 1024 bin スペクトルを CNN に投入</li>
+  <li>「どの特徴量が効くか」は CNN に学習させる ("shotgun + 学習" 方式)</li>
+</ul>
+
+<p>問題点:</p>
+
+<ul>
+  <li>状態と関係ない周波数にもエネルギー・データ・学習量を費やしている</li>
+  <li>なぜそう判別したかが不明瞭 (interpretable でない)</li>
+  <li>データ効率が悪い (1 状態に 30 サンプル × 32 状態 = 960 サンプル必要)</li>
+</ul>
+
+<h2>2. 物理モデル: 状態と周波数特性の対応</h2>
+
+<p>1/N 模型の 3 部屋構造 (各室 30 cm 程度) の基本モード周波数:</p>
+
+<pre><code>f_lmn = (c/2) × √[(l/Lx)² + (m/Ly)² + (n/Lz)²]
+c = 343 m/s, L = 0.3 m → f_100 ≈ 572 Hz
+</code></pre>
+
+<p>
+  これは MAX98357A + 0.25W 8Ω スピーカが綺麗に出せる帯域 (500 Hz–6 kHz) と
+  一致する。状態変化が音響特性に与える効果は 4 通り:
+</p>
+
+<table>
+  <thead>
+    <tr><th>状態変化</th><th>物理現象</th><th>周波数特性への影響</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>窓 a/b/c 単独開</td>
+      <td>壁の境界条件: 剛壁 (圧力腹) → 開口 (圧力節)</td>
+      <td>その壁を腹/節とするモードが半波長分シフト</td>
+    </tr>
+    <tr>
+      <td>窓開 → 放射損失</td>
+      <td>Q 値低下</td>
+      <td>モード幅広化、RT60 短縮</td>
+    </tr>
+    <tr>
+      <td>扉 AB/BC 開</td>
+      <td>隣接室と音響結合</td>
+      <td>単一ピーク → 対称/反対称ペアに分裂</td>
+    </tr>
+    <tr>
+      <td>扉 + 窓組合せ</td>
+      <td>カップリング + 損失の相互作用</td>
+      <td>線形和ではない、非自明な周波数応答</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  <b>特に扉開閉のモード分裂</b>は判別性が高いと予想 — 単一ピークが 2 つに割れ、
+  しかも分裂幅が結合の強さに依存。
+</p>
+
+<h2>3. 励振方式の 3 系統</h2>
+
+<p>判別性ある周波数を発見するアクティブ計測には 3 系統の方法がある。</p>
+
+<h3>3.1 A 案: 連続 ESS + Farina 逆フィルタ</h3>
+
+<p>連続ログスイープを撃ち、PC 側で逆フィルタ畳み込みにより線形 RIR を抽出。</p>
+
+<pre><code>出力 y(t) = x(t) ⊗ h(t)             x = ESS, h = 室内インパルス応答
+逆フィルタ x_inv(t) = 時間反転(x(t)) × 振幅補正
+y(t) ⊗ x_inv(t) = h(t) + 非線形歪み (時間軸で前後に分離)
+</code></pre>
+
+<table>
+  <thead><tr><th>評価項目</th><th>良し悪し</th></tr></thead>
+  <tbody>
+    <tr><td>SNR</td><td>高 (全帯域に長時間エネルギー投入)</td></tr>
+    <tr><td>計算量 (PC 側)</td><td>FFT 2 回 + 複素積 + IFFT、scipy で 20 行程度</td></tr>
+    <tr><td>計算量 (MCU 側)</td><td>不要 (キャラクタリゼーションは PC のみ)</td></tr>
+    <tr><td>解釈性</td><td>RIR が完全に取れるので透明性高</td></tr>
+    <tr><td>実装複雑度</td><td>逆フィルタ実装と log sweep 再生器が要る</td></tr>
+  </tbody>
+</table>
+
+<h3>3.2 B 案: ゲート式トーンバーストスイープ</h3>
+
+<p>
+  個別周波数を短時間だけ鳴らし、続く無音区間で純粋な残響を観測する。
+</p>
+
+<pre><code>時間軸:
+[500Hz 100ms ON][100ms OFF][550Hz 100ms ON][100ms OFF]...
+                  ↑ ここの 100 ms は完全無音 = 残響だけが録れる
+</code></pre>
+
+<p>
+  時間軸で励振 (ON) と残響観測 (OFF) を完全分離するので、
+  <b>逆フィルタなしに「周波数 × 残響強度」マトリクスが直接取れる</b>。
+</p>
+
+<table>
+  <thead><tr><th>評価項目</th><th>良し悪し</th></tr></thead>
+  <tbody>
+    <tr><td>SNR</td><td>高 (ON/OFF 完全分離。OFF 中の SNR は環境雑音と量子化のみで律速)</td></tr>
+    <tr><td>計算量 (PC 側)</td><td>OFF 区間切り出して RMS / FFT、これだけ</td></tr>
+    <tr><td>解釈性</td><td>「この周波数を撃ったら、これだけ長く鳴る」が直接見える</td></tr>
+    <tr><td>実装複雑度</td><td>既存の <code>pulse</code> 型 (<a href="../firmware/shared/include/pattern_lib.h"><code>pattern_lib.h</code></a>) でそのまま実現可、ファーム拡張不要</td></tr>
+    <tr><td>所要時間</td><td>110 周波 × 200 ms = 22 秒/サンプル</td></tr>
+  </tbody>
+</table>
+
+<h3>3.3 C 案: 広帯域クリック + 残響 FFT</h3>
+
+<p>1 ショット (~5 ms) の広帯域インパルスを撃ち、続く減衰テールを FFT。</p>
+
+<table>
+  <thead><tr><th>評価項目</th><th>良し悪し</th></tr></thead>
+  <tbody>
+    <tr><td>SNR</td><td>低 (エネルギーが広く薄く分布。0.25W スピーカでは厳しい)</td></tr>
+    <tr><td>計算量</td><td>最小</td></tr>
+    <tr><td>所要時間</td><td>最速 (~500 ms 一発)</td></tr>
+    <tr><td>解釈性</td><td>RIR が直接取れる</td></tr>
+  </tbody>
+</table>
+
+<h3>3.4 採用方針: Phase 1 で B 案</h3>
+
+<p><b>Phase 1 (キャラクタリゼーション) では B 案を採用</b>。理由:</p>
+
+<table>
+  <thead><tr><th>観点</th><th>B が勝つポイント</th></tr></thead>
+  <tbody>
+    <tr><td>実装複雑度</td><td>patterns.yaml の <code>pulse</code> 型を流用するだけ。新しい型不要</td></tr>
+    <tr><td>解析複雑度</td><td>逆フィルタ実装不要。RMS と FFT だけで結果が出る</td></tr>
+    <tr><td>解釈性</td><td>直接「周波数 vs 残響強度」が見える。物理的に分かりやすい</td></tr>
+    <tr><td>デバッグ性</td><td>32 状態 × 110 周波の応答テーブルが直接得られ、Excel / matplotlib で確認しやすい</td></tr>
+    <tr><td>時間</td><td>22 s × 32 状態 × 3 reps = 約 35 分 — 1 回だけのキャラクタリゼーションなら全然許容</td></tr>
+  </tbody>
+</table>
+
+<p>
+  A 案 (ESS) は綺麗だが、キャラクタリゼーションは <b>1 回だけ</b>なので時間効率より単純さ優先。
+  Phase 4 (本番運用) も B 案の派生 (ターゲット周波数だけバースト) になるため、
+  解析パイプラインが Phase 1↔4 で共通化できる利点もある。
+</p>
+
+<h2>4. パイプライン全体像</h2>
+
+<p><img src="img/excitation_pipeline.svg" alt="Phase 1-4 のフロー" style="max-width:100%; display:block; margin:1em 0;"></p>
+
+<table>
+  <thead>
+    <tr><th>フェーズ</th><th>励振</th><th>目的</th><th>出力</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Phase 1</td>
+      <td>ゲート式バーストスイープ (110 周波 × 22s)</td>
+      <td>全 32 状態の周波数応答テーブル</td>
+      <td><code>captures/modal_chars/</code> の WAV 群</td>
+    </tr>
+    <tr>
+      <td>Phase 2</td>
+      <td>(解析のみ)</td>
+      <td>判別性高い周波数を特定</td>
+      <td><code>resonances.json</code> (top 16-32 周波) + 図 4 枚</td>
+    </tr>
+    <tr>
+      <td>Phase 3</td>
+      <td>(設計のみ)</td>
+      <td>ターゲット励振の設計</td>
+      <td><code>patterns.yaml</code> に <code>targeted_v1</code> 追加</td>
+    </tr>
+    <tr>
+      <td>Phase 4</td>
+      <td><code>targeted_v1</code> で本収集 → NN 学習</td>
+      <td>高効率モデル</td>
+      <td><code>runs/targeted_v1/best.{pt,onnx}</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>5. Phase 1: ゲート式バーストスイープによるキャラクタリゼーション</h2>
+
+<h3>5.1 ファーム側準備</h3>
+
+<p>
+  <a href="../firmware/shared/include/pattern_lib.h"><code>firmware/shared/include/pattern_lib.h</code></a>
+  の上限を引き上げる:
+</p>
+
+<table>
+  <thead><tr><th>定数</th><th>現在</th><th>必要</th></tr></thead>
+  <tbody>
+    <tr><td><code>MAX_TONES_PER_PULSE</code></td><td>64</td><td><b>128</b></td></tr>
+    <tr><td><code>COL_WINDOW_MAX_MS</code></td><td>2000</td><td><b>30000</b></td></tr>
+  </tbody>
+</table>
+
+<p>
+  これにより 110 段 (= 500 Hz から 6000 Hz まで 50 Hz 刻み) × 200 ms = 22 s の
+  バースト列が 1 つの pulse パターンとして格納可能になる。
+</p>
+
+<h3>5.2 patterns.yaml への追加</h3>
+
+<pre><code>- name: gated_sweep_500_6k_50step
+  type: pulse
+  repeat: 1
+  tones:
+    - {freq_hz: 500,  on_ms: 100, off_ms: 100}
+    - {freq_hz: 550,  on_ms: 100, off_ms: 100}
+    - {freq_hz: 600,  on_ms: 100, off_ms: 100}
+    # ... 110 段
+    - {freq_hz: 6000, on_ms: 100, off_ms: 100}
+</code></pre>
+
+<h3>5.3 plan.json による収集</h3>
+
+<p>32 状態 × 3 reps:</p>
+
+<pre><code>[
+  {"label": "s00000", "pins": {"a": 0,  "b": 0,  "c": 0,  "AB": 0,  "BC": 0 }, "pattern": "gated_sweep_500_6k_50step", "repeats": 3},
+  {"label": "s00001", "pins": {"a": 0,  "b": 0,  "c": 0,  "AB": 0,  "BC": 90}, "pattern": "gated_sweep_500_6k_50step", "repeats": 3},
+  {"label": "s00010", "pins": {"a": 0,  "b": 0,  "c": 0,  "AB": 90, "BC": 0 }, "pattern": "gated_sweep_500_6k_50step", "repeats": 3},
+  // ... 全 32 通り
+  {"label": "s11111", "pins": {"a": 75, "b": 75, "c": 75, "AB": 90, "BC": 90}, "pattern": "gated_sweep_500_6k_50step", "repeats": 3}
+]
+</code></pre>
+
+<p>
+  ラベル命名規約: <code>sABCDE</code> (A=a, B=b, C=c, D=AB, E=BC, 1=開, 0=閉)。
+</p>
+
+<p>
+  所要時間: 22 s/sample × 96 sample + サーボ移動オーバーヘッド = <b>約 35 分</b> (実時間)。
+</p>
+
+<h3>5.4 マイク・スピーカ配置の固定</h3>
+
+<p>
+  <b>Phase 1 で得られる応答はマイク位置に強く依存</b>する (標準波の節/腹で大きく変わる)。
+  Phase 4 と同じ物理配置で測定しないと、判別性周波数が無意味になる。
+</p>
+
+<ul>
+  <li>マイク位置: 部屋 B (中央室) の天井 1 点固定</li>
+  <li>スピーカ位置: 部屋 B の壁面 1 点固定</li>
+  <li>模型製作時にマウンタを物理的に固定する設計が前提</li>
+</ul>
+
+<h2>6. Phase 2: 判別性解析</h2>
+
+<h3>6.1 解析スクリプト</h3>
+
+<p>
+  <code>pc/analysis/gated_sweep_analysis.py</code> (新規):
+</p>
+
+<pre><code>"""
+ゲート式バーストスイープの WAV を解析して、状態判別性の高い周波数を抽出。
+
+入力:  captures/modal_chars/sXXXXX/frame_NNNNNN.wav (96 ファイル)
+       pc/patterns.yaml の gated_sweep_500_6k_50step エントリ
+出力:  resonances.json
+       figures/per_state_decay_curves.svg
+       figures/mode_split_analysis.svg
+       figures/discriminability_ranking.svg
+       figures/q_factor_map.svg
+"""
+
+# 1. WAV をロード、tone リストから期待タイミングを再構築
+# 2. 各 OFF 区間の最初 50 ms を切り出し
+# 3. 各 OFF 区間で:
+#      decay_rms[freq_idx]      = RMS(OFF[:50ms])
+#      decay_spectrum[freq_idx] = FFT(OFF, padded)
+# 4. 32 状態 × 110 freq の decay_rms マトリクスを構築
+# 5. 状態間分散 / 状態内分散 で判別性スコア
+#      inter_var(f) = Var across 32 states
+#      intra_var(f) = Mean of within-state Var (3 reps の平均)
+#      discriminability(f) = inter_var / (intra_var + ε)
+# 6. discriminability(f) の上位 16 周波数を抽出 → resonances.json
+</code></pre>
+
+<h3>6.2 期待される観察</h3>
+
+<ul>
+  <li>部屋固有モード (例: 1.1 kHz, 2.3 kHz, ...) 付近に強い判別性ピーク</li>
+  <li>扉 AB 単独効果: あるモードの分裂幅 (~50-100 Hz) が AB 状態で変化</li>
+  <li>窓単独効果: 特定モードの Q 値変化 (ピーク幅)</li>
+</ul>
+
+<h3>6.3 早期判定基準</h3>
+
+<p>
+  Phase 2 終了時に <code>figures/per_state_decay_curves.svg</code> で
+  「窓 a 単独開」「扉 AB 単独開」「全閉」の 3 状態を重ねて表示。
+</p>
+
+<ul>
+  <li><b>明らかに違う周波数がある</b> → 全体方針成立、Phase 3 へ進む</li>
+  <li><b>状態間で違いが小さい</b> → マイク/スピーカ位置を変えて再採取 or 模型形状見直しが必要
+      (CNN を訓練する前に物理層で判断できる)</li>
+</ul>
+
+<h2>7. Phase 3: ターゲット励振設計</h2>
+
+<h3>7.1 設計スクリプト</h3>
+
+<p><code>pc/analysis/design_excitation.py</code> (新規):</p>
+
+<pre><code>"""
+resonances.json から top N=16 周波数を取り、本番運用用励振パターンを生成。
+
+入力:  resonances.json
+出力:  targeted_v1 エントリ (patterns.yaml に追記)
+       validation_report.txt (Phase 1 データで予測した AUROC)
+"""
+
+# 1. resonances.json の top 16 freqs を取得
+# 2. 各 freq の周辺 ±20 Hz は短いミニスイープで掃く (Q 高いモードは 1 点だと位相不確実)
+# 3. YAML エントリ生成:
+#    - name: targeted_v1
+#      type: pulse           # 既存 pulse 型で表現可
+#      tones:
+#        - {freq_hz: 1078, on_ms: 50, off_ms: 80}
+#        - {freq_hz: 1342, on_ms: 50, off_ms: 80}
+#        ... 16 個
+#    total: 16 × 130 = 2080 ms
+# 4. 検証: Phase 1 の 96 サンプルから targeted_v1 で得られるはずの応答を numpy で再合成
+#         → simple linear classifier で交差検証
+#         → AUROC を 6 ヘッドそれぞれで報告
+</code></pre>
+
+<h3>7.2 「実機で targeted_v1 を撃つ前に性能予測がつく」利点</h3>
+
+<p>
+  Phase 1 の生データから Phase 4 の応答を numpy で再合成できるので、
+  Phase 4 の本収集に進む前に「このターゲット選定で十分な AUROC が出るか」を確認できる。
+</p>
+
+<p>
+  予測 AUROC &lt; 0.90 なら top N を 32 に増やす、選定方法を見直す等の調整を
+  Phase 4 着手前に行える。
+</p>
+
+<h2>8. Phase 4: 本番収集と学習</h2>
+
+<h3>8.1 本番収集</h3>
+
+<p>
+  <code>targeted_v1</code> で 32 状態 × 30 reps = 960 サンプル × 2 s ≈ <b>約 32 分</b>。
+</p>
+
+<pre><code>[
+  {"label": "s00000", "pins": {"a": 0, ...}, "pattern": "targeted_v1", "repeats": 30},
+  // ... 32 通り
+]
+</code></pre>
+
+<h3>8.2 NN モデルの簡素化</h3>
+
+<p>
+  入力次元が <b>1024 bin → 16 amplitude</b> になるので、モデルを大幅に簡素化可能:
+</p>
+
+<table>
+  <thead>
+    <tr><th>段階</th><th>モデル</th><th>入力次元</th><th>パラメータ数</th><th>推論レイテンシ</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>現状 (multiband + CNN)</td>
+      <td>1D-CNN 5 層 + 6 head</td>
+      <td>1024</td>
+      <td>~30 K</td>
+      <td>30 ms</td>
+    </tr>
+    <tr>
+      <td>targeted_v1 + 小 MLP</td>
+      <td>2 層 MLP + 6 head</td>
+      <td>16 (or 32)</td>
+      <td><b>~2 K</b></td>
+      <td><b>&lt;5 ms</b></td>
+    </tr>
+    <tr>
+      <td>targeted_v1 + Linear</td>
+      <td>Logistic Regression × 6</td>
+      <td>16</td>
+      <td><b>~100</b></td>
+      <td><b>&lt;1 ms</b></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  INT8 量子化後のサイズは MLP で約 2 KB、Linear で 0.2 KB に収まる。
+  Neutron NPU を使わずとも Cortex-M33 単体で動作可。
+</p>
+
+<h3>8.3 励振比較実験 (推奨)</h3>
+
+<p>
+  <a href="../pc/training/train.py"><code>pc/training/train.py</code></a>
+  を 3 励振別に走らせて AUROC 比較:
+</p>
+
+<table>
+  <thead>
+    <tr><th>励振</th><th>データ量</th><th>推定 AUROC (any_open)</th><th>モデルサイズ</th><th>推論レイテンシ</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>multiband_default</code> (現状)</td>
+      <td>960 サンプル</td>
+      <td>~0.85 (推測)</td>
+      <td>30 K params</td>
+      <td>30 ms</td>
+    </tr>
+    <tr>
+      <td><code>chirp_200_6k</code></td>
+      <td>960 サンプル</td>
+      <td>~0.87</td>
+      <td>30 K params</td>
+      <td>30 ms</td>
+    </tr>
+    <tr>
+      <td><code>targeted_v1</code></td>
+      <td>960 サンプル</td>
+      <td><b>~0.95+ (期待値)</b></td>
+      <td><b>~2 K params</b></td>
+      <td><b>&lt;5 ms</b></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>これにより仮説 (物理ベース励振が CNN による特徴学習を上回る) を実証できる。</p>
+
+<h2>9. リスクと制約</h2>
+
+<table>
+  <thead><tr><th>リスク</th><th>対策</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><b>マイク位置依存性</b></td>
+      <td>模型製作時にマイク位置を物理的に固定。Phase 1 と Phase 4 で完全同条件</td>
+    </tr>
+    <tr>
+      <td><b>同形状の窓 a/b/c 判別困難</b></td>
+      <td>窓のサイズ/位置を僅かに非対称にする、またはマイクを 1 つの窓に偏置</td>
+    </tr>
+    <tr>
+      <td><b>温度依存</b></td>
+      <td>音速は ~0.6 m/s/°C で変動 → 共鳴周波数も 5%/25°C シフト。
+          設置先で月次キャリブレーション or 温度センサ補正</td>
+    </tr>
+    <tr>
+      <td><b>スピーカ非線形</b></td>
+      <td>log sweep でハーモニクスが時間軸に分離されるので、Farina 逆フィルタを使えば
+          線形成分のみ抽出可。B 案 (バースト) は単一周波数なのでハーモニクスは
+          時間軸で分離せず別ピークとして出るが、判別性解析の段階で除去できる</td>
+    </tr>
+    <tr>
+      <td><b>Helmholtz 共鳴が使えない</b></td>
+      <td>窓開口の Helmholtz 共鳴は 数十 Hz → MAX98357A + 0.25W スピーカでは出せない。
+          室内モード由来の特徴のみ使う</td>
+    </tr>
+    <tr>
+      <td><b>設置先ごとの再キャリブレーション</b></td>
+      <td>Phase 1 + 2 を deployment 時に自動実行する仕組み (約 40 分) を後付け可能。
+          サーボが自動で 32 状態を巡回する設計はすでに
+          <a href="../firmware/projects/09_collector/README.html">09_collector</a> にある</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>10. 実装着手順序</h2>
+
+<ol>
+  <li><a href="../firmware/shared/include/pattern_lib.h"><code>firmware/shared/include/pattern_lib.h</code></a>
+      の上限定数引き上げ (<code>MAX_TONES_PER_PULSE</code>, <code>COL_WINDOW_MAX_MS</code>) — <b>10 分</b></li>
+  <li><a href="../pc/patterns.yaml"><code>pc/patterns.yaml</code></a> に
+      <code>gated_sweep_500_6k_50step</code> 追加 — <b>5 分</b></li>
+  <li><a href="../firmware/projects/09_collector/README.html">09_collector</a> に push して
+      <code>EMIT N</code> で 1 度試聴確認 — <b>5 分</b></li>
+  <li><code>plan.json</code> で 32 状態 × 3 reps = 96 サンプル採取 — <b>約 35 分</b> (実時間)</li>
+  <li><code>pc/analysis/gated_sweep_analysis.py</code> を実装 — <b>1-2 時間</b></li>
+  <li><b>判定ポイント</b>: <code>per_state_decay_curves.svg</code> で物理的に違いが見えるか目視確認
+    <ul>
+      <li>YES → Phase 3 へ進む</li>
+      <li>NO → センサ/模型構造を見直してから Step 4 やり直し</li>
+    </ul>
+  </li>
+  <li><code>pc/analysis/design_excitation.py</code> を実装 + <code>targeted_v1</code> 設計 — <b>1 時間</b></li>
+  <li><code>targeted_v1</code> で本収集 (32 状態 × 30 reps = 約 32 分)</li>
+  <li><a href="../pc/training/train.py"><code>pc/training/train.py</code></a> で 3 励振の AUROC 比較</li>
+  <li>勝者励振で本番学習 → ONNX → eIQ INT8 →
+      <a href="../firmware/projects/10_inference/README.html">10_inference</a> に統合</li>
+</ol>
+
+<p>
+  ステップ 1-6 までは <b>1 日で完結</b>する。早期判定 (Step 6) で「物理ベース励振が効くか」を
+  確認してから Phase 3 以降の本格実装に進むことで、デッドエンドへの投資リスクを最小化する設計。
+</p>
+
+<h2>11. 関連ドキュメント</h2>
+
+<ul>
+  <li><a href="spec.html">docs/spec.html</a> §4.3 — マルチタスク 1D-CNN の正本仕様</li>
+  <li><a href="nn_design.html">docs/nn_design.html</a> — NN アーキテクチャ詳細</li>
+  <li><a href="mcu_deployment.html">docs/mcu_deployment.html</a> — eIQ Toolkit 経由のデプロイ</li>
+  <li><a href="../pc/training/README.html">pc/training/README</a> — 学習パイプライン</li>
+  <li><a href="../firmware/projects/09_collector/README.html">firmware/projects/09_collector/README</a> — データ収集ファーム</li>
+  <li><a href="../firmware/projects/10_inference/README.html">firmware/projects/10_inference/README</a> — MCU 推論デモ</li>
+  <li><a href="../pc/patterns.yaml">pc/patterns.yaml</a> — 励振パターン定義</li>
+  <li><a href="../firmware/shared/include/pattern_lib.h">firmware/shared/include/pattern_lib.h</a> — ファーム側パターン上限定数</li>
+</ul>
+
+</main>
+
+</body>
+</html>
