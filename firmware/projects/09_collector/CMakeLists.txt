@@ -14,12 +14,14 @@ include("${board}_${core_id}/board_files.cmake")
 include(${SdkRootDirPath}/CMakeLists.txt)
 
 # Servo backend selection — matches 02_servo_test conventions.
-# Switch by changing SERVO_BACKEND_LU9685_I2C → SERVO_BACKEND_PCA9685.
-# servo_driver.h picks the implementation and the default I²C address
-# (LU9685 = 0x1F, PCA9685 = 0x40) at compile time. Both .c files are
-# included so the backend flip needs only the macro change.
+# Switched to PCA9685 after observing ~30 deg back-and-forth swings on
+# the LU9685 even with bulk capacitance on V+. PCA9685 has been the
+# more reliable backend on this hardware. Flip back to LU9685 by
+# swapping to SERVO_BACKEND_LU9685_I2C — servo_driver.h picks the
+# implementation and the default I²C address (LU9685 = 0x1F, PCA9685
+# = 0x40) at compile time. Both .c files are linked in either case.
 mcux_add_configuration(
-    CC "-DSERVO_BACKEND_LU9685_I2C"
+    CC "-DSERVO_BACKEND_PCA9685"
 )
 
 mcux_add_source(

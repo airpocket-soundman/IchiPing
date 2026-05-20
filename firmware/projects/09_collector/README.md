@@ -29,19 +29,24 @@ ASCII 行と ICHP バイナリは同一 UART に多重化。PC は `ICHP` magic 
 | 設定 | `CLEAR PIN <servo>` / `CLEAR PINS` | `CLEAR PIN AB` | pin 解除 |
 | 校正 | `SET HOME <servo> <deg>` | `SET HOME a 12` | home（閉位置, mechanical）を RAM 更新 |
 | 校正 | `SET OPEN <servo> <deg>` | `SET OPEN a 87` | open（全開位置, mechanical）を RAM 更新 |
-| 校正 | `SAVE HOME` | `SAVE HOME` | 永続化（**現状 NOT_IMPL — 後述**） |
-| マニュアル | `SERVO <servo> <deg>` | `SERVO a 45` | 1 ch を即動かす（RUN 外専用） |
-| マニュアル | `SERVO ALL OFF` | `SERVO ALL OFF` | 全 PWM 停止 |
+| 校正 | `SAVE HOME` | `SAVE HOME` | home / open を MCXN947 PFlash 末尾セクタへ書込（boot 時に自動復元） |
+| マニュアル | `SERVO <servo> <deg>` | `SERVO a 45` | 1 ch を動かす → 0.3 s 待機 → 自動で当該 ch OFF（hum 防止） |
+| マニュアル | `SERVO <servo> OFF` | `SERVO AB OFF` | 1 ch のみ即 PWM 停止（脱力） |
+| マニュアル | `SERVO ALL OFF` | `SERVO ALL OFF` | 全 PWM 即停止 |
+| マニュアル | `OPEN <servo>` | `OPEN a` | `open_deg` に動かす → 0.3 s 待機 → 自動で当該 ch OFF |
+| マニュアル | `CLOSE <servo>` | `CLOSE AB` | `home_deg` に動かす → 0.3 s 待機 → 自動で当該 ch OFF |
+| マニュアル | `OPEN ALL` | `OPEN ALL` | **a→b→c→AB→BC** を 1 ch ずつ `open_deg` に動かす（窓 → 扉 の順、各 0.3 s 待ち + 自動 OFF）。合計 1.5 s |
+| マニュアル | `CLOSE ALL` | `CLOSE ALL` | **BC→AB→c→b→a** を 1 ch ずつ `home_deg` に動かす（扉 → 窓 の順、airlock スタイル、各 0.3 s + 自動 OFF）。合計 1.5 s |
 | 実行 | `RUN` | `RUN` | repeats 回データ採取 |
 | 中断 | `STOP` | `STOP` | 次フレーム境界で中断 |
 
-servo 名: `a` / `b` / `c` / `AB` / `BC`（大文字小文字無視）。角度引数はすべて **mechanical_deg**（PCA9685 への生 PWM 角）。`SERVO` / `SET HOME` / `SET OPEN` / `SET PIN` 全部 mechanical 系。表示用の logical 系 (閉=0, 開=+, max 75/90) は [docs/servo_coords.md](../../../docs/servo_coords.md) を参照。
+servo 名: `a` / `b` / `c` / `AB` / `BC`（大文字小文字無視）。角度引数はすべて **mechanical_deg**（PCA9685 への生 PWM 角、レンジ **0..180**）。0..180° が **0.5..2.7 ms パルス幅（duty 2.5..13.5 %）** に線形マップ — 上限は SG90 データシート（2.5 ms）より少し広げて実機メカ端到達を優先。`SERVO` / `SET HOME` / `SET OPEN` / `SET PIN` 全部 mechanical 系。表示用の logical 系 (閉=0, 開=+, 全 ch max 180) は [docs/servo_coords.md](../../../docs/servo_coords.md) を参照。
 
 ## 動作シーケンス
 
 ```
 boot
- └ servo_config_init → servos to home_deg → READY
+ └ servo_config_init → drive servos to home_deg → wait 0.3 s → release PWM (idle, silent) → READY
 loop:
  └ poll UART RX
     ├ line complete → parse → dispatch → respond
@@ -243,12 +248,10 @@ python collector_client.py --port COM7 --plan plan.json --out ../captures
 詳細手順は [docs/servo_coords.md §3 校正手順](../../../docs/servo_coords.md) に集約。要点だけ:
 
 1. `SERVO a <deg>` で 1 ch ずつ動かして「閉」位置と「全開」位置を探る
-2. `SET HOME a 12` / `SET OPEN a 87` で焼き付け（窓は `open - home = 75°`、扉は `90°` が目標）
+2. `SET HOME a 12` / `SET OPEN a 87` で RAM に焼き付け（窓は `open - home = 75°`、扉は `90°` が目標）
 3. 5 ch ぶん繰り返し、`GET HOME` / `GET OPEN` で確認
-4. **`SAVE HOME` は現状 NOT_IMPL**。代わりに [`firmware/shared/source/servo_config.c`](../../shared/source/servo_config.c) の `SERVO_CONFIG_DEFAULTS` に値を書き写してリビルド → 焼き直し
-5. 以降は boot 時に同じ位置に戻る
-
-将来 MCXN947 IAP を実装したら `SAVE HOME` がフラッシュ書込になる。手順は `servo_config_save_flash()` の TODO 参照。
+4. **`SAVE HOME` で MCXN947 PFlash 末尾セクタ（0x001FE000, 1 page = 128 B）に書込**。`OK HOME saved` が返れば成功。エラー時は `ERR SAVE_HOME code=<n>` ([servo_config.h](../../shared/include/servo_config.h) のコード一覧参照)
+5. 以降は boot 時に flash から自動復元（CRC-16 検証 NG ならコンパイル時 `SERVO_CONFIG_DEFAULTS` にフォールバック）
 
 ## ディスプレイ（ILI9341 240×320）
 
@@ -394,17 +397,17 @@ python collector_client.py --port COM7 --plan plan.json --out ../captures
 
 ```cmake
 mcux_add_configuration(
-    CC "-DSERVO_BACKEND_LU9685_I2C"
+    CC "-DSERVO_BACKEND_PCA9685"
 )
 ```
 
-既定は **LU9685**（20ch, I²C 0x1F, 02_servo_test と同じ慣例）。**PCA9685**（NXP, 16ch, 0x40）に切替えるなら `-DSERVO_BACKEND_PCA9685` に変更してリビルド。両バックエンドの `.c` を CMake に含めているのでマクロ差替えだけで OK。
+既定は **PCA9685**（NXP, 16ch, I²C 0x40）。実機 LU9685 で約 30° の往復スイングが出て V+ バルクキャパシタを足しても解消しなかったため、本プロジェクトでは PCA9685 をデフォルトに採用。**LU9685**（20ch, 0x1F）に戻すなら `-DSERVO_BACKEND_LU9685_I2C` に変更してリビルド。両バックエンドの `.c` を CMake に含めているのでマクロ差替えだけで OK。
 
-> 起動時の `INFO BOOT I2C scan: 0xXX` 行で実際に ACK したアドレスが分かるので、ジャンパ設定と firmware の `LU9685_DEFAULT_ADDR` / `PCA9685_DEFAULT_ADDR` の整合は boot ログで確認可。
+> 起動時の `INFO BOOT I2C scan: 0xXX` 行で実際に ACK したアドレスが分かるので、ジャンパ設定と firmware の `PCA9685_DEFAULT_ADDR` / `LU9685_DEFAULT_ADDR` の整合は boot ログで確認可。
 
 ## 既知の制約 / TODO
 
-- **フラッシュ永続化未実装** — `SAVE HOME` は NOT_IMPL。MCXN947 IAP（`fsl_iap.h` または `fsl_flash.h`）で 1 sector を予約する実装が必要。回避策はリビルド運用（上記）
+- **フラッシュ予約領域は単一スロット**（last sector of m_flash1, 0x001FE000）。摩耗均等化（wear levelling）は無し。SG90 校正用途では SAVE HOME を 1 万回叩いても寿命に届かないため許容
 - **サーボ移動とキャプチャは直列**。1 試行 = 0.4 s 待ち + 2 s キャプチャ + 0.56 s UART 送信 = **3 秒/フレーム**。30 フレーム = 1.5 分。USB CDC（05 ベース）に乗り換えれば UART 送信 0.1 s に短縮可
 - **ラベル対応付けがシーケンシャル前提**。並列 RUN 不可（並列にする場合はラベル ID をフレーム内に埋める拡張が必要）
 - **ランダム化は二値選択（home / open のいずれか）**。連続角度ランダム化が必要なら `build_trial_pattern` を改修

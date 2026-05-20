@@ -29,7 +29,7 @@
 #define BAR_X                100
 #define BAR_W                100
 #define BAR_H                 10
-#define STATE_X              210
+#define STATE_X              204
 
 #define COL_BG               ILI9341_BLACK
 #define COL_FG               ILI9341_WHITE

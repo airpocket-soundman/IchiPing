@@ -1,0 +1,13 @@
+# MCUXpresso project metadata must stay LF.
+# The Import Project From Folder wizard parses example.yml; CRLF causes the
+# board key (e.g. frdmmcxn947@cm33_core0) to be read with a trailing \r,
+# which makes the wizard fall back to "Please select a board" and fail.
+# Same goes for Kconfig / prj.conf which feed the SDK Kconfig/CMake build.
+firmware/projects/*/example.yml       text eol=lf
+firmware/projects/*/Kconfig           text eol=lf
+firmware/projects/*/prj.conf          text eol=lf
+firmware/projects/*/CMakeLists.txt    text eol=lf
+firmware/projects/*/CMakePresets.json text eol=lf
+firmware/projects/*/*/Kconfig.trace   text eol=lf
+firmware/projects/*/*/board_files.cmake text eol=lf
+firmware/projects/*/*/prj.conf        text eol=lf

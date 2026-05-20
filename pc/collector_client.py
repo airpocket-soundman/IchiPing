@@ -397,7 +397,10 @@ Commands forwarded to the MCU (case-insensitive verb):
   SET REPEATS <N>
   SET PIN <servo> <deg>        /  CLEAR PIN <servo>  /  CLEAR PINS
   SET HOME <servo> <deg>       /  SET OPEN <servo> <deg>  /  SAVE HOME
-  SERVO <servo> <deg>          /  SERVO ALL OFF
+  SERVO <servo> <deg>          (move, 0.3 s, auto-OFF)  /  SERVO <servo> OFF  /  SERVO ALL OFF
+  OPEN <servo>                 /  CLOSE <servo>      (move to open/home, 0.3 s, auto-OFF)
+  OPEN ALL                     (a→b→c→AB→BC, 0.3 s each)
+  CLOSE ALL                    (BC→AB→c→b→a reverse, 0.3 s each)
   PAT INFO                     /  PAT SELECT <idx>
   EMIT <idx>                   (test-play current pattern, no recording)
   RUN                          /  STOP
@@ -538,7 +541,53 @@ def run_repl(ser: serial.Serial, reader: StreamReader, saver: CaptureSaver,
     # not interleave with one another mid-line.
     out_lock = threading.Lock()
 
+    # Auto re-push patterns when the MCU emits its ready banner mid-session
+    # (i.e. after a reset / reflash). Without this the user sees PAT INFO
+    # count=0 and has to run :reload manually. Guard with a non-blocking
+    # lock so we never queue a second push while one is in flight.
+    auto_push_lock = threading.Lock()
+
+    def trigger_auto_push() -> None:
+        if not auto_push_lock.acquire(blocking=False):
+            return
+
+        def worker() -> None:
+            try:
+                with out_lock:
+                    sys.stdout.write("\n  ! MCU reset — re-pushing patterns...\n")
+                    sys.stdout.flush()
+                # Let the rest of the boot banner (and any OK lines from a
+                # racing PAT command, if any) drain before we take the queue.
+                time.sleep(0.3)
+                saved_cb = reader.line_callback
+                reader.line_callback = None
+                try:
+                    lib.push(
+                        send_line=lambda line: send(ser, line),
+                        wait_ack=lambda: wait_for_ack(reader, timeout=2.0),
+                        log=None,
+                    )
+                    if lib.patterns:
+                        send(ser, "PAT SELECT 0")
+                        wait_for_ack(reader, timeout=2.0)
+                finally:
+                    reader.line_callback = saved_cb
+                with out_lock:
+                    sys.stdout.write(
+                        f"  ! re-pushed {len(lib.patterns)} patterns; PAT SELECT 0\n> ")
+                    sys.stdout.flush()
+            finally:
+                auto_push_lock.release()
+
+        threading.Thread(target=worker, daemon=True).start()
+
     def on_line(line: str) -> None:
+        # Detect the boot-complete banner that the firmware emits at the
+        # very end of init ("INFO IchiPing 09_collector ready"). The "BOOT"
+        # lines earlier in boot start with "INFO BOOT" so this prefix only
+        # matches the ready signal.
+        if line.startswith("INFO IchiPing"):
+            trigger_auto_push()
         # `\n` ensures the response starts on a fresh line even if the
         # user has typed a partial command; their typing is unaffected
         # (still in the readline buffer) but visually scrolls.

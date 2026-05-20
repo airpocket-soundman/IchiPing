@@ -89,6 +89,7 @@ extern void BOARD_InitHardware(void);
 #define COL_DEFAULT_VOLUME    5                /* integer percent (0..100); small box, 5% ≈ -26 dB */
 #define COL_DEFAULT_REPEATS   30
 #define COL_SERVO_SETTLE_MS   400u             /* SG90 worst-case 60deg ~= 400 ms */
+#define COL_NAMED_MOVE_MS     300u             /* SERVO/OPEN/CLOSE settle: hold PWM 0.3 s after move, then release */
 
 #ifndef COL_UART_BAUD
 #define COL_UART_BAUD         921600u
@@ -513,7 +514,7 @@ static void apply_cmd(const ichp_cmd_t *cmd, ichp_cmd_lbuf_t *lb)
         case ICHP_CMD_SAVE_HOME: {
             int r = servo_config_save_flash();
             if (r == 0) uart_write_line("OK HOME saved");
-            else        uart_write_line("ERR NOT_IMPL SAVE_HOME (rebuild with SERVO_CONFIG_DEFAULTS updated to GET HOME values)");
+            else        uart_printf("ERR SAVE_HOME code=%d", r);
             break;
         }
         case ICHP_CMD_SERVO: {
@@ -524,8 +525,24 @@ static void apply_cmd(const ichp_cmd_t *cmd, ichp_cmd_lbuf_t *lb)
                 break;
             }
             collector_display_set_servo(&s_disp, cmd->servo_idx, cmd->deg);
+            /* Hold long enough for the SG90 to settle, then release PWM so
+             * the channel stops drawing holding current and humming. Same
+             * pattern as OPEN/CLOSE. RUN drives servos via a separate
+             * code path that keeps them energised through capture. */
+            delay_ms(COL_NAMED_MOVE_MS);
+            (void)servo_set_off(&s_servo, cmd->servo_idx);
             uart_printf("OK SERVO %s deg=%d",
                         ICHP_SERVO_NAMES[cmd->servo_idx], (int)cmd->deg);
+            break;
+        }
+        case ICHP_CMD_SERVO_OFF: {
+            status_t s = servo_set_off(&s_servo, cmd->servo_idx);
+            if (s != kStatus_Success) {
+                uart_printf("ERR SERVO_I2C %s off status=%ld",
+                            ICHP_SERVO_NAMES[cmd->servo_idx], (long)s);
+            } else {
+                uart_printf("OK SERVO %s off", ICHP_SERVO_NAMES[cmd->servo_idx]);
+            }
             break;
         }
         case ICHP_CMD_SERVO_ALL_OFF: {
@@ -534,6 +551,70 @@ static void apply_cmd(const ichp_cmd_t *cmd, ichp_cmd_lbuf_t *lb)
                 uart_printf("ERR SERVO_I2C all off status=%ld", (long)s);
             } else {
                 uart_write_line("OK SERVO all off");
+            }
+            break;
+        }
+        case ICHP_CMD_OPEN:
+        case ICHP_CMD_CLOSE: {
+            const servo_config_t *cfg = servo_config_get();
+            const bool   is_open = (cmd->kind == ICHP_CMD_OPEN);
+            const float  target  = is_open ? cfg->open_deg[cmd->servo_idx]
+                                           : cfg->home_deg[cmd->servo_idx];
+            const char  *verb    = is_open ? "OPEN" : "CLOSE";
+            status_t s = servo_set_deg(&s_servo, cmd->servo_idx, target);
+            if (s != kStatus_Success) {
+                uart_printf("ERR SERVO_I2C %s %s status=%ld",
+                            verb, ICHP_SERVO_NAMES[cmd->servo_idx], (long)s);
+                break;
+            }
+            collector_display_set_servo(&s_disp, cmd->servo_idx, target);
+            /* Hold PWM long enough for the SG90 to traverse the full swing,
+             * then release the channel so it stops drawing holding current
+             * and humming. Display keeps showing the commanded angle. */
+            delay_ms(COL_NAMED_MOVE_MS);
+            (void)servo_set_off(&s_servo, cmd->servo_idx);
+            uart_printf("OK %s %s deg=%d",
+                        verb, ICHP_SERVO_NAMES[cmd->servo_idx], (int)target);
+            break;
+        }
+        case ICHP_CMD_OPEN_ALL:
+        case ICHP_CMD_CLOSE_ALL: {
+            const servo_config_t *cfg = servo_config_get();
+            const bool  is_open = (cmd->kind == ICHP_CMD_OPEN_ALL);
+            const float *targets = is_open ? cfg->open_deg : cfg->home_deg;
+            const char  *verb    = is_open ? "OPEN" : "CLOSE";
+            /* Sequential drive, one channel at a time, to spread the SG90
+             * inrush over time instead of triggering a 5-way V+ sag. The
+             * order matters for the IchiPing model:
+             *   OPEN  : a → b → c → AB → BC  (windows first, then doors,
+             *                                  so the room is ventilated
+             *                                  before the doors swing)
+             *   CLOSE : BC → AB → c → b → a  (doors first, then windows,
+             *                                  airlock-style: the outermost
+             *                                  panels close before the
+             *                                  inner ones)
+             * Total time = ICHP_SERVO_COUNT × COL_NAMED_MOVE_MS. */
+            bool failed = false;
+            for (uint8_t step = 0; step < ICHP_SERVO_COUNT; step++) {
+                uint8_t i = is_open
+                    ? step
+                    : (uint8_t)(ICHP_SERVO_COUNT - 1u - step);
+                status_t s = servo_set_deg(&s_servo, i, targets[i]);
+                if (s != kStatus_Success) {
+                    uart_printf("ERR SERVO_I2C %s %s status=%ld",
+                                verb, ICHP_SERVO_NAMES[i], (long)s);
+                    /* Best-effort cleanup: release whatever is still
+                     * energised so we don't leave channels mid-move. */
+                    (void)servo_all_off(&s_servo);
+                    failed = true;
+                    break;
+                }
+                collector_display_set_servo(&s_disp, i, targets[i]);
+                delay_ms(COL_NAMED_MOVE_MS);
+                (void)servo_set_off(&s_servo, i);
+            }
+            if (!failed) {
+                uart_printf("OK %s all", verb);
             }
             break;
         }
@@ -749,7 +830,10 @@ int main(void)
                     (unsigned)SERVO_DEFAULT_FREQ_HZ);
     }
 
-    /* Load home/open config (RAM defaults for now), drive servos to home. */
+    /* Load home/open config (RAM defaults for now), drive servos to home,
+     * then release PWM so the chassis is silent at idle. Servos hold
+     * position by friction at low load; subsequent OPEN/CLOSE/SERVO
+     * commands re-energise the relevant channel. */
     (void)servo_config_init();
     {
         const servo_config_t *cfg = servo_config_get();
@@ -768,7 +852,11 @@ int main(void)
                         (long)s);
         }
     }
-    delay_ms(COL_SERVO_SETTLE_MS);
+    /* Give servos time to swing from arbitrary boot positions (worst case
+     * full 180 deg) before releasing PWM. */
+    delay_ms(COL_NAMED_MOVE_MS);
+    (void)servo_all_off(&s_servo);
+    uart_write_line("INFO BOOT servo PWM released (idle)");
 
     /* ---- TFT bring-up (SPI + ILI9341). Optional: collector runs headless
      * if the panel isn't wired. ---- */

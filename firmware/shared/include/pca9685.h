@@ -28,12 +28,17 @@
 #define PCA9685_NUM_CHANNELS   16u
 
 /* 12-bit PWM ticks @ 50 Hz (one frame = 4096 ticks ≈ 20 ms).
- *   tick = pulse_width_ms / (20 ms / 4096)
- *   0 deg  ≈ 0.5 ms  → 102
- *   180 deg ≈ 2.5 ms → 512
- * We pad slightly inwards to avoid mechanical stall on SG90 endpoints. */
-#define PCA9685_SG90_MIN_TICK  130u
-#define PCA9685_SG90_MAX_TICK  510u
+ *   tick = pulse_width_ms / (20 ms / 4096)   (1 tick ≈ 4.88 µs)
+ *   0 deg   ≈ 0.5 ms  → 102   (2.49 % duty)
+ *   180 deg ≈ 2.7 ms  → 553   (13.50 % duty)
+ * Lower bound matches the SG90 datasheet. Upper bound is widened past
+ * the datasheet 2.5 ms to reach the mechanical end-stop on the actual
+ * SG90 units used in this project (datasheet is conservative; real
+ * units accept 2.6–2.8 ms). 1 deg ≈ 12.5 µs at this slope.
+ * If your specific servo grinds at an endpoint, narrow that side by
+ * 20–30 ticks. */
+#define PCA9685_SG90_MIN_TICK  102u
+#define PCA9685_SG90_MAX_TICK  553u
 
 typedef struct {
     LPI2C_Type *base;
@@ -54,13 +59,18 @@ status_t pca9685_set_pwm(pca9685_t *dev,
                          uint8_t ch,
                          uint16_t on_tick, uint16_t off_tick);
 
-/* Set one SG90 channel to an angle in [0..180]. Values outside the range
- * are clamped to avoid driving the servo into its mechanical stops. */
+/* Set one SG90 channel to an angle in [0..180]. The full range maps to
+ * SG90_MIN..MAX_TICK = 0.5..2.5 ms (full SG90 spec). Values out of range
+ * are clamped. */
 status_t pca9685_set_servo_deg(pca9685_t *dev, uint8_t ch, float deg);
 
 /* Convenience: update all 5 IchiPing servos at once. The internal channel
  * order matches §2.5 wiring: window a / b / c, door AB, door BC. */
 status_t pca9685_set_all_servo_deg(pca9685_t *dev, const float deg[5]);
+
+/* Park one channel: assert the full-OFF bit so the output sits at 0% duty
+ * (servo coasts, no holding torque). Data sheet §7.3.3 fig 12. */
+status_t pca9685_set_off(pca9685_t *dev, uint8_t ch);
 
 /* Park: send 0% duty on all channels (servo coast, low current draw). */
 status_t pca9685_all_off(pca9685_t *dev);

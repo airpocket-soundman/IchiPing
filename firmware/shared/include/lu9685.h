@@ -63,6 +63,10 @@ status_t lu9685_set_servo_deg(lu9685_t *dev, uint8_t ch, float deg);
  * beyond `n` are sent as LU9685_DISABLED (no PWM). */
 status_t lu9685_set_all_servo_deg(lu9685_t *dev, const float *deg, uint8_t n);
 
+/* Disable PWM on one channel (servo coasts, no holding torque). Writes
+ * LU9685_DISABLED (0xFF) to the per-pin register. */
+status_t lu9685_set_off(lu9685_t *dev, uint8_t ch);
+
 /* Disable PWM on all 20 channels (servo coasts, no holding torque). */
 status_t lu9685_all_off(lu9685_t *dev);
 

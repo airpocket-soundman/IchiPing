@@ -62,6 +62,12 @@ status_t lu9685_set_all_servo_deg(lu9685_t *dev,
     return i2c_write_buf(dev, LU9685_REG_BULK, buf, (size_t)LU9685_NUM_CHANNELS);
 }
 
+status_t lu9685_set_off(lu9685_t *dev, uint8_t ch) {
+    if (dev == NULL) return kStatus_InvalidArgument;
+    if (ch >= LU9685_NUM_CHANNELS) return kStatus_InvalidArgument;
+    return i2c_write_reg8(dev, ch, LU9685_DISABLED);
+}
+
 status_t lu9685_all_off(lu9685_t *dev) {
     if (dev == NULL) return kStatus_InvalidArgument;
     uint8_t buf[LU9685_NUM_CHANNELS];

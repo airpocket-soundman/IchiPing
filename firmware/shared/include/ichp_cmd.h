@@ -51,8 +51,18 @@
  *   SAVE HOME                         -> OK HOME saved
  *                                     or ERR NOT_IMPL <reason>
  *
- *   SERVO <servo> <deg>               -> OK SERVO <servo> <deg>     (manual move)
- *   SERVO ALL OFF                     -> OK SERVO all off           (release PWM)
+ *   SERVO <servo> <deg>               -> OK SERVO <servo> <deg>     (move to deg 0..180, wait, release)
+ *   SERVO <servo> OFF                 -> OK SERVO <servo> off       (release one ch immediately)
+ *   SERVO ALL OFF                     -> OK SERVO all off           (release all PWM)
+ *   OPEN <servo>                      -> OK OPEN <servo> deg=<n>    (move to open_deg, wait, release)
+ *   CLOSE <servo>                     -> OK CLOSE <servo> deg=<n>   (move to home_deg, wait, release)
+ *   OPEN ALL                          -> OK OPEN all                (sequential a→b→c→AB→BC to open_deg, 0.3 s each)
+ *   CLOSE ALL                         -> OK CLOSE all               (sequential BC→AB→c→b→a to home_deg, 0.3 s each — reverse, airlock)
+ *
+ *   SERVO / OPEN / CLOSE all share the same "move → 0.3 s settle →
+ *   release PWM on that channel" pattern so the chassis stays silent at
+ *   idle (SG90 hum). RUN drives servos via a separate path that keeps
+ *   them energised through capture.
  *
  *   RUN                               -> OK RUN started repeats=<N>
  *       then N ICHP frames, then OK RUN done frames=<N>
@@ -111,7 +121,12 @@ typedef enum {
     ICHP_CMD_SET_OPEN,
     ICHP_CMD_SAVE_HOME,
     ICHP_CMD_SERVO,
+    ICHP_CMD_SERVO_OFF,
     ICHP_CMD_SERVO_ALL_OFF,
+    ICHP_CMD_OPEN,
+    ICHP_CMD_CLOSE,
+    ICHP_CMD_OPEN_ALL,
+    ICHP_CMD_CLOSE_ALL,
     ICHP_CMD_RUN,
     ICHP_CMD_STOP,
     /* Pattern library — see firmware/shared/include/pattern_lib.h and

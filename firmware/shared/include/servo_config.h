@@ -3,9 +3,9 @@
  *
  * Two coordinate systems coexist:
  *
- *   mechanical_deg  : raw PWM angle sent to PCA9685 (0..180), depends on
- *                     how the SG90 horn was mounted on each axle. This is
- *                     what gets calibrated.
+ *   mechanical_deg  : raw PWM angle sent to PCA9685 (0..180). 0..180 maps
+ *                     linearly to the full SG90 pulse range 0.5..2.5 ms
+ *                     (PCA9685_SG90_MIN/MAX_TICK).
  *   logical_deg     : "closed = 0, open direction = positive" display /
  *                     log angle. Computed as sign * (mech - home_deg)
  *                     where sign = +1 if open_deg > home_deg, else -1.
@@ -13,20 +13,18 @@
  * Per servo we keep three flash-resident values:
  *   home_deg[i]  : mechanical angle for the "closed" position.
  *   open_deg[i]  : mechanical angle for the "fully open" position.
- *   kind[i]      : WINDOW or DOOR. Affects the *expected* logical range
- *                  used by the display:
- *                    WINDOW : logical_max = 75 deg
- *                    DOOR   : logical_max = 90 deg
- *                  Window mechanics on the IchiPing model clear at ~75deg
- *                  before the sash binds; doors swing the full 90deg.
+ *   kind[i]      : WINDOW or DOOR. Currently both kinds use the same
+ *                  logical_max = 180 deg (full SG90 sweep) — kept as a
+ *                  hint for future per-kind display tweaks if window
+ *                  and door mechanics diverge again.
  *
  * The actual mechanical span (open - home) should equal logical_max
  * after good calibration, but discrepancies are tolerated and visible on
  * the display (bar overshoots / undershoots).
  *
- * Persistence (flash) is currently a stub — see servo_config_save_flash.
- * MVP workflow: tune via SET HOME + SET OPEN, read with GET HOME / GET
- * OPEN, hand-paste into SERVO_CONFIG_DEFAULTS, rebuild.
+ * Persistence: one 128-byte page in the last sector of m_flash1 (MCXN947
+ * PFlash, written via ROM API). See servo_config.c for the blob layout
+ * and CRC scheme. Tune via SET HOME + SET OPEN, persist with SAVE HOME.
  *
  * Full coordinate-system rationale: docs/servo_coords.html
  */
@@ -48,8 +46,8 @@ typedef enum {
     ICHP_SERVO_KIND_DOOR   = 1,
 } ichp_servo_kind_t;
 
-#define ICHP_LOGICAL_MAX_WINDOW   75.0f
-#define ICHP_LOGICAL_MAX_DOOR     90.0f
+#define ICHP_LOGICAL_MAX_WINDOW  180.0f
+#define ICHP_LOGICAL_MAX_DOOR    180.0f
 
 typedef struct {
     float             home_deg[ICHP_SERVO_COUNT];   /* "closed" mechanical angle */
@@ -72,8 +70,15 @@ const servo_config_t *servo_config_get(void);
 bool servo_config_set_home(uint8_t servo_idx, float mech_deg);
 bool servo_config_set_open(uint8_t servo_idx, float mech_deg);
 
-/* Persist current RAM copy to flash. Returns 0 on write, -1 if no
- * flash backend is built. */
+/* Persist current RAM copy to flash. Returns 0 on success, negative on
+ * failure:
+ *   -1  FLASH_Init failed
+ *   -2  FLASH_Erase failed
+ *   -3  FLASH_VerifyErase failed (sector still has stale data)
+ *   -4  FLASH_Program failed
+ *   -5  Read-back blob did not validate (magic/version/CRC mismatch)
+ *   -6  Read-back values differ from RAM copy (write succeeded but the
+ *       readout disagrees — usually a cache-coherency or layout bug) */
 int  servo_config_save_flash(void);
 
 /* ---- Coordinate conversion ---- */

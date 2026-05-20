@@ -111,6 +111,25 @@ bool ichp_cmd_parse(char *line, ichp_cmd_t *out, const char **err_token,
         return true;
     }
 
+    if (strcmp(verb, "OPEN") == 0 || strcmp(verb, "CLOSE") == 0) {
+        char *sname = next_token(&p);
+        if (!sname) { if (err_token) *err_token = "BAD_ARGS"; if (err_arg) *err_arg = verb; return false; }
+        /* Special form: OPEN ALL / CLOSE ALL — drive every servo. */
+        char upper[8] = {0};
+        for (size_t k = 0; sname[k] && k < sizeof(upper) - 1; k++) {
+            upper[k] = (char)toupper((unsigned char)sname[k]);
+        }
+        if (strcmp(upper, "ALL") == 0) {
+            out->kind = (verb[0] == 'O') ? ICHP_CMD_OPEN_ALL : ICHP_CMD_CLOSE_ALL;
+            return true;
+        }
+        int idx = ichp_servo_lookup(sname);
+        if (idx < 0) { if (err_token) *err_token = "BAD_SERVO"; if (err_arg) *err_arg = sname; return false; }
+        out->kind = (verb[0] == 'O') ? ICHP_CMD_OPEN : ICHP_CMD_CLOSE;
+        out->servo_idx = (uint8_t)idx;
+        return true;
+    }
+
     if (strcmp(verb, "GET") == 0) {
         char *what = next_token(&p);
         if (!what) { if (err_token) *err_token = "BAD_ARGS"; if (err_arg) *err_arg = "GET"; return false; }
@@ -240,11 +259,21 @@ bool ichp_cmd_parse(char *line, ichp_cmd_t *out, const char **err_token,
             out->kind = ICHP_CMD_SERVO_ALL_OFF;
             return true;
         }
-        /* Normal: SERVO <name> <deg> */
+        /* Normal: SERVO <name> <deg>   or   SERVO <name> OFF */
         int idx = ichp_servo_lookup(first);
         if (idx < 0) { if (err_token) *err_token = "BAD_SERVO"; if (err_arg) *err_arg = first; return false; }
         char *v = next_token(&p);
         if (!v) { if (err_token) *err_token = "BAD_ARGS"; if (err_arg) *err_arg = "SERVO"; return false; }
+        /* OFF form: release just this channel. Case-insensitive. */
+        char vupper[8] = {0};
+        for (size_t k = 0; v[k] && k < sizeof(vupper) - 1; k++) {
+            vupper[k] = (char)toupper((unsigned char)v[k]);
+        }
+        if (strcmp(vupper, "OFF") == 0) {
+            out->kind = ICHP_CMD_SERVO_OFF;
+            out->servo_idx = (uint8_t)idx;
+            return true;
+        }
         float d = strtof(v, NULL);
         if (d < 0.0f || d > 180.0f) { if (err_token) *err_token = "OUT_OF_RANGE"; if (err_arg) *err_arg = v; return false; }
         out->kind = ICHP_CMD_SERVO;

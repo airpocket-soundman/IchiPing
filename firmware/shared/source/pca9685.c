@@ -102,6 +102,8 @@ status_t pca9685_set_pwm(pca9685_t *dev,
 }
 
 status_t pca9685_set_servo_deg(pca9685_t *dev, uint8_t ch, float deg) {
+    /* Linear map: 0..180 deg → SG90_MIN..MAX_TICK = 0.5..2.5 ms (full SG90
+     * spec). 1 deg ≈ 11.4 us. */
     if (deg < 0.0f)   deg = 0.0f;
     if (deg > 180.0f) deg = 180.0f;
     float span = (float)(PCA9685_SG90_MAX_TICK - PCA9685_SG90_MIN_TICK);
@@ -117,6 +119,15 @@ status_t pca9685_set_all_servo_deg(pca9685_t *dev, const float deg[5]) {
         if (s != kStatus_Success) return s;
     }
     return kStatus_Success;
+}
+
+status_t pca9685_set_off(pca9685_t *dev, uint8_t ch) {
+    if (dev == NULL) return kStatus_InvalidArgument;
+    if (ch >= PCA9685_NUM_CHANNELS) return kStatus_InvalidArgument;
+    /* Same full-OFF trick as pca9685_all_off, but targeted at one LEDx_*. */
+    uint8_t buf[4] = {0x00u, 0x00u, 0x00u, 0x10u};
+    uint8_t reg = (uint8_t)(REG_LED0_ON_L + ch * 4u);
+    return i2c_write_buf(dev, reg, buf, sizeof(buf));
 }
 
 status_t pca9685_all_off(pca9685_t *dev) {

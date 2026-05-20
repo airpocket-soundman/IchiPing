@@ -92,6 +92,14 @@ static inline status_t servo_set_first_n_deg(servo_driver_t *dev,
 #endif
 }
 
+static inline status_t servo_set_off(servo_driver_t *dev, uint8_t ch) {
+#if defined(SERVO_BACKEND_PCA9685)
+    return pca9685_set_off(dev, ch);
+#else
+    return lu9685_set_off(dev, ch);
+#endif
+}
+
 static inline status_t servo_all_off(servo_driver_t *dev) {
 #if defined(SERVO_BACKEND_PCA9685)
     return pca9685_all_off(dev);

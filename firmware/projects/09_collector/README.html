@@ -115,9 +115,14 @@
     <tr><td>設定</td><td><code>CLEAR PIN &lt;servo&gt;</code> / <code>CLEAR PINS</code></td><td><code>CLEAR PIN AB</code></td><td>pin 解除</td></tr>
     <tr><td>校正</td><td><code>SET HOME &lt;servo&gt; &lt;deg&gt;</code></td><td><code>SET HOME a 12</code></td><td>home（閉位置, mechanical）を RAM 更新</td></tr>
     <tr><td>校正</td><td><code>SET OPEN &lt;servo&gt; &lt;deg&gt;</code></td><td><code>SET OPEN a 87</code></td><td>open（全開位置, mechanical）を RAM 更新</td></tr>
-    <tr><td>校正</td><td><code>SAVE HOME</code></td><td><code>SAVE HOME</code></td><td>永続化（<b>現状 NOT_IMPL — 後述</b>）</td></tr>
-    <tr><td>マニュアル</td><td><code>SERVO &lt;servo&gt; &lt;deg&gt;</code></td><td><code>SERVO a 45</code></td><td>1 ch を即動かす（RUN 外専用）</td></tr>
-    <tr><td>マニュアル</td><td><code>SERVO ALL OFF</code></td><td><code>SERVO ALL OFF</code></td><td>全 PWM 停止</td></tr>
+    <tr><td>校正</td><td><code>SAVE HOME</code></td><td><code>SAVE HOME</code></td><td>home / open を MCXN947 PFlash 末尾セクタへ書込（boot 時に自動復元）</td></tr>
+    <tr><td>マニュアル</td><td><code>SERVO &lt;servo&gt; &lt;deg&gt;</code></td><td><code>SERVO a 45</code></td><td>1 ch を動かす → 0.3 s 待機 → 自動で当該 ch OFF（hum 防止）</td></tr>
+    <tr><td>マニュアル</td><td><code>SERVO &lt;servo&gt; OFF</code></td><td><code>SERVO AB OFF</code></td><td>1 ch のみ即 PWM 停止（脱力）</td></tr>
+    <tr><td>マニュアル</td><td><code>SERVO ALL OFF</code></td><td><code>SERVO ALL OFF</code></td><td>全 PWM 即停止</td></tr>
+    <tr><td>マニュアル</td><td><code>OPEN &lt;servo&gt;</code></td><td><code>OPEN a</code></td><td><code>open_deg</code> に動かす → 0.3 s 待機 → 自動で当該 ch OFF</td></tr>
+    <tr><td>マニュアル</td><td><code>CLOSE &lt;servo&gt;</code></td><td><code>CLOSE AB</code></td><td><code>home_deg</code> に動かす → 0.3 s 待機 → 自動で当該 ch OFF</td></tr>
+    <tr><td>マニュアル</td><td><code>OPEN ALL</code></td><td><code>OPEN ALL</code></td><td><b>a→b→c→AB→BC</b> を 1 ch ずつ <code>open_deg</code> に動かす（窓 → 扉 の順、各 0.3 s 待ち + 自動 OFF）。合計 1.5 s</td></tr>
+    <tr><td>マニュアル</td><td><code>CLOSE ALL</code></td><td><code>CLOSE ALL</code></td><td><b>BC→AB→c→b→a</b> を 1 ch ずつ <code>home_deg</code> に動かす（扉 → 窓 の順、airlock スタイル、各 0.3 s + 自動 OFF）。合計 1.5 s</td></tr>
     <tr><td>実行</td><td><code>RUN</code></td><td><code>RUN</code></td><td>repeats 回データ採取</td></tr>
     <tr><td>中断</td><td><code>STOP</code></td><td><code>STOP</code></td><td>次フレーム境界で中断</td></tr>
   </tbody>
@@ -125,15 +130,16 @@
 
 <p>
   servo 名: <code>a</code> / <code>b</code> / <code>c</code> / <code>AB</code> / <code>BC</code>（大文字小文字無視）。
-  角度引数はすべて <b>mechanical_deg</b>（PCA9685 への生 PWM 角）。
+  角度引数はすべて <b>mechanical_deg</b>（PCA9685 への生 PWM 角、レンジ <b>0..180</b>）。
+  0..180° が <b>0.5..2.7 ms パルス幅（duty 2.5..13.5 %）</b> に線形マップ — 上限は SG90 データシート（2.5 ms）より少し広げて実機メカ端到達を優先。
   <code>SERVO</code> / <code>SET HOME</code> / <code>SET OPEN</code> / <code>SET PIN</code> 全部 mechanical 系。
-  表示用の logical 系 (閉=0, 開=+, max 75/90) は <a href="../../../docs/servo_coords.html">docs/servo_coords.html</a> を参照。
+  表示用の logical 系 (閉=0, 開=+, 全 ch max 180) は <a href="../../../docs/servo_coords.html">docs/servo_coords.html</a> を参照。
 </p>
 
 <h2>動作シーケンス</h2>
 
 <pre><code>boot
- └ servo_config_init → servos to home_deg → READY
+ └ servo_config_init → drive servos to home_deg → wait 0.3 s → release PWM (idle, silent) → READY
 loop:
  └ poll UART RX
     ├ line complete → parse → dispatch → respond
@@ -312,13 +318,11 @@ Commands forwarded to the MCU (case-insensitive verb):
 
 <ol>
   <li><code>SERVO a &lt;deg&gt;</code> で 1 ch ずつ動かして「閉」位置と「全開」位置を探る</li>
-  <li><code>SET HOME a 12</code> / <code>SET OPEN a 87</code> で焼き付け（窓は <code>open - home = 75°</code>、扉は <code>90°</code> が目標）</li>
+  <li><code>SET HOME a 12</code> / <code>SET OPEN a 87</code> で RAM に焼き付け（窓は <code>open - home = 75°</code>、扉は <code>90°</code> が目標）</li>
   <li>5 ch ぶん繰り返し、<code>GET HOME</code> / <code>GET OPEN</code> で確認</li>
-  <li><b><code>SAVE HOME</code> は現状 NOT_IMPL</b>。代わりに <a href="../../shared/source/servo_config.c"><code>firmware/shared/source/servo_config.c</code></a> の <code>SERVO_CONFIG_DEFAULTS</code> に値を書き写してリビルド → 焼き直し</li>
-  <li>以降は boot 時に同じ位置に戻る</li>
+  <li><b><code>SAVE HOME</code> で MCXN947 PFlash 末尾セクタ（0x001FE000, 1 page = 128 B）に書込</b>。<code>OK HOME saved</code> が返れば成功。エラー時は <code>ERR SAVE_HOME code=&lt;n&gt;</code> (<a href="../../shared/include/servo_config.h"><code>servo_config.h</code></a> のコード一覧参照)</li>
+  <li>以降は boot 時に flash から自動復元（CRC-16 検証 NG ならコンパイル時 <code>SERVO_CONFIG_DEFAULTS</code> にフォールバック）</li>
 </ol>
-
-<p>将来 MCXN947 IAP を実装したら <code>SAVE HOME</code> がフラッシュ書込になる。手順は <code>servo_config_save_flash()</code> の TODO 参照。</p>
 
 <h2>ディスプレイ（ILI9341 240×320）</h2>
 
@@ -508,21 +512,22 @@ Commands forwarded to the MCU (case-insensitive verb):
   <code>mcux_add_configuration</code> でマクロ指定:
 </p>
 
-<pre><code># 既定: LU9685 (20ch, I²C 0x1F)
+<pre><code># 既定: PCA9685 (16ch, I²C 0x40)
 mcux_add_configuration(
-    CC "-DSERVO_BACKEND_LU9685_I2C"
+    CC "-DSERVO_BACKEND_PCA9685"
 )
 </code></pre>
 
 <p>
-  PCA9685（16ch, 0x40）に切替えるなら <code>-DSERVO_BACKEND_PCA9685</code> へ変更。
+  既定は <b>PCA9685</b>。実機 LU9685 で約 30° の往復スイングが出て V+ バルクキャパシタを足しても解消しなかったため、本プロジェクトでは PCA9685 をデフォルトに採用。
+  LU9685（20ch, 0x1F）に戻すなら <code>-DSERVO_BACKEND_LU9685_I2C</code> へ変更。
   両 <code>.c</code> がビルド対象に入っているのでマクロ差替えだけで切替可能。
 </p>
 
 <h2>既知の制約 / TODO</h2>
 
 <ul>
-  <li><b>フラッシュ永続化未実装</b> — <code>SAVE HOME</code> は NOT_IMPL。MCXN947 IAP（<code>fsl_iap.h</code> または <code>fsl_flash.h</code>）で 1 sector を予約する実装が必要。回避策はリビルド運用（上記）</li>
+  <li><b>フラッシュ予約領域は単一スロット</b>（last sector of m_flash1, 0x001FE000）。摩耗均等化（wear levelling）は無し。SG90 校正用途では SAVE HOME を 1 万回叩いても寿命に届かないため許容</li>
   <li><b>サーボ移動とキャプチャは直列</b>。1 試行 = 0.4 s 待ち + 2 s キャプチャ + 0.56 s UART 送信 = <b>3 秒/フレーム</b>。30 フレーム = 1.5 分。USB CDC（05 ベース）に乗り換えれば UART 送信 0.1 s に短縮可</li>
   <li><b>ラベル対応付けがシーケンシャル前提</b>。並列 RUN 不可（並列にする場合はラベル ID をフレーム内に埋める拡張が必要）</li>
   <li><b>ランダム化は二値選択（home / open のいずれか）</b>。連続角度ランダム化が必要なら <code>build_trial_pattern</code> を改修</li>
