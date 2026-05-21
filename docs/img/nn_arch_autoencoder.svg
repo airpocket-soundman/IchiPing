@@ -1,0 +1,139 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 330" font-family="Hiragino Sans, Yu Gothic UI, Segoe UI, sans-serif">
+  <defs>
+    <style>
+      .title  { font-size: 15px; font-weight: 800; fill: #1a1d23; }
+      .sub    { font-size: 11px; fill: #6b7280; }
+      .layer-input  { fill: #e5e7eb; stroke: #1a1d23; stroke-width: 1.4; }
+      .layer-conv   { fill: #6ea8fe; stroke: #1a1d23; stroke-width: 1.4; }
+      .layer-pool   { fill: #ff9f1c; stroke: #1a1d23; stroke-width: 1.4; }
+      .layer-bottle { fill: #c2185b; stroke: #1a1d23; stroke-width: 1.4; }
+      .layer-fc     { fill: #7be0a4; stroke: #1a1d23; stroke-width: 1.4; }
+      .layer-recon  { fill: #ff7ab6; stroke: #1a1d23; stroke-width: 1.4; }
+      .layer-error  { fill: #ffb454; stroke: #1a1d23; stroke-width: 1.4; }
+      .layer-label  { font-size: 11px; font-weight: 800; fill: #fff; text-anchor: middle; }
+      .layer-input-label { font-size: 11px; font-weight: 800; fill: #1a1d23; text-anchor: middle; }
+      .shape  { font-size: 10px; fill: #4b5563; text-anchor: middle; }
+      .arrow  { stroke: #1a1d23; stroke-width: 1.6; fill: none; marker-end: url(#arr); }
+      .arrow-cmp { stroke: #c2185b; stroke-width: 1.8; fill: none; marker-end: url(#arr-red); stroke-dasharray: 5 3; }
+      .note   { font-size: 10px; fill: #9a3412; font-weight: 700; }
+      .npu-box { fill: #fff7ed; stroke: #fed7aa; stroke-width: 1.4; stroke-dasharray: 4 3; }
+      .cpu-box { fill: #fef2f2; stroke: #fecaca; stroke-width: 1.4; stroke-dasharray: 4 3; }
+      .panel-bg { fill: #f8fafa; stroke: #cbd5e1; stroke-width: 1; }
+    </style>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1a1d23"/>
+    </marker>
+    <marker id="arr-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#c2185b"/>
+    </marker>
+  </defs>
+
+  <text class="title" x="500" y="22" text-anchor="middle">案 §3.5: オートエンコーダ + 異常検知（v0.5 二値分類用）</text>
+  <text class="sub" x="500" y="40" text-anchor="middle">「全閉」だけで学習し、再構成誤差で「何か開いた」を検出。ラベル不要</text>
+
+  <!-- NPU 領域: Encoder -->
+  <rect class="npu-box" x="20" y="68" width="490" height="160" rx="10"/>
+  <text x="30" y="86" font-size="10" font-weight="700" fill="#9a3412">MCXN947 NPU (Encoder: NPU で高速実行)</text>
+
+  <!-- Input -->
+  <g transform="translate(35,115)">
+    <rect class="layer-input" width="85" height="60" rx="4"/>
+    <text class="layer-input-label" x="42" y="22">log-mag</text>
+    <text class="layer-input-label" x="42" y="38">spectrum</text>
+    <text class="shape" x="42" y="74">(1, 1, 1024, 1)</text>
+  </g>
+  <path class="arrow" d="M124,145 L142,145"/>
+
+  <!-- Conv 16 -->
+  <g transform="translate(143,115)">
+    <rect class="layer-conv" width="75" height="60" rx="4"/>
+    <text class="layer-label" x="37" y="22">Conv2D</text>
+    <text class="layer-label" x="37" y="38">16ch (1×7)</text>
+    <text class="layer-label" x="37" y="52">/4↓</text>
+    <text class="shape" x="37" y="74">(1, 1, 256, 16)</text>
+  </g>
+  <path class="arrow" d="M222,145 L240,145"/>
+
+  <!-- Conv 8 -->
+  <g transform="translate(241,115)">
+    <rect class="layer-conv" width="75" height="60" rx="4"/>
+    <text class="layer-label" x="37" y="22">Conv2D</text>
+    <text class="layer-label" x="37" y="38">8ch (1×5)</text>
+    <text class="layer-label" x="37" y="52">/4↓</text>
+    <text class="shape" x="37" y="74">(1, 1, 64, 8)</text>
+  </g>
+  <path class="arrow" d="M320,145 L338,145"/>
+
+  <!-- Conv 4 (bottleneck) -->
+  <g transform="translate(339,115)">
+    <rect class="layer-bottle" width="85" height="60" rx="4"/>
+    <text class="layer-label" x="42" y="20">Bottleneck</text>
+    <text class="layer-label" x="42" y="36">Conv2D 4ch</text>
+    <text class="layer-label" x="42" y="52">(1×3) /4↓</text>
+    <text class="shape" x="42" y="74">(1, 1, 16, 4) = 64 dim</text>
+  </g>
+  <path class="arrow" d="M428,145 L450,145"/>
+
+  <!-- FC bottleneck → 8 dim -->
+  <g transform="translate(451,115)">
+    <rect class="layer-fc" width="55" height="60" rx="4"/>
+    <text class="layer-label" x="27" y="32">FC</text>
+    <text class="layer-label" x="27" y="48">→ 8</text>
+    <text class="shape" x="27" y="74">(1, 8)</text>
+  </g>
+  <path class="arrow" d="M510,145 L530,145"/>
+
+  <!-- CPU 領域: Decoder -->
+  <rect class="cpu-box" x="535" y="68" width="455" height="160" rx="10"/>
+  <text x="545" y="86" font-size="10" font-weight="700" fill="#9a3412">Cortex-M33 (Decoder + 異常スコア計算)</text>
+
+  <!-- FC up -->
+  <g transform="translate(545,115)">
+    <rect class="layer-fc" width="60" height="60" rx="4"/>
+    <text class="layer-label" x="30" y="22">FC</text>
+    <text class="layer-label" x="30" y="38">→ 64</text>
+    <text class="shape" x="30" y="74">(1, 64)</text>
+  </g>
+  <path class="arrow" d="M609,145 L626,145"/>
+
+  <!-- FC up2 -->
+  <g transform="translate(627,115)">
+    <rect class="layer-fc" width="80" height="60" rx="4"/>
+    <text class="layer-label" x="40" y="22">FC</text>
+    <text class="layer-label" x="40" y="38">→ 1024</text>
+    <text class="shape" x="40" y="74">(1, 1024)</text>
+  </g>
+  <path class="arrow" d="M711,145 L728,145"/>
+
+  <!-- Reconstruction -->
+  <g transform="translate(729,115)">
+    <rect class="layer-recon" width="85" height="60" rx="4"/>
+    <text class="layer-label" x="42" y="22">Reconstructed</text>
+    <text class="layer-label" x="42" y="38">spectrum</text>
+    <text class="shape" x="42" y="74">(1, 1024)</text>
+  </g>
+  <path class="arrow" d="M818,145 L836,145"/>
+
+  <!-- Error & threshold -->
+  <g transform="translate(837,115)">
+    <rect class="layer-error" width="140" height="60" rx="4"/>
+    <text class="layer-label" x="70" y="22" fill="#1a1d23">‖ input − recon ‖²</text>
+    <text class="layer-label" x="70" y="38" fill="#1a1d23">→ threshold</text>
+    <text class="shape" x="70" y="74">→ 0 / 1 anomaly</text>
+  </g>
+
+  <!-- Input から error への破線比較矢印 (再構成誤差計算) -->
+  <path class="arrow-cmp" d="M77,180 Q77,260 907,260 L907,180"/>
+  <text x="490" y="276" font-size="10" font-weight="700" fill="#c2185b" text-anchor="middle">
+    入力スペクトルとの差を計算（CPU 上 1024 要素の MSE）
+  </text>
+
+  <!-- 注記 -->
+  <text x="500" y="306" text-anchor="middle" class="note">
+    ※ TransposedConv は NPU 非対応のため Decoder は FC で実装し CPU 上で実行。
+    Encoder だけ NPU を使えば 1024→8 圧縮が高速で済む
+  </text>
+  <text x="500" y="322" text-anchor="middle" font-size="11" fill="#1a1d23">
+    用途: v0.5 の「全閉 / 何か開いた」二値判定。14 状態識別には別建ての §3.1〜§3.4 を使う
+  </text>
+</svg>

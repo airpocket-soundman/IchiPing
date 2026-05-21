@@ -36,6 +36,7 @@ mcux_add_source(
             ../../shared/source/servo_config.c
             ../../shared/source/collector_display.c
             ../../shared/source/pattern_lib.c
+            ../../shared/source/spk_eq.c
 )
 
 mcux_add_include(

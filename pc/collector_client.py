@@ -865,6 +865,52 @@ def run_repl(ser: serial.Serial, reader: StreamReader, saver: CaptureSaver,
 # main
 # ---------------------------------------------------------------------------
 
+def run_oneshot(ser: serial.Serial, reader: StreamReader,
+                commands: list[str], timeout: float = 5.0) -> int:
+    """Send a sequence of wire-protocol commands, one per line; wait for
+    each ack (or RUN-done block). Designed for non-interactive scripting
+    (AI agents, shell pipelines) where no REPL prompt is needed.
+
+    Returns 0 on success, 2 on any command that produced ERR or timed out.
+    Each line is sent verbatim; no local REPL helpers (:label, :open) are
+    recognised — only the wire protocol verbs documented in
+    docs/collector_protocol.md / ichp_cmd.h.
+
+    Special-case: a command that returns ``OK RUN started`` is followed
+    by zero or more ICHP frames (dropped here; use the calibrator
+    subcommands or the REPL for frame capture) until ``OK RUN done`` or
+    ``OK RUN aborted``.
+    """
+    exit_code = 0
+    for raw in commands:
+        cmd = raw.strip()
+        if not cmd or cmd.startswith("#"):
+            continue
+        print(f"> {cmd}")
+        send(ser, cmd)
+        ack = wait_for_ack(reader, timeout=timeout)
+        if ack is None:
+            print(f"  FAIL: no ack in {timeout:.1f} s for `{cmd}`", file=sys.stderr)
+            exit_code = 2
+            continue
+        if ack.startswith("OK RUN started"):
+            # Drain frames until RUN done/aborted. Frames go through
+            # reader.frames; we just consume the ASCII line that ends the run.
+            end = wait_for_prefix(reader, "OK RUN ", timeout=60.0)
+            if end is None:
+                print("  FAIL: RUN block timed out", file=sys.stderr)
+                exit_code = 2
+            # Drain any remaining frames from the queue without saving.
+            while True:
+                try:
+                    reader.frames.get_nowait()
+                except Empty:
+                    break
+        elif ack.startswith("ERR"):
+            exit_code = 2
+    return exit_code
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description="IchiPing 09_collector client")
     p.add_argument("--port", required=True, help="serial port (e.g. COM7 or /dev/ttyACM0)")
@@ -885,6 +931,17 @@ def main() -> int:
     p.add_argument("--patterns", type=Path, default=DEFAULT_PATTERNS_PATH,
                    help="YAML file describing the excitation pattern library "
                         "(default: pc/patterns.yaml)")
+    p.add_argument("--once", action="append", default=None,
+                   help="send a single wire-protocol command, wait for ack, exit. "
+                        "Repeatable; commands run in order. Skips REPL/plan. "
+                        "Example: --once 'EQ DISABLE' --once 'PAT NOISE w 3000 30 0'")
+    p.add_argument("--script", type=Path, default=None,
+                   help="read wire-protocol commands from FILE (one per line, "
+                        "'#' comments OK), execute non-interactively, exit. "
+                        "Mutually exclusive with --plan / REPL.")
+    p.add_argument("--no-push-patterns", action="store_true",
+                   help="skip auto-pushing pc/patterns.yaml at startup. Useful "
+                        "for --once/--script flows that register patterns themselves")
     args = p.parse_args()
 
     try:
@@ -937,20 +994,33 @@ def main() -> int:
     # library is empty, so RUN won't work until this completes. Pace each
     # command with wait_for_ack — without it the MCU's TX echo outlasts the
     # incoming byte rate and overflows the LPUART RX FIFO.
-    def _push_log(line: str) -> None:
-        print(f"  > {line}")
-    lib.push(
-        send_line=lambda line: send(ser, line),
-        wait_ack=lambda: wait_for_ack(reader, timeout=2.0),
-        log=_push_log,
-    )
-    # Auto-select pattern 0 so RUN works without an explicit :select.
-    if lib.patterns:
-        send(ser, "PAT SELECT 0")
-        wait_for_ack(reader, timeout=2.0)
+    #
+    # Skipped when --no-push-patterns or when running --once / --script
+    # (those typically manage patterns themselves and pushing the YAML lib
+    # first would clobber their state).
+    skip_push = args.no_push_patterns or args.once or args.script
+    if not skip_push:
+        def _push_log(line: str) -> None:
+            print(f"  > {line}")
+        lib.push(
+            send_line=lambda line: send(ser, line),
+            wait_ack=lambda: wait_for_ack(reader, timeout=2.0),
+            log=_push_log,
+        )
+        # Auto-select pattern 0 so RUN works without an explicit :select.
+        if lib.patterns:
+            send(ser, "PAT SELECT 0")
+            wait_for_ack(reader, timeout=2.0)
 
     try:
-        if args.plan:
+        if args.once or args.script:
+            commands: list[str] = []
+            if args.once:
+                commands.extend(args.once)
+            if args.script:
+                commands.extend(args.script.read_text(encoding="utf-8").splitlines())
+            return run_oneshot(ser, reader, commands)
+        elif args.plan:
             plan = load_plan(args.plan)
             run_plan(plan, ser, reader, saver, lib)
         else:

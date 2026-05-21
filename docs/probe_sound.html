@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>走査音考察 — IchiPing</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../index.html">トップ</a>
+      <a href="../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="spec.html">仕様書 (spec)</a>
+      <a href="nn_design.html">NN 設計</a>
+      <a href="mcu_deployment.html">MCU デプロイ</a>
+      <a href="bringup.html">実機ブリングアップ</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">NN 検討</div>
+      <a href="probe_sound.html" class="current">走査音考察</a>
+      <a href="nn_review.html">NN 考察</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="../hardware/wiring.html">配線テーブル</a>
+      <a href="../hardware/bom.html">BOM (部品表)</a>
+      <a href="../hardware/display_options.html">ディスプレイ候補</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../firmware/README.html">firmware ガイド</a>
+      <a href="../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">対外発信</div>
+      <a href="protopedia_preview.html">ProtoPedia プレビュー</a>
+      <a href="protopedia.md">ProtoPedia 投稿原稿</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="vscode_setup.html">VS Code セットアップ</a>
+      <a href="../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a><br>
+    <a href="https://github.com/airpocket-soundman/digikey_project">正本 digikey_project</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../index.html">← IchiPing トップ</a>
+    ／ <a href="../tasks.html">タスクボード</a>
+    ／ <a href="nn_review.html">NN 考察 →</a>
+  </div>
+  <h1>走査音考察 <span class="pill">NN 検討 / 検討段階</span></h1>
+  <div class="sub">
+    1 個のセンサで返ってくる応答を最大限「判別可能」にするには、
+    どんな音を <b>1 発 Ping</b> として撃つべきか。
+    励振信号の候補を物理・情報理論・推論器の都合の 3 軸で比較する。
+  </div>
+  <div class="meta">
+    <span class="meta-stat"><span class="num">7</span> 信号方式を比較</span>
+    <span class="meta-stat"><span class="num">14 / 32</span> 実効状態を判別</span>
+    <span class="meta-stat"><span class="num">200–6k Hz</span> 帯域目標</span>
+  </div>
+</header>
+
+<main>
+
+<div class="callout">
+  <strong>本ページの位置づけ:</strong>
+  走査音（物理 Ping）の設計を、物理モデル・情報理論・NN 推論器の都合の 3 軸で考察する。
+  共鳴駆動推論戦略（旧「励振パターン設計」ノート）の内容もすべてここに統合した。
+</div>
+
+<h2>1. 何を判別したいのか — 観測上限から逆算</h2>
+
+<p>
+  状態空間は窓 3 + 扉 2 = <b>5 ビット 32 状態</b> あるが、
+  扉が閉まると向こう側は音響的に遮断されるため、実効的に区別できるのは
+  <b>14 状態</b>のみ（[index.html のフロアプラン考察] および
+  [<a href="../docs/img/observability.svg">observability.svg</a>] 参照）。
+  走査音設計の最終的な評価基準は「この 14 状態を判別する識別力」であって、
+  単に「広帯域で SNR が高い」ことではない。
+</p>
+
+<table>
+  <thead><tr><th>条件</th><th>判別したい変数</th><th>状態数</th></tr></thead>
+  <tbody>
+    <tr><td>扉 AB 閉</td><td>窓 a（扉 AB 自体は必ず判別したい）</td><td>2</td></tr>
+    <tr><td>扉 AB 開, 扉 BC 閉</td><td>窓 a, 窓 b, 扉 BC</td><td>4</td></tr>
+    <tr><td>扉 AB 開, 扉 BC 開</td><td>窓 a, 窓 b, 窓 c</td><td>8</td></tr>
+  </tbody>
+</table>
+
+<p>
+  ここから出る示唆: <b>扉 AB の開閉判別は必須・最優先</b>（誤ると後段の窓判別の前提が崩れる）。
+  扉 AB のモード分裂は Room A 単独 vs A+B 結合の差で、典型的に <b>低域（300–800 Hz）</b>
+  に大きな変化が出ると予想される。よって低域のエネルギーは確実に投入する必要がある。
+</p>
+
+<h2>1.A 物理モデル — 期待される周波数応答の変化</h2>
+
+<p>
+  1/N 模型の 3 部屋構造（各室 ~30 cm）の基本モード周波数は次式で予測できる。
+</p>
+
+<pre><code>f_lmn = (c/2) × √[(l/Lx)² + (m/Ly)² + (n/Lz)²]
+c = 343 m/s, L = 0.3 m → f_100 ≈ 572 Hz
+</code></pre>
+
+<p>
+  この帯域は <b>MAX98357A + 0.25 W 8 Ω スピーカが綺麗に出せる 500 Hz–6 kHz</b> と一致し、
+  低次モードを確実に駆動できる。状態変化が音響特性に与える効果は次の 4 通り:
+</p>
+
+<table>
+  <thead><tr><th>状態変化</th><th>物理現象</th><th>周波数特性への影響</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>窓 a/b/c 単独開</td>
+      <td>壁の境界条件: 剛壁（圧力腹）→ 開口（圧力節）</td>
+      <td>その壁を腹/節とするモードが <b>半波長分シフト</b></td>
+    </tr>
+    <tr>
+      <td>窓開 → 放射損失</td>
+      <td>Q 値低下</td>
+      <td><b>モード幅広化、RT60 短縮</b></td>
+    </tr>
+    <tr>
+      <td>扉 AB/BC 開</td>
+      <td>隣接室と音響結合</td>
+      <td>単一ピーク → <b>対称/反対称ペアに分裂</b></td>
+    </tr>
+    <tr>
+      <td>扉 + 窓組合せ</td>
+      <td>カップリング + 損失の相互作用</td>
+      <td>線形和ではない、非自明な周波数応答</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  特に <b>扉開閉のモード分裂</b>は判別性が高いと予想される — 単一ピークが 2 本に割れ、
+  分裂幅が結合の強さに依存する。NN への入力としても明瞭な特徴になる。
+</p>
+
+<div class="callout">
+  <strong>Helmholtz 共鳴は使えない</strong>: 窓開口の Helmholtz 共鳴は数十 Hz と低すぎ、
+  MAX98357A + 0.25 W スピーカでは駆動できない。<b>室内モード由来の特徴のみ</b>を使う。
+</div>
+
+<h2>2. 候補となる走査音 6 系統</h2>
+
+<h3>2.1 ESS (Exponential Sine Sweep) + Farina 逆フィルタ</h3>
+<p>
+  ログ掃引音を撃ち、PC 側で逆フィルタ畳み込みにより線形 RIR を分離抽出。
+  Farina 2000 の標準手法。
+</p>
+<ul>
+  <li><b>長所</b>: 高 SNR、低域に時間を多く割ける、非線形歪みを時間軸で分離可能、計測理論の蓄積が厚い</li>
+  <li><b>短所</b>: 1 計測あたり 1–3 秒必要、PC 側に逆フィルタの実装が要る</li>
+  <li><b>NN への渡し方</b>: 抽出した RIR を時間波形のまま、または log-mag スペクトルで投入</li>
+</ul>
+
+<h3>2.2 Linear chirp（線形掃引）</h3>
+<p>
+  線形に周波数を上げる掃引。実装が最も単純。
+</p>
+<ul>
+  <li><b>長所</b>: MCU 内 chirp 生成が三角関数 1 回で済む（現 <code>firmware/shared/source/dummy_audio.c</code> で実装済み）</li>
+  <li><b>短所</b>: 低域の SNR が低い（時間あたりの帯域占有が一定なので低域に時間を投入できない）</li>
+  <li><b>NN への渡し方</b>: 整合フィルタで圧縮 → スペクトル化</li>
+</ul>
+
+<h3>2.3 共鳴周波数狙い撃ち（マルチトーン）</h3>
+<p>
+  3 部屋の物理モード周波数を予測し、その周辺だけに集中したマルチトーンを撃つ。
+  例: f₁₀₀ ≈ 572 Hz, f₂₀₀ ≈ 1.14 kHz, f₁₁₀ ≈ 808 Hz 周辺。
+</p>
+<ul>
+  <li><b>長所</b>: 判別性の高い帯域に全エネルギーを投入できる、解釈性が高い</li>
+  <li><b>短所</b>: 模型寸法のばらつきに脆い、汎化性に欠ける、未知の状態への対応力低い</li>
+  <li><b>NN への渡し方</b>: 各トーンの振幅・位相を直接特徴量に</li>
+</ul>
+
+<h3>2.4 MLS / Schroeder 多周期音</h3>
+<p>
+  最長系列（MLS）や Schroeder 位相による低クレストファクタの雑音的信号を撃ち、
+  循環相関でインパルス応答を抽出。
+</p>
+<ul>
+  <li><b>長所</b>: クレストファクタが小さく、SPK の歪みを抑えながら高い平均パワーを入れられる。背景雑音的に「聞こえない」</li>
+  <li><b>短所</b>: 非線形歪みが時間軸に折り返し雑音として現れる</li>
+  <li><b>NN への渡し方</b>: 抽出 RIR を ESS と同様に</li>
+</ul>
+
+<h3>2.5 短時間 click / 短パルス</h3>
+<p>
+  数 ms の鋭いインパルス。最古典的な RIR 計測。
+</p>
+<ul>
+  <li><b>長所</b>: 実装最簡、平均レイテンシ最小</li>
+  <li><b>短所</b>: SNR が極めて低い、SPK 過渡応答の影響が大、低域出力が苦しい（45 mm スピーカでは特に）</li>
+  <li><b>NN への渡し方</b>: 生波形 → スペクトル</li>
+</ul>
+
+<h3>2.6 ゲート式トーンバーストスイープ</h3>
+<p>
+  個別周波数を短時間だけ鳴らし、続く<b>無音区間で純粋な残響だけを観測</b>する。
+  時間軸で励振 (ON) と残響観測 (OFF) を完全分離するため、逆フィルタなしに
+  「周波数 × 残響強度」マトリクスが直接取れる。
+</p>
+
+<pre><code>時間軸:
+[500Hz 100ms ON][100ms OFF][550Hz 100ms ON][100ms OFF]...
+                  ↑ 完全無音 = 残響だけが録れる
+</code></pre>
+
+<ul>
+  <li><b>長所</b>: ON/OFF 完全分離なので OFF 中の SNR は環境雑音と量子化のみで律速。
+    解釈性が極めて高い（「この周波数を撃ったら、これだけ長く鳴る」が直接見える）。
+    PC 側解析は OFF 区間を切り出して RMS / FFT するだけ — 逆フィルタ実装不要</li>
+  <li><b>長所</b>: 既存の <code>pulse</code> 型
+    （<a href="../firmware/shared/include/pattern_lib.h">firmware/shared/include/pattern_lib.h</a>）
+    でそのまま実現可能。ファーム拡張は <code>MAX_TONES_PER_PULSE</code> と
+    <code>COL_WINDOW_MAX_MS</code> の上限引き上げのみ</li>
+  <li><b>短所</b>: 1 サンプルあたり時間がかかる（例: 110 周波 × 200 ms = 22 秒）。
+    キャラクタリゼーション（オフライン）には向くが、本番推論には不向き</li>
+  <li><b>NN への渡し方</b>: 周波数別 RMS の列（110 dim）、または各 OFF 区間の短時間スペクトル</li>
+</ul>
+
+<h3>2.7 ホワイトノイズ + 出力スペクトル直読（ROI 発見の最短ルート）</h3>
+<p>
+  全帯域を <b>連続的に同時励振</b>し、定常状態の出力スペクトルから直接 |H(f)|² を読む。
+  Linear chirp や ESS のように時間-周波数を 1 対 1 対応させる必要がないので、
+  「どの周波数が共鳴しているか」を見るだけなら最も直接的で簡単。
+</p>
+
+<pre><code>連続励振 x(t) ≈ 白色雑音（平坦スペクトル）
+出力 y(t) = x(t) ⊗ h(t) + noise
+定常状態で E[|Y(f)|²] = |X(f)|² · |H(f)|²  ≈ const · |H(f)|²
+
+→ 出力スペクトルの形が直接 |H(f)| を示す
+→ 時間平均（積分）すれば共鳴ピーク・幅・分裂が一目で見える
+</code></pre>
+
+<ul>
+  <li><b>長所</b>: <b>逆フィルタ / deconvolution 不要</b>。出力 WAV を STFT して時間平均するだけで
+    |H(f)|² 推定が得られる。Linear chirp の STFT 2D 画像のような「時刻 t で f(t) が駆動された」
+    という時間-周波数対応関係を意識せずに済む</li>
+  <li><b>長所</b>: <b>全帯域を同時に常時励振</b>するため、共鳴は時間方向に蓄積（リング）し、
+    定常状態でピークが鮮明に出る。「狭帯域に集中投下しないと SNR が出ない」陥落を避けられる</li>
+  <li><b>長所</b>: 実装が最も単純（xorshift32 などで疑似乱数生成 → I²S DAC へ）。
+    既存 <a href="../firmware/shared/source/dummy_audio.c">dummy_audio.c</a> の残響合成ジェネレータが
+    流用可能</li>
+  <li><b>長所</b>: 状態変化中の応答変化も観察できる（連続励振中に STFT を取れば
+    「時間 × 周波数 × 状態」の 3 次元データになる）</li>
+  <li><b>短所</b>: <b>クレストファクタが高い</b>（Gaussian noise は piano forte 比 ~12 dB）→
+    SPK 飽和を避けるため平均パワーを抑える必要、または PRBS（疑似乱数 2 値）に置換して
+    クレスト 0 dB に</li>
+  <li><b>短所</b>: 1 周波数あたりの SNR は同パワーの単一トーンより低い → 積分時間（1–3 s）が必要</li>
+  <li><b>短所</b>: 連続的に「シャーッ」と鳴る → 本番運用（UX）にはやや不向きだが、
+    <b>discovery フェーズ（オフライン）では問題なし</b></li>
+  <li><b>NN への渡し方</b>: 時間平均した |H(f)|² ベクトル（1024 bin）、または STFT 2D 画像で
+    時間方向の蓄積過程も含めて学習</li>
+</ul>
+
+<div class="callout">
+  <strong>MLS / Schroeder（§2.4）との違い</strong>:
+  どちらも「雑音的な信号」だが、§2.4 は循環相関で RIR を抽出するための<b>決定論的疑似乱数</b>で
+  時間軸の遅延構造（位相情報）を取り出す。本節 §2.7 は <b>定常スペクトル観測だけが目的</b>で、
+  位相を捨てて |H(f)| のみを得る簡素なアプローチ。実装は §2.7 のほうがずっと軽く、
+  ROI 発見だけなら §2.7 で十分。
+</div>
+
+<h2>3. 比較表</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>方式</th>
+      <th>SNR</th>
+      <th>低域出力</th>
+      <th>計測時間</th>
+      <th>MCU 計算量</th>
+      <th>解釈性</th>
+      <th>実装難度</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>ESS + Farina</td>
+      <td><span class="status-badge done">高</span></td>
+      <td><span class="status-badge done">良</span></td>
+      <td>1–3 s</td>
+      <td>低（PC で処理）</td>
+      <td><span class="status-badge done">高</span></td>
+      <td>中</td>
+    </tr>
+    <tr>
+      <td>Linear chirp</td>
+      <td><span class="status-badge in_progress">中</span></td>
+      <td><span class="status-badge in_progress">中</span></td>
+      <td>0.3–1 s</td>
+      <td>低</td>
+      <td>中</td>
+      <td><span class="status-badge done">低</span></td>
+    </tr>
+    <tr>
+      <td>マルチトーン</td>
+      <td><span class="status-badge done">高（局所）</span></td>
+      <td><span class="status-badge done">良</span></td>
+      <td>0.5–2 s</td>
+      <td>低</td>
+      <td><span class="status-badge done">最高</span></td>
+      <td>中（モード予測が要る）</td>
+    </tr>
+    <tr>
+      <td>MLS / Schroeder</td>
+      <td><span class="status-badge done">高</span></td>
+      <td><span class="status-badge in_progress">中</span></td>
+      <td>0.2–1 s</td>
+      <td>中</td>
+      <td>中</td>
+      <td>中</td>
+    </tr>
+    <tr>
+      <td>Click</td>
+      <td><span class="status-badge blocked">低</span></td>
+      <td><span class="status-badge blocked">悪</span></td>
+      <td>0.1 s</td>
+      <td>最低</td>
+      <td><span class="status-badge done">高</span></td>
+      <td><span class="status-badge done">最低</span></td>
+    </tr>
+    <tr>
+      <td>ゲート式バーストスイープ</td>
+      <td><span class="status-badge done">高</span></td>
+      <td><span class="status-badge done">良</span></td>
+      <td>10–30 s</td>
+      <td>低</td>
+      <td><span class="status-badge done">最高</span></td>
+      <td><span class="status-badge done">低</span></td>
+    </tr>
+    <tr>
+      <td><b>ホワイトノイズ + 直読</b></td>
+      <td><span class="status-badge done">高（積分後）</span></td>
+      <td><span class="status-badge done">良</span></td>
+      <td>1–3 s</td>
+      <td>最低</td>
+      <td><span class="status-badge done">高</span></td>
+      <td><span class="status-badge done">最低</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>3.A SPK・マイクのキャリブレーション — 自由音場での SPK プリ・エンファシス</h2>
+
+<div class="callout warn">
+  <strong>機材特性のディップで共鳴を見落とすリスク:</strong>
+  どの走査音方式を選んでも、マイクで観測される信号は
+  <code>Y(f) = H_spk(f) · H_room(f) · H_mic(f) · X(f)</code> という積になっている。
+  MAX98357A + 0.25 W スピーカ + INMP441 のセットには <b>必ず固有の周波数応答ムラ</b>があり、
+  ディップ（SPK が弱い周波数）の場所では <b>本来そこにあるはずの共鳴ピークが埋もれる</b>。
+  状態判別を行う前に <b>このムラを補正</b>して、SPK が空間に放射する音を平坦化する。
+</div>
+
+<h3>3.A.1 キャリブレーションの考え方</h3>
+
+<p>
+  ホワイトノイズを SPK から出して mic で記録し、<b>SPK + mic の合成周波数応答 |H_spk · H_mic|</b>
+  を測定する。記録スペクトルがホワイトノイズより低い帯域 = 機材が弱い帯域なので、
+  SPK 駆動信号の <b>その帯域だけを事前にプリ・エンファシス（boost）</b>しておくことで、
+  放射される実音は平坦に近づく。
+</p>
+
+<pre><code>1. 自由音場でホワイトノイズを SPK 駆動 → mic 記録
+2. |Y_cal(f)|² を時間平均で得る（SPK・mic の合成応答 × const）
+3. プリ・エンファシスフィルタ:
+     EQ_pre(f) = √( target_flat / |Y_cal(f)|² )
+   = 弱い帯域を持ち上げ、強い帯域を抑える形
+4. 本運用ではこの EQ_pre を SPK 駆動信号に畳み込んでから送信
+   → SPK が放射する音 ≈ 平坦
+   → mic 記録は H_room(f) のみを反映（機材ムラがキャンセル）
+</code></pre>
+
+<h3>3.A.2 自由音場での計測が <b>必須</b> — ハウスから外して行う</h3>
+
+<div class="callout warn">
+  <strong>ハウス模型内で計測してはいけない:</strong>
+  ハウス模型内には <b>H_room(f)</b> の共鳴ピークが乗っているので、ハウス内で計測した
+  <code>|Y_cal(f)|²</code> には <b>機材ムラ + 部屋共鳴</b> が混ざってしまう。
+  プリ・エンファシスで「部屋共鳴を平坦化する」方向に補正してしまうと、本番運用で
+  <b>判別したい共鳴特徴を自ら消す</b>本末転倒な結果になる。
+</div>
+
+<table>
+  <thead><tr><th>項目</th><th>条件</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>場所</td>
+      <td>SPK と mic を <b>ハウス模型から物理的に取り外し</b>、開放空間（無響室 or 反射の少ない部屋の中央、外気下）</td>
+    </tr>
+    <tr>
+      <td>SPK-mic 距離</td>
+      <td>30–50 cm 程度に固定。本番運用での距離と近い値を選ぶ（近接界の影響を揃える）</td>
+    </tr>
+    <tr>
+      <td>周囲反射</td>
+      <td>SPK・mic から 1 m 以内に大きな反射面を置かない（壁・床から離す、絨毯やフォームで吸音）</td>
+    </tr>
+    <tr>
+      <td><b>家庭環境での代替（推奨）</b></td>
+      <td><b>布団を SPK + mic にすっぽり被せる</b>のが最も簡易な準無響条件。布団の繊維で
+        500 Hz–10 kHz の反射が大幅減衰し、無響室に近い静特性が得られる。重ねる枚数・密度で
+        効果調整可能。コタツや押入れの中も使える</td>
+    </tr>
+    <tr>
+      <td>励振信号</td>
+      <td>PRBS または Gaussian 白色雑音、3–5 秒連続</td>
+    </tr>
+    <tr>
+      <td>記録 → 解析</td>
+      <td>16 kHz / 24-bit WAV、PC 側で STFT → 時間平均 → <code>|Y_cal(f)|²</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>3.A.3 SPK 側プリ・エンファシスフィルタ設計</h3>
+
+<p>
+  測定した <code>|Y_cal(f)|²</code> から、SPK 駆動信号に畳み込むプリ・エンファシスフィルタを設計する。
+</p>
+
+<pre><code>EQ_pre(f) = √( median(|Y_cal|²) / |Y_cal(f)|² )
+
+# 中央値で割ることで「平均的に強い帯域」を 1.0 基準にし、
+# 弱い帯域を boost、強い帯域は若干 attenuate する形に
+# 最大 boost 量はクリップ（後述）
+</code></pre>
+
+<h4>3.A.3.1 設計上の注意</h4>
+<ul>
+  <li><b>最大 boost 量を制限</b>: 弱い帯域を持ち上げすぎると SPK 歪み・過熱の原因。
+    実用的には <b>+3 〜 +9 dB</b> までに制限。+12 dB 超は SPK 共振や TIM 歪みを誘発する恐れ</li>
+  <li><b>物理的に出ない帯域は諦める</b>: 100 Hz 以下や 12 kHz 以上で SPK が応答しない帯域は
+    どんな boost を入れても出ない → EQ_pre をフラット（1.0）に固定。あるいは ROI 外として除外</li>
+  <li><b>共振点には notch を入れる選択肢</b>: 0.25 W スピーカは特定周波数に大きな共振ピークを持つことが多い。
+    そこをフラット化するために負の boost（notch）を入れる</li>
+  <li><b>位相は無理に補正しなくてよい</b>: 振幅補正だけで十分。位相も補正すると逆フィルタの遅延が増えて UX 悪化</li>
+</ul>
+
+<h4>3.A.3.2 実装方式</h4>
+
+<table>
+  <thead><tr><th>実装</th><th>長所</th><th>短所</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>PC で <b>EQ 済み波形を事前生成</b>してフラッシュ格納</td>
+      <td>MCU 側ゼロ計算、設計自由度最大</td>
+      <td>EQ を変えるたびにフラッシュ書き換え</td>
+    </tr>
+    <tr>
+      <td>MCU 上で <b>biquad カスケード</b>を白色雑音にリアルタイム適用</td>
+      <td>EQ パラメータを動的に変えられる、CMSIS-DSP 既存</td>
+      <td>biquad で表現できる EQ 形状は限られる</td>
+    </tr>
+    <tr>
+      <td>MCU 上で <b>FFT-IFFT 経由</b>（PowerQuad 利用）</td>
+      <td>任意の |EQ_pre(f)| を実現可</td>
+      <td>遅延 1 フレーム、実装が一番重い</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>3.A.4 実装手順</h3>
+
+<ol>
+  <li><b>機材取り外し</b>: ハウス模型から SPK と mic を物理的に取り外し（マウントは脱着可能設計が前提）、
+    自由音場条件にセット</li>
+  <li><b>キャリブレーション計測</b>: ホワイトノイズ Ping を 3–5 秒、3 回繰り返し
+    （温度・SPK ウォームアップの影響を排除）</li>
+  <li><b>EQ 設計</b>: Python (scipy.signal) で <code>|Y_cal(f)|²</code> 時間平均 →
+    上記式で EQ_pre(f) を計算 → 1024 タップ FIR or 8 段 biquad で実装</li>
+  <li><b>EQ 保存</b>: <code>captures/calibration/eq_spk_pre.npy</code> or
+    <code>firmware/shared/include/spk_eq_coeffs.h</code> として保存</li>
+  <li><b>機材再装着</b>: SPK と mic をハウス模型に戻す（マウント位置を厳密に再現）</li>
+  <li><b>本番運用</b>: ホワイトノイズ / マルチトーン / Linear chirp など全ての走査音に EQ_pre を畳み込んでから SPK 駆動</li>
+  <li><b>再キャリブレーション</b>: SPK 経年劣化や温度変化で応答が変わるため、月次〜年次で再実施</li>
+</ol>
+
+<h3>3.A.5 自由音場 EQ と「全閉基準」差分の使い分け</h3>
+
+<p>
+  本節 §3.A は機材自体のムラ（H_spk · H_mic）を補正するためのもので、
+  ハウス模型固有の <b>全閉時の H_room</b> は別の話。両者は補完関係。
+</p>
+
+<table>
+  <thead><tr><th>補正</th><th>場所</th><th>目的</th><th>頻度</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><b>§3.A SPK プリ・エンファシス</b></td>
+      <td>SPK 駆動信号側（emission）</td>
+      <td>SPK + mic 自体の周波数応答ムラを補正</td>
+      <td>機材取付け時 + 月次〜年次</td>
+    </tr>
+    <tr>
+      <td>全閉基準正規化（オプション）</td>
+      <td>mic 記録側（解析）</td>
+      <td>ハウス模型固有の定常応答をベースラインとして引く</td>
+      <td>設置先ごと + 環境変化時</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  プリ・エンファシスだけでも実用的には十分なケースが多い。差分が小さすぎる
+  （状態変化が背景の数 % にしか出ない）場合のみ、全閉基準正規化を追加する。
+</p>
+
+<h2>4. 推奨戦略 — まず最小検証 → その後の本格展開</h2>
+
+<div class="callout warn">
+  <strong>Day 0 サニティチェック — 「3 パターン × 1 サンプルで差が見えるか」（最優先）:</strong><br>
+  いきなり 14 状態 × 30 サンプルの本気の収集に走るのは <b>無駄</b>。
+  まず以下の <b>2〜3 パターンを 1 回ずつ</b>取り、データ展開方法を変えながら
+  「目で見て差が出る表現」を探す。これで差が出ない表現を 14 状態に拡張しても判別不能のままで、
+  そこから先の議論はすべて無意味になる。
+</div>
+
+<h3>4.0 Day 0: 最小検証プロトコル</h3>
+
+<p><b>取るべきパターン（少ない方から順に）:</b></p>
+
+<table>
+  <thead>
+    <tr><th>案</th><th>状態</th><th>意図</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td rowspan="2">2 パターン案</td>
+      <td>全閉</td>
+      <td rowspan="2">最も検出しやすい「窓 a 開閉」差が出るかを最低条件として確認。
+        窓 a は mic と同じ Room A にあるため放射損失と低域 Q 変化が直接見える</td>
+    </tr>
+    <tr>
+      <td>窓 a 単独開（他は全閉）</td>
+    </tr>
+    <tr>
+      <td rowspan="3">3 パターン案<br>（推奨）</td>
+      <td>全閉</td>
+      <td rowspan="3">「窓開閉差」と「扉開閉差」が両方見えるかを 1 度に確認。
+        後者は隣室結合によるモード分裂で、Q 低下とは別種の特徴。
+        この 2 種類の差が見えれば 14 状態のほぼ全パターンが射程に入る</td>
+    </tr>
+    <tr>
+      <td>窓 a 単独開</td>
+    </tr>
+    <tr>
+      <td>扉 AB 単独開</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><b>各パターンで試すデータ展開:</b></p>
+
+<ol>
+  <li><b>生波形</b> — 重ね描きしてピーク・残響時間の違いを目視</li>
+  <li><b>FFT 一発（log-mag スペクトル）</b> — 重ね描きしてピーク位置・幅・高さの差を目視</li>
+  <li><b>STFT 2D ヒートマップ</b> — 窓長 512 / 1024 で試し、共鳴ストリームの位置・幅の差を目視</li>
+  <li><b>RIR（chirp 整合フィルタ後）</b> — 初期反射の有無・残響減衰カーブの差を目視</li>
+</ol>
+
+<p><b>判定基準 — 進む/止まるの分かれ目:</b></p>
+
+<ul>
+  <li>✅ <b>少なくとも 1 つの展開方法で 3 パターンが目で見て区別できる</b> → §4.1 以降の本格展開に進む</li>
+  <li>⚠️ <b>どの展開方法でも 3 パターンの差が見えない</b> → 走査音の方式・帯域・SPK 出力・マイク位置のどれかが不適切。
+    14 状態への拡張は意味がないので、ハードの再設定（SPK の音量・配置、chirp 帯域の見直し、模型の遮音強化など）に戻る</li>
+  <li>🤔 <b>差は見えるが微妙</b> → さらに 2〜3 サンプル取って再現性を確認し、判断保留</li>
+</ul>
+
+<p>
+  この Day 0 検証は <b>1〜2 時間</b> で終わる。同日中に「先に進めるか / ハードを見直すか」が決まる。
+  これを飛ばして全状態収集に走ると、後から「実はそもそも差がない走査音だった」が判明したときの
+  サンプル取り直しコストが膨大になる。
+</p>
+
+<h3>4.A 本格展開: 共鳴探索 → マルチトーン圧縮の 2 段構え</h3>
+
+<p>
+  Day 0 で差が見えることを確認したら、<b>「広帯域で共鳴周波数を探索」フェーズと
+  「狙い撃ちマルチトーンで本番計測」フェーズを分ける</b>本格展開に進む。
+  前者は時間がかかってもよい（オフライン解析）、後者は短く正確であるべき（UX に直結）。
+</p>
+
+<table>
+  <thead>
+    <tr><th>段階</th><th>使う走査音</th><th>目的</th><th>所要時間</th><th>場所</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>探索フェーズ</b><br>（キャリブレーション）</td>
+      <td><b>ホワイトノイズ + 直読</b><br>（最短路 §2.7）<br>または ESS + Farina / Linear chirp</td>
+      <td>各 14 状態における共鳴周波数・モード分裂・帯域寄与を発見</td>
+      <td>1 状態あたり 1–3 s × 30 サンプル<br>= 数十分</td>
+      <td>PC（オフライン解析）</td>
+    </tr>
+    <tr>
+      <td><b>本番フェーズ</b><br>（推論用 Ping）</td>
+      <td>マルチトーン<br>（探索結果から自動生成）</td>
+      <td>狙い撃ち周波数だけに集中したエネルギー投入で短時間に高 SNR を得る</td>
+      <td>1 計測あたり ~0.3 s</td>
+      <td>MCU 上で生成・放射</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>4.1 Linear chirp + STFT 2D 画像化 のアイディア</h3>
+
+<div class="callout">
+  <strong>用途で使い分け</strong>:
+  「<b>どの周波数が共鳴しているか</b>」だけが知りたいなら <a href="#"><b>§2.7 ホワイトノイズ + 出力スペクトル直読</b></a> が最短路（時間平均で
+  |H(f)|² 推定が一発で取れる）。本節 §4.1 の STFT 2D 画像化は <b>時間軸の構造（モード立ち上がり・減衰）も同時に見たい</b>場合に有効で、
+  NN 入力にも 2D 画像としてそのまま渡せる利点がある。
+</div>
+
+<p>
+  探索フェーズでは、Linear chirp 中の <b>FFT 時系列を 2D 画像（STFT スペクトログラム）として残し</b>、
+  時間軸 × 周波数軸の 2D 表現で解析する案が筋がいい。
+</p>
+<ul>
+  <li><b>掃引中の応答が時間軸に展開される</b> — Linear chirp はある時刻 t で周波数 f(t) を駆動するので、
+    マイク側のスペクトログラムを見ると「t における f(t) の応答」が縦に並ぶ。共鳴がある周波数では
+    そこに <b>明るい垂直ストリーク</b> が走り、ダンピングの違いがストリーク幅に現れる。
+    モード分裂（扉が開いて結合）は <b>並走する 2 本のストリーク</b> として直接見える</li>
+  <li><b>解析が「画像を見る」操作になる</b> — 1D log-mag スペクトルでは積分されて消えた情報
+    （どの周波数がいつ立ち上がってどう減衰したか）が、2D 画像では空間的に残る</li>
+  <li><b>共鳴探索の自動化が容易</b> — 2D 画像上の局所最大やストリーク検出で
+    マルチトーン周波数候補を自動抽出できる</li>
+</ul>
+
+<h3>4.2 STFT 2D 画像をそのまま画像分類モデルに食わせる選択肢</h3>
+<p>
+  さらに、抽出した 2D 画像を<b>画像クラス分類モデル（小型 2D CNN）の入力</b>に直接使う
+  という方向もある。STFT を「画像」として扱い、SqueezeNet/MobileNet 系の縮小版や
+  カスタム小規模 2D CNN で 14 状態を分類する。これは <a href="nn_review.html">NN 考察</a>
+  §3.2 で詳細を議論する。
+</p>
+<ul>
+  <li><b>長所</b>: 時間-周波数両方向の局所性を 2D CNN が学習できる、画像処理コミュニティの
+    既存ノウハウ（拡張・転移学習）が転用可能</li>
+  <li><b>短所</b>: MCXN947 NPU の 2D conv は 1D conv より重い、モデルサイズが膨らみがち、
+    INT8 量子化との相性は要検証</li>
+  <li><b>判断材料</b>: 共鳴探索フェーズの 2D 画像を眺めて、「この画像なら 1D に縮約しても情報が残るな」
+    と感じるなら 1D で進む。「2D で見ないと判別できない時間構造がある」なら 2D CNN へ</li>
+</ul>
+
+<h3>4.3 マルチトーン放射方式 — 同時 vs 順次</h3>
+
+<p>
+  ROI で抽出した 16–32 周波数を本番運用で撃つとき、<b>全部を同時に一度に鳴らす</b>か、
+  <b>1 つずつ順番に鳴らす</b>か、<b>サブグループに分けて段階放射する</b>かで挙動が大きく変わる。
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>方式</th>
+      <th>所要時間</th>
+      <th>SNR / 周波数</th>
+      <th>SPK 歪み</th>
+      <th>解析の単純さ</th>
+      <th>注意点</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>同時放射</b><br>（合成マルチトーン）</td>
+      <td><span class="status-badge done">最短</span><br>~100–200 ms</td>
+      <td><span class="status-badge in_progress">中</span><br>エネルギー分散</td>
+      <td><span class="status-badge in_progress">中–大</span><br>(クレストファクタ依存)</td>
+      <td><span class="status-badge in_progress">中</span><br>狭帯域 FFT で分離</td>
+      <td><b>位相設計が重要</b>（Schroeder 位相で crest ~6 dB 低減）。SPK 非線形による <b>相互変調歪み</b>が新ピークを作る恐れ</td>
+    </tr>
+    <tr>
+      <td><b>順次放射</b><br>（1 トーンずつ）</td>
+      <td><span class="status-badge blocked">最長</span><br>16 × 50 ms = 0.8 s〜</td>
+      <td><span class="status-badge done">最高</span><br>全エネルギー集中</td>
+      <td><span class="status-badge done">小</span><br>単一トーン駆動</td>
+      <td><span class="status-badge done">最高</span><br>各 ON 区間を切り出すだけ</td>
+      <td>相互変調なし、解釈最明瞭。<b>計測時間が制約</b>。<a href="#sec2-6">§2.6 ゲート式</a>と等価</td>
+    </tr>
+    <tr>
+      <td><b>サブグループ段階放射</b><br>（4 周波 × 4 段階等）</td>
+      <td><span class="status-badge in_progress">中</span><br>~200–400 ms</td>
+      <td><span class="status-badge done">良</span><br>4 トーン分</td>
+      <td><span class="status-badge done">小</span><br>4 トーンなら歪み軽微</td>
+      <td><span class="status-badge done">良</span></td>
+      <td>同時の SNR と順次の解釈性のバランス案。<b>非倍音関係のグループ分け</b>で相互変調を避ける</td>
+    </tr>
+  </tbody>
+</table>
+
+<h4>4.3.1 同時放射が抱える 2 つの罠</h4>
+
+<ul>
+  <li><b>クレストファクタ問題</b>: N 個の正弦波を全部位相 0 で足すと、ピーク振幅は N 倍だが
+    RMS は √N 倍しか伸びない → ピーク/RMS = √N。これでは SPK 最大出力 / SNR が極端に悪い。
+    <b>Schroeder 位相</b>（φ_k = -π·k(k-1)/N）で位相をランダム化すれば crest ~3 dB 程度まで下がり、
+    平均パワーを実質的に √N 倍稼げる</li>
+  <li><b>相互変調歪み（IMD）</b>: 0.25 W スピーカは小振幅でも非線形性があり、
+    周波数 f₁, f₂ が同時に駆動されると <b>f₁±f₂, 2f₁±f₂, ...</b> に新しいピークが現れる。
+    本来共鳴がない周波数に偽ピークが立つ → 状態判別を惑わす。順次放射ではこれが原理的に起きない</li>
+</ul>
+
+<h4>4.3.2 順次放射が抱える 1 つの罠</h4>
+
+<ul>
+  <li><b>計測時間の長さ</b>: UX 上「Ping → 結果表示が 1 秒以内」を目標にすると、
+    16 周波数 × 50 ms = 0.8 s で目一杯。32 周波数だと 1.6 s で確実にオーバー。
+    <b>1 トーンあたりの時間を短くする</b>（50 ms → 20 ms）と SNR が落ちる → 共鳴の Q 値が高ければ
+    立ち上がりが遅く、短時間では定常応答に届かない可能性</li>
+</ul>
+
+<h4>4.3.3 推奨方針</h4>
+
+<ol>
+  <li><b>Day 0 / 探索フェーズで両方試す</b>: 同じ ROI 周波数群を「同時放射」と「順次放射」両方で計測。
+    判別性スコア（<a href="#sec6-1">§6.1</a>）が同等なら同時、明らかに差があれば順次へ</li>
+  <li><b>同時放射を採用する場合の必須対策</b>:
+    <ul>
+      <li>Schroeder 位相で crest 低減</li>
+      <li>SPK 駆動レベルを順次の 1/√N 程度に下げて IMD 発生を抑制</li>
+      <li>FFT 解析時は ROI 周波数ごとに <b>狭帯域窓</b>を取って近接ピークの混入を避ける</li>
+      <li>探索フェーズで <b>IMD が発生する周波数ペア</b>を予測（f₁+f₂, f₁-f₂ が他の ROI に近接していないか）して
+        危険なペアは順次に分離</li>
+    </ul>
+  </li>
+  <li><b>順次放射を採用する場合</b>: §2.6 ゲート式バーストスイープと実質同じ実装になる。
+    既存の <code>pulse</code> 型パターンライブラリで対応可能</li>
+  <li><b>サブグループ段階放射が現実的な折衷</b>: 4–6 周波数を 1 グループにまとめ、
+    グループ内は IMD が ROI と干渉しないよう <b>非倍音関係（周波数比が無理数に近い）</b>に選ぶ。
+    4 グループ × 100 ms = 400 ms で済み、SNR も実用的</li>
+</ol>
+
+<h3>4.4 推奨本番方式: <b>ROI 圧縮ゲート式バーストスイープ</b>（マルチトーンより筋がいい）</h3>
+
+<div class="callout">
+  <strong>結論先取り:</strong> ROI で 16–32 周波数を特定した後の本番計測には、
+  <b>マルチトーン同時放射ではなく、ROI 周波数だけを順次撃つゲート式バーストスイープ</b>を採用するのが筋。
+  §2.6 ゲート式バースト（22 s）の弱点だった「時間がかかりすぎ」が ROI 圧縮で解消される一方、
+  §4.3 マルチトーン同時放射の罠（IMD・クレストファクタ）を全部回避できる。
+</div>
+
+<h4>4.4.1 なぜマルチトーン同時放射より優れるか</h4>
+
+<table>
+  <thead>
+    <tr>
+      <th>観点</th>
+      <th>マルチトーン同時放射（§4.3）</th>
+      <th><b>ROI 圧縮ゲート式バースト</b></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>相互変調歪み (IMD)</b></td>
+      <td>SPK 非線形で f₁±f₂ に偽ピーク → 状態判別を惑わす</td>
+      <td><span class="status-badge done">原理的に発生しない</span>（単一周波数駆動）</td>
+    </tr>
+    <tr>
+      <td><b>クレストファクタ</b></td>
+      <td>√N 倍、Schroeder 位相で頑張っても限界あり → SPK 駆動レベルを下げる必要</td>
+      <td><span class="status-badge done">0 dB</span>（単一サイン波）→ SPK 出力を最大限活用</td>
+    </tr>
+    <tr>
+      <td><b>励振と残響の分離</b></td>
+      <td>励振信号と残響が時間軸で混在 → 狭帯域 FFT で分離が必要、過渡応答が見にくい</td>
+      <td><span class="status-badge done">OFF 区間で残響だけ純粋に観測</span> → Q 値・RT60 が直接読める</td>
+    </tr>
+    <tr>
+      <td><b>SPK 過熱・歪み</b></td>
+      <td>N 個同時駆動でピーク電流大、低品質 SPK では飽和しやすい</td>
+      <td><span class="status-badge done">単一周波数で穏やか</span></td>
+    </tr>
+    <tr>
+      <td><b>解析の単純さ</b></td>
+      <td>狭帯域フィルタを ROI 数だけ用意して個別抽出</td>
+      <td><span class="status-badge done">OFF 区間の RMS を順番に並べるだけ</span></td>
+    </tr>
+    <tr>
+      <td><b>時間</b></td>
+      <td>~100–200 ms（最短）</td>
+      <td>16 × 50 ms ≈ 0.8 s / 16 × 30 ms ≈ 0.5 s（UX 許容範囲内）</td>
+    </tr>
+    <tr>
+      <td>SPK エネルギー</td>
+      <td>1/N に分散</td>
+      <td>瞬時的には全エネルギー集中（高 SNR）</td>
+    </tr>
+  </tbody>
+</table>
+
+<h4>4.4.2 シーケンス設計</h4>
+
+<pre><code>ROI で抽出した 16 周波数 {f_1, f_2, ..., f_16} に対し:
+
+時刻 t:
+[f_1: ON 30ms][OFF 30ms][f_2: ON 30ms][OFF 30ms]...[f_16: ON 30ms][OFF 30ms]
+ ─────── 32 区間、合計 960 ms ───────
+
+各 OFF 区間で:
+  decay_rms[k] = RMS( y(t) over OFF_k の最初 20 ms )
+  → 16 次元の特徴ベクトルが 1 計測で得られる
+
+NN への入力:
+  16 次元の振幅ベクトル → 極小 MLP (§3.6) で 14 状態分類
+</code></pre>
+
+<h4>4.4.3 ON / OFF 時間の選び方</h4>
+
+<table>
+  <thead><tr><th>時間配分</th><th>ON 時間</th><th>OFF 時間</th><th>合計</th><th>用途</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>高速</td>
+      <td>20 ms</td>
+      <td>20 ms</td>
+      <td>16 × 40 = 640 ms</td>
+      <td>UX 重視、Q 低めのモードでも RMS は読める</td>
+    </tr>
+    <tr>
+      <td><b>標準</b></td>
+      <td>30 ms</td>
+      <td>30 ms</td>
+      <td>16 × 60 = 960 ms</td>
+      <td>UX 許容内、Q ≈ 10 程度のモードまで定常応答に届く</td>
+    </tr>
+    <tr>
+      <td>精密</td>
+      <td>50 ms</td>
+      <td>100 ms</td>
+      <td>16 × 150 = 2.4 s</td>
+      <td>Q 値も精密に抽出（exp 減衰フィット）</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  <b>ON 時間の下限</b>: 共鳴 Q 値が高いモードほど定常応答到達に時間がかかる。Q = 10 のモードなら
+  立ち上がり時定数 τ ≈ Q/(π·f) で、f=572 Hz なら τ ≈ 5.6 ms → 30 ms ON でほぼ定常に達する。
+</p>
+<p>
+  <b>OFF 時間の下限</b>: 高 Q モードほど減衰も遅い。f=572 Hz, Q=10 で 60 dB 減衰に約 30 ms。
+  20 ms OFF だと完全減衰せず次のトーンに残響が混入する可能性 → 標準 30 ms 以上推奨。
+</p>
+
+<h4>4.4.4 さらなる短縮アイディア</h4>
+
+<ul>
+  <li><b>ROI を 8 周波数に絞る</b>: 16 → 8 にできれば合計 480 ms。判別性スコア上位だけ採用</li>
+  <li><b>非倍音ペアで 2 周波同時 OFF 観測</b>: f₁ ON → f₁+f₂ 同時 OFF（f₁ と f₂ が非倍音関係なら IMD 軽微）→ f₂ ON のように
+    交互ずらしで時間圧縮。実装複雑化するため標準採用は見送り</li>
+  <li><b>適応的サンプリング</b>: 高 Q モードだけ長く ON/OFF し、低 Q モードは短時間で済ませる</li>
+</ul>
+
+<h4>4.4.5 §3.6 マルチトーン MLP との接続</h4>
+
+<p>
+  本方式の出力は <b>16 次元の周波数別 RMS 振幅ベクトル</b>になるため、そのまま
+  <a href="nn_review.html#sec3-6">NN 考察 §3.6 マルチトーン入力 × 極小 MLP</a> の入力として使える。
+  「マルチトーン」と書いてあるが本質は「16 周波数の振幅ベクトル」なので、生成元が同時放射でも順次バーストでも
+  NN 側の構造は変えなくてよい。本番運用ではゲート式バーストの出力ベクトルを MLP に流すのが推奨経路。
+</p>
+
+<h3>4.5 4 ステップに分解した進め方</h3>
+<ol>
+  <li><b>第 1 段: Linear chirp で 14 状態 × 30 サンプル取得</b> — MCU は既存 chirp 生成器を使えるので
+    実装最簡。<a href="../pc/collector_client.py">pc/collector_client.py</a> が WAV + 真値ラベル CSV を保存</li>
+  <li><b>第 2 段: PC 側で STFT 2D 画像化 + 可視化</b> — Python (librosa / scipy) で
+    各サンプルの STFT を計算し、ヒートマップとして 14 状態をパラパラ眺める。
+    どの帯域・どの時刻に状態依存の差が出るかを目視で特定</li>
+  <li><b>第 3 段: 2 系統で並走</b>
+    <ul>
+      <li><b>系統 A（軽量・1D）</b>: 第 2 段で見つけた狙い目帯域から
+        マルチトーン Ping を設計し、1D log-mag + 1D CNN（現 v1 設計）で識別</li>
+      <li><b>系統 B（重量・2D）</b>: Linear chirp + STFT 2D 画像をそのまま 2D CNN で識別</li>
+    </ul>
+  </li>
+  <li><b>第 4 段: 14 状態 F1 とレイテンシで比較</b> — どちらが MCXN947 NPU の制約下で
+    良い精度を出すかをベンチマーク。最終 v1 はどちらか採用</li>
+</ol>
+
+<h2>5. 評価軸（評価データセット側で測る）</h2>
+
+<table>
+  <thead><tr><th>軸</th><th>定義</th><th>測り方</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>14 状態 F1</td>
+      <td>実効区別 14 状態の macro-F1</td>
+      <td>3 部屋模型で各状態 30 サンプル取得して 5-fold</td>
+    </tr>
+    <tr>
+      <td>扉 AB 判別精度</td>
+      <td>扉 AB 開/閉の二値分類精度</td>
+      <td>最優先。これが落ちると後段全滅</td>
+    </tr>
+    <tr>
+      <td>サンプル効率</td>
+      <td>10 サンプル / 状態でも F1 ≥ 0.85 を達成できるか</td>
+      <td>学習データ量を半減して再評価</td>
+    </tr>
+    <tr>
+      <td>位置依存性</td>
+      <td>マイク位置を 5 cm ずらしたときの精度低下</td>
+      <td>頑健性の指標</td>
+    </tr>
+    <tr>
+      <td>計測時間</td>
+      <td>1 推論あたり Ping 放射＋取得＋推論の合計</td>
+      <td>UX としては ≤ 1 s が目標</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>6. 判別性解析の手法 — どの周波数が状態判別に効くか</h2>
+
+<p>
+  Day 0 サニティチェックや本格的なキャラクタリゼーションで得たデータから、
+  「どの周波数（または STFT 2D 画像のどの領域）が状態判別に効くか」を定量化する。
+  以下は旧「励振パターン設計」ノート §6 から統合した方法論で、ゲート式バーストや
+  Linear chirp の応答どちらにも適用できる。
+</p>
+
+<h3>6.1 判別性スコア（inter-class / intra-class 分散比）</h3>
+
+<pre><code>各周波数 f について:
+  inter_var(f) = Var across N states           # クラス間分散
+  intra_var(f) = Mean of within-state Var       # 同一状態の繰り返し間分散
+  discriminability(f) = inter_var / (intra_var + ε)
+</code></pre>
+
+<ul>
+  <li><b>分母</b>: 同じ状態を繰り返し測ったときのばらつき（再現性の悪さ）</li>
+  <li><b>分子</b>: 状態を変えたときのばらつき（識別したい情報量）</li>
+  <li>比が大きい周波数ほど「再現性がよく、状態で大きく動く」 = 判別に効く</li>
+  <li>上位 N（例: 16–32）周波数をマルチトーン Ping の候補として抽出</li>
+</ul>
+
+<h3>6.2 早期判定基準（PC 側可視化）</h3>
+
+<p>
+  全 14 状態の判別性を見る前に、まず「全閉 / 窓 a 単独開 / 扉 AB 単独開」の 3 状態だけを
+  重ね描きする（<a href="#sec4-0">§4.0 Day 0</a> と同じ）。
+</p>
+
+<ul>
+  <li><b>明らかに違う周波数がある</b> → 全体方針成立、本格収集と targeted Ping 設計へ進む</li>
+  <li><b>状態間で違いが小さい</b> → CNN を訓練する前に <b>物理層で破綻が見える</b>。
+    マイク/スピーカ位置を変えて再採取、または模型形状を見直す</li>
+</ul>
+
+<h3>6.3 ターゲット励振の予測検証</h3>
+
+<p>
+  Phase 1 の生データ（広帯域応答）から、Phase 4 で使う予定のマルチトーン Ping の応答を
+  numpy で <b>再合成</b>できる（線形性が成り立つ限り）。
+</p>
+
+<ul>
+  <li>Phase 1 の応答から targeted_v1 で得られるはずのスペクトルを再構成</li>
+  <li>その擬似データで簡単な線形分類器を学習 → 交差検証 AUROC を計測</li>
+  <li>予測 AUROC &lt; 0.90 なら top N を 32 に増やす、選定方法を見直すなど
+    Phase 4 の本収集に進む前に調整できる</li>
+</ul>
+
+<h2>7. リスクと制約</h2>
+
+<table>
+  <thead><tr><th>リスク</th><th>対策</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><b>マイク位置依存性</b></td>
+      <td>応答は定在波の節/腹で大きく変わる。模型製作時にマイク位置（Room A 中央床）を
+        物理的に固定。キャラクタリゼーション時と本番運用で完全同条件にする</td>
+    </tr>
+    <tr>
+      <td>同形状の窓 a/b/c 判別困難</td>
+      <td>窓のサイズ/位置を僅かに非対称にする、またはマイクを特定窓寄りに偏置</td>
+    </tr>
+    <tr>
+      <td><b>温度依存</b></td>
+      <td>音速は ~0.6 m/s/°C で変動 → 共鳴周波数も 5%/25 °C シフト。
+        設置先で月次キャリブレーション、または温度センサ補正</td>
+    </tr>
+    <tr>
+      <td>スピーカ非線形</td>
+      <td>log sweep（ESS）ならハーモニクスが時間軸に分離されるので Farina 逆フィルタで線形成分のみ抽出可。
+        ゲート式バーストは単一周波数なのでハーモニクスは別ピークとして出るが、判別性解析の段階で除去できる</td>
+    </tr>
+    <tr>
+      <td>Helmholtz 共鳴が使えない</td>
+      <td>窓開口の Helmholtz 共鳴は数十 Hz → MAX98357A + 0.25 W スピーカでは出せない。
+        室内モード由来の特徴のみ使う</td>
+    </tr>
+    <tr>
+      <td><b>設置先ごとの再キャリブレーション</b></td>
+      <td>Phase 1（キャラクタリゼーション）+ Phase 2（解析）を deployment 時に
+        自動実行する仕組みを後付けすれば、サーボが自動で 32 状態を巡回して
+        ~40 分でキャリブレーション完了する設計が可能（既存
+        <a href="../firmware/projects/09_collector/">09_collector</a> ベース）</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>8. 未解決の疑問（次のセッションで議論）</h2>
+<ul>
+  <li>SPK の非線形歪みが何 dB レベルから NN を惑わせるか — 実測が要る</li>
+  <li>背景雑音（生活音）下でも ESS の SNR は確保できるか — Ping 撃つタイミングをパッシブで検知する案も</li>
+  <li>非対称な配置（マイクが片端の Room A）で扉 BC の状態を区別するに足る情報が低域に残るか</li>
+  <li>14 状態のうち「実用上はどうでもよい」状態がある場合、その方向にも振りたいか（窓 c 単独開の頻度は？）</li>
+</ul>
+
+<div class="footer-note">
+  関連:
+  <a href="nn_review.html">NN 考察</a> ／
+  <a href="nn_design.html">NN 設計（v1 固定版）</a> ／
+  <a href="spec.html">仕様書 §3, §4</a>
+</div>
+
+</main>
+</body>
+</html>

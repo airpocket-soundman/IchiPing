@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 240" font-family="Hiragino Sans, Yu Gothic UI, Segoe UI, sans-serif">
+  <defs>
+    <style>
+      .title  { font-size: 15px; font-weight: 800; fill: #1a1d23; }
+      .sub    { font-size: 11px; fill: #6b7280; }
+      .layer-input  { fill: #e5e7eb; stroke: #1a1d23; stroke-width: 1.4; }
+      .layer-fc     { fill: #7be0a4; stroke: #1a1d23; stroke-width: 1.4; }
+      .layer-softmax{ fill: #c2185b; stroke: #1a1d23; stroke-width: 1.4; }
+      .layer-label  { font-size: 11px; font-weight: 800; fill: #fff; text-anchor: middle; }
+      .layer-input-label { font-size: 11px; font-weight: 800; fill: #1a1d23; text-anchor: middle; }
+      .shape  { font-size: 10px; fill: #4b5563; text-anchor: middle; }
+      .arrow  { stroke: #1a1d23; stroke-width: 1.6; fill: none; marker-end: url(#arr); }
+      .note   { font-size: 10px; fill: #9a3412; font-weight: 700; }
+      .npu-box { fill: #fff7ed; stroke: #fed7aa; stroke-width: 1.4; stroke-dasharray: 4 3; }
+      .cpu-box { fill: #fef2f2; stroke: #fecaca; stroke-width: 1.4; stroke-dasharray: 4 3; }
+    </style>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1a1d23"/>
+    </marker>
+  </defs>
+
+  <text class="title" x="500" y="22" text-anchor="middle">案 §3.6: マルチトーン入力 × 極小 MLP（ROI 圧縮後専用）</text>
+  <text class="sub" x="500" y="40" text-anchor="middle">ROI 既定の周波数 16–32 個の振幅ベクトルだけを受ける軽量分類器</text>
+
+  <rect class="npu-box" x="20" y="62" width="780" height="140" rx="10"/>
+  <text x="30" y="80" font-size="10" font-weight="700" fill="#9a3412">MCXN947 NPU (CPU 単独でも余裕)</text>
+
+  <g transform="translate(40,100)">
+    <rect class="layer-input" width="120" height="60" rx="4"/>
+    <text class="layer-input-label" x="60" y="22">マルチトーン</text>
+    <text class="layer-input-label" x="60" y="38">振幅ベクトル</text>
+    <text class="layer-input-label" x="60" y="52">(ROI 抽出済)</text>
+    <text class="shape" x="60" y="74">(1, 16) or (1, 32)</text>
+  </g>
+  <path class="arrow" d="M164,130 L184,130"/>
+
+  <g transform="translate(185,100)">
+    <rect class="layer-fc" width="115" height="60" rx="4"/>
+    <text class="layer-label" x="57" y="22">FC → 32</text>
+    <text class="layer-label" x="57" y="38">+ ReLU</text>
+    <text class="shape" x="57" y="74">(1, 32)</text>
+  </g>
+  <path class="arrow" d="M304,130 L324,130"/>
+
+  <g transform="translate(325,100)">
+    <rect class="layer-fc" width="115" height="60" rx="4"/>
+    <text class="layer-label" x="57" y="22">FC → 16</text>
+    <text class="layer-label" x="57" y="38">+ ReLU</text>
+    <text class="shape" x="57" y="74">(1, 16)</text>
+  </g>
+  <path class="arrow" d="M444,130 L464,130"/>
+
+  <g transform="translate(465,100)">
+    <rect class="layer-fc" width="115" height="60" rx="4"/>
+    <text class="layer-label" x="57" y="32">FC → 14</text>
+    <text class="shape" x="57" y="74">(1, 14)</text>
+  </g>
+  <path class="arrow" d="M584,130 L610,130"/>
+
+  <rect class="cpu-box" x="615" y="62" width="180" height="140" rx="10"/>
+  <text x="625" y="80" font-size="10" font-weight="700" fill="#9a3412">Cortex-M33</text>
+
+  <g transform="translate(625,100)">
+    <rect class="layer-softmax" width="160" height="60" rx="4"/>
+    <text class="layer-label" x="80" y="22">Softmax</text>
+    <text class="layer-label" x="80" y="38">→ 14 class</text>
+    <text class="shape" x="80" y="74">分類結果</text>
+  </g>
+
+  <text x="500" y="220" text-anchor="middle" class="note">
+    総パラメータ ~2K（INT8 で ~2 KB）、推論レイテンシ &lt; 5 ms。
+    Linear regression（FC → 14 のみ、~500 params）に縮めることも可
+  </text>
+</svg>

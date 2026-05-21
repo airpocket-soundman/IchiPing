@@ -65,6 +65,7 @@
 #include "ichiping_frame.h"
 #include "ichp_cmd.h"
 #include "pattern_lib.h"
+#include "spk_eq.h"
 #include "servo_config.h"
 #include "servo_driver.h"
 #include "ili9341.h"
@@ -201,6 +202,22 @@ static void uart_printf(const char *fmt, ...)
         static const uint8_t crlf[2] = { '\r', '\n' };
         LPUART_WriteBlocking(COL_UART_BASE, crlf, 2);
     }
+}
+
+/* Format a float as "[+-]D.DDDDDD" using integer math only.
+ * newlib-nano's default printf drops %f, so we can't use snprintf("%f", ...).
+ * Clamps |f| to ~9999.999999 for safety. */
+static void fmt_float_q6(char *buf, size_t cap, float f)
+{
+    if (cap == 0u) return;
+    int negative = (f < 0.0f);
+    if (negative) f = -f;
+    if (f > 9999.999999f) f = 9999.999999f;
+    uint32_t scaled = (uint32_t)(f * 1000000.0f + 0.5f);
+    uint32_t whole  = scaled / 1000000u;
+    uint32_t frac   = scaled % 1000000u;
+    (void)snprintf(buf, cap, "%s%u.%06u",
+                   negative ? "-" : "", (unsigned)whole, (unsigned)frac);
 }
 
 /* ---- Full-duplex play + capture (08 lift) ---- */
@@ -416,6 +433,12 @@ static void do_run(ichp_cmd_lbuf_t *lb)
     }
     if (n_samp > COL_WINDOW_SAMP) n_samp = COL_WINDOW_SAMP;
 
+    /* Apply speaker EQ in-place (no-op when disabled, which is the default).
+     * Sits between pattern_render and play_and_capture so all pattern kinds
+     * get the same correction. EQ DISABLE before measurements that need raw
+     * SPK/mic response (e.g. free-field calibration). */
+    spk_eq_apply(s_excite, n_samp);
+
     uart_printf("OK RUN started repeats=%d pattern=%s samples=%u",
                 (int)s_state.repeats, p->name, (unsigned)n_samp);
 
@@ -469,6 +492,8 @@ static void do_emit(int32_t index)
         uart_write_line("ERR EMIT render_failed");
         return;
     }
+    /* Apply speaker EQ before emission (no-op when disabled). */
+    spk_eq_apply(s_excite, n_samp);
     status_t s = sai_speaker_play_blocking(&s_spk, s_excite, (size_t)n_samp);
     if (s != kStatus_Success) {
         uart_printf("ERR EMIT speaker status=%ld", (long)s);
@@ -672,6 +697,20 @@ static void apply_cmd(const ichp_cmd_t *cmd, ichp_cmd_lbuf_t *lb)
                 uart_write_line("ERR PAT lib_full");
             }
             break;
+        case ICHP_CMD_PAT_NOISE:
+            if (pattern_lib_add_noise(cmd->pat_name,
+                                      cmd->pat_a,                  /* duration_ms */
+                                      (uint16_t)cmd->pat_b,        /* volume_pct */
+                                      (uint8_t)cmd->pat_c)) {      /* shape */
+                uart_printf("OK PAT noise name=%s dur=%u vol=%u shape=%u",
+                            cmd->pat_name,
+                            (unsigned)cmd->pat_a,
+                            (unsigned)cmd->pat_b,
+                            (unsigned)cmd->pat_c);
+            } else {
+                uart_write_line("ERR PAT lib_full");
+            }
+            break;
         case ICHP_CMD_PAT_INFO:
             say_pat_info();
             break;
@@ -689,6 +728,49 @@ static void apply_cmd(const ichp_cmd_t *cmd, ichp_cmd_lbuf_t *lb)
             break;
         case ICHP_CMD_EMIT:
             do_emit(cmd->pat_i);
+            break;
+        case ICHP_CMD_EQ_ENABLE:
+            spk_eq_enable(true);
+            uart_write_line("OK EQ enabled");
+            break;
+        case ICHP_CMD_EQ_DISABLE:
+            spk_eq_enable(false);
+            uart_write_line("OK EQ disabled");
+            break;
+        case ICHP_CMD_EQ_RESET:
+            spk_eq_reset();
+            uart_write_line("OK EQ reset (defaults reloaded, state cleared)");
+            break;
+        case ICHP_CMD_EQ_SET:
+            if (spk_eq_set_stage(cmd->eq_stage,
+                                 cmd->eq_b0, cmd->eq_b1, cmd->eq_b2,
+                                 cmd->eq_a1, cmd->eq_a2)) {
+                uart_printf("OK EQ set stage=%u", (unsigned)cmd->eq_stage);
+            } else {
+                uart_printf("ERR EQ stage_out_of_range %u (max=%u)",
+                            (unsigned)cmd->eq_stage, (unsigned)(SPK_EQ_NUM_STAGES - 1u));
+            }
+            break;
+        case ICHP_CMD_EQ_GET: {
+            spk_eq_stage_coefs_t c;
+            char b0s[20], b1s[20], b2s[20], a1s[20], a2s[20];
+            for (uint8_t i = 0; i < SPK_EQ_NUM_STAGES; i++) {
+                if (spk_eq_get_stage(i, &c)) {
+                    fmt_float_q6(b0s, sizeof(b0s), c.b0);
+                    fmt_float_q6(b1s, sizeof(b1s), c.b1);
+                    fmt_float_q6(b2s, sizeof(b2s), c.b2);
+                    fmt_float_q6(a1s, sizeof(a1s), c.a1);
+                    fmt_float_q6(a2s, sizeof(a2s), c.a2);
+                    uart_printf("OK EQ stage=%u b0=%s b1=%s b2=%s a1=%s a2=%s",
+                                (unsigned)i, b0s, b1s, b2s, a1s, a2s);
+                }
+            }
+            break;
+        }
+        case ICHP_CMD_EQ_STATE:
+            uart_printf("OK EQ state=%s stages=%u",
+                        spk_eq_is_enabled() ? "ENABLED" : "DISABLED",
+                        (unsigned)SPK_EQ_NUM_STAGES);
             break;
         default:
             uart_write_line("ERR BAD_VERB");
@@ -789,6 +871,12 @@ int main(void)
     pattern_lib_init();
     uart_printf("INFO BOOT pattern_lib ready (max %u patterns x %u tones)",
                 (unsigned)PATTERN_LIB_MAX_PATTERNS, (unsigned)PATTERN_MAX_TONES);
+
+    /* Speaker EQ: identity defaults + disabled. Out of the box the TX
+     * signal path is bit-for-bit unchanged from pre-EQ firmware. Host
+     * must EQ SET ... + EQ ENABLE to activate filtering. */
+    spk_eq_init();
+    uart_write_line("INFO BOOT spk_eq ready (disabled, identity defaults)");
 
     /* ---- Audio bring-up (same init order as 08_mic_speaker_test) ---- */
 

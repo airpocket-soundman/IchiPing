@@ -39,6 +39,12 @@ ASCII 行と ICHP バイナリは同一 UART に多重化。PC は `ICHP` magic 
 | マニュアル | `CLOSE ALL` | `CLOSE ALL` | **BC→AB→c→b→a** を 1 ch ずつ `home_deg` に動かす（扉 → 窓 の順、airlock スタイル、各 0.3 s + 自動 OFF）。合計 1.5 s |
 | 実行 | `RUN` | `RUN` | repeats 回データ採取 |
 | 中断 | `STOP` | `STOP` | 次フレーム境界で中断 |
+| パターン | `PAT NOISE <name> <dur_ms> [vol_pct] [shape]` | `PAT NOISE wn3s 3000 30 0` | ホワイトノイズパターンを追加（shape: 0=PRBS, 1=uniform。vol_pct 既定 30、shape 既定 0=PRBS） |
+| EQ | `EQ ENABLE` / `EQ DISABLE` | `EQ DISABLE` | スピーカ EQ をオン/オフ切替。**起動時は DISABLE がデフォルト**。発信は全パターン（PULSE/SWEEP/NOISE）共通で EQ を通る |
+| EQ | `EQ RESET` | `EQ RESET` | 8 段すべてをハードコード defaults（初版は identity）に戻す。enable 状態は変えない |
+| EQ | `EQ SET <stage> <b0> <b1> <b2> <a1> <a2>` | `EQ SET 0 1.05 -2.00 0.95 -1.98 0.99` | 1 段の biquad 係数（DF1, a0=1 正規化、float）を上書き。stage は 0..7 |
+| EQ | `EQ GET` | `EQ GET` | 全 8 段の係数を OK 行 ×8 で返す |
+| EQ | `EQ STATE` | `EQ STATE` | `OK EQ state=ENABLED stages=8` 等で現状を返す |
 
 servo 名: `a` / `b` / `c` / `AB` / `BC`（大文字小文字無視）。角度引数はすべて **mechanical_deg**（PCA9685 への生 PWM 角、レンジ **0..180**）。0..180° が **0.5..2.7 ms パルス幅（duty 2.5..13.5 %）** に線形マップ — 上限は SG90 データシート（2.5 ms）より少し広げて実機メカ端到達を優先。`SERVO` / `SET HOME` / `SET OPEN` / `SET PIN` 全部 mechanical 系。表示用の logical 系 (閉=0, 開=+, 全 ch max 180) は [docs/servo_coords.md](../../../docs/servo_coords.md) を参照。
 
@@ -369,6 +375,77 @@ python collector_client.py --port COM7 --plan plan.json --out ../captures
 ```
 
 省略すると前 step のパターン継続（または起動時の auto-select pattern 0）。
+
+## ホワイトノイズ + スピーカ EQ
+
+走査音考察 [docs/probe_sound.html](../../../docs/probe_sound.html) §2.7 ＋ §3.A に対応する実装。
+
+### ホワイトノイズパターン
+
+`PATTERN_KIND_NOISE` を pattern_lib に追加。`PAT NOISE` コマンドで登録、`EMIT` / `RUN` で他のパターン同様に使用可能。
+
+```
+> PAT NOISE wn3s 3000 30 0
+OK PAT noise name=wn3s dur=3000 vol=30 shape=0
+> PAT SELECT 0       # 直前に登録したインデックスを選ぶ
+OK PAT select idx=0 name=wn3s
+> EMIT 0
+```
+
+shape: `0` = PRBS (±1 二値、クレストファクタ 0 dB)、`1` = uniform int16 (~4.8 dB)。
+PRBS が SPK 出力を最も効率的に使えるため推奨。
+
+### スピーカ EQ (8 段 biquad cascade)
+
+`pattern_render()` 直後の signal-path に挿入される **デフォルト OFF**（identity）の補正フィルタ。
+EQ がオフのときは PCM バッファに 1 命令も触れないので、従来の発信動作はビット単位で変わらない。
+
+#### 起動時の状態
+
+```
+INFO BOOT spk_eq ready (disabled, identity defaults)
+```
+
+EQ を使わない運用は何もコマンドを送らなければ従来通りの挙動。
+
+#### キャリブレーション → EQ 計算 → 適用 のワークフロー
+
+1. **キャリブレーション計測**: SPK と mic をハウスから外し、布団を被せて準無響条件（[docs/probe_sound.html](../../../docs/probe_sound.html) §3.A.2）にセット
+2. **EQ を必ず OFF にして**ホワイトノイズを撃つ
+   ```
+   > EQ DISABLE
+   OK EQ disabled
+   > PAT NOISE cal 3000 30 0
+   OK PAT noise name=cal dur=3000 vol=30 shape=0
+   > PAT SELECT <idx>
+   > RUN                  # 1 frame だけでも OK
+   ```
+3. **PC 側で EQ 設計**: 取得 WAV を Python (scipy.signal.iirdesign / bilinear) で解析し、
+   8 段 biquad の係数（b0, b1, b2, a1, a2 × 8 stage = 40 個）を生成
+4. **EQ 係数を送信**:
+   ```
+   > EQ SET 0 1.05 -2.00 0.95 -1.98 0.99
+   OK EQ set stage=0
+   > EQ SET 1 ...
+   ... (8 段すべて)
+   > EQ ENABLE
+   OK EQ enabled
+   ```
+5. **本計測**: 機材をハウスに戻し、EQ ENABLE のままで通常の RUN / EMIT。全パターン（PULSE / SWEEP / NOISE）に EQ が適用される
+6. **EQ を一時的に外したい場合**: `EQ DISABLE` で OFF（係数は保持されたまま）、再度 `EQ ENABLE` で復帰
+7. **デフォルトに戻したい場合**: `EQ RESET`（係数を identity に戻す、enable 状態は変えない）
+
+#### CPU コスト
+
+16 kHz × 8 段 × ~10 float op = 約 1.3 M op/s、Cortex-M33 + FPU（単サイクル FMA）で総計の 1 % 未満。
+通常の `pattern_render` + `play_and_capture` ループに対して無視できる。
+
+#### 注意事項
+
+- **キャリブレーション中は必ず `EQ DISABLE`** にすること。EQ ON のまま測ると「SPK + EQ + mic」の合成応答を測ることになり、EQ 設計のループが破綻する
+- EQ がフィルタを適用中の最初の数 ms は biquad の過渡応答が出る → PC 側解析で **先頭 10 ms をスキップ**するのが安全
+- 8 段すべて identity（デフォルト）なら EQ ENABLE しても発信は変わらない（ただし数値上わずかな float→int16 量子化誤差は乗る）
+- 係数の安定性チェックは PC 側責任: `|a1| < 2` かつ `|a2| < 1` 程度を満たさないと filter が発散する
 
 ## 配線
 
