@@ -366,6 +366,73 @@ bool ichp_cmd_parse(char *line, ichp_cmd_t *out, const char **err_token,
             out->pat_d = (uint32_t)strtoul(vsilence, NULL, 10);
             return true;
         }
+        if (strcmp(sub, "NOISE") == 0) {
+            /* PAT NOISE <name> <duration_ms> [volume_pct] [shape]
+             *   shape: 0 = PRBS (default), 1 = uniform */
+            char *name = next_token(&p);
+            char *vdur = next_token(&p);
+            char *vvol = next_token(&p);
+            char *vsh  = next_token(&p);
+            if (!name || !vdur) {
+                if (err_token) *err_token = "BAD_ARGS";
+                if (err_arg)   *err_arg   = "PAT NOISE";
+                return false;
+            }
+            out->kind = ICHP_CMD_PAT_NOISE;
+            {
+                size_t i;
+                for (i = 0; i < ICHP_PAT_NAME_LEN - 1u && name[i]; i++) out->pat_name[i] = name[i];
+                out->pat_name[i] = '\0';
+            }
+            out->pat_a = (uint32_t)strtoul(vdur, NULL, 10);          /* duration_ms */
+            out->pat_b = vvol ? (uint32_t)strtoul(vvol, NULL, 10) : 30u;  /* volume_pct */
+            out->pat_c = vsh  ? (uint32_t)strtoul(vsh,  NULL, 10) : 0u;   /* shape */
+            return true;
+        }
+        if (err_token) *err_token = "BAD_ARGS";
+        if (err_arg)   *err_arg   = sub;
+        return false;
+    }
+
+    /* ---- EQ verb (speaker EQ filter, 8-stage biquad cascade) ---- */
+    if (strcmp(verb, "EQ") == 0) {
+        char *sub = next_token(&p);
+        if (!sub) { if (err_token) *err_token = "BAD_ARGS"; if (err_arg) *err_arg = "EQ"; return false; }
+        for (char *q = sub; *q; q++) *q = (char)toupper((unsigned char)*q);
+
+        if (strcmp(sub, "ENABLE")  == 0) { out->kind = ICHP_CMD_EQ_ENABLE;  return true; }
+        if (strcmp(sub, "DISABLE") == 0) { out->kind = ICHP_CMD_EQ_DISABLE; return true; }
+        if (strcmp(sub, "RESET")   == 0) { out->kind = ICHP_CMD_EQ_RESET;   return true; }
+        if (strcmp(sub, "GET")     == 0) { out->kind = ICHP_CMD_EQ_GET;     return true; }
+        if (strcmp(sub, "STATE")   == 0) { out->kind = ICHP_CMD_EQ_STATE;   return true; }
+        if (strcmp(sub, "SET") == 0) {
+            /* EQ SET <stage> <b0> <b1> <b2> <a1> <a2>  (floats, space-separated) */
+            char *vst = next_token(&p);
+            char *vb0 = next_token(&p);
+            char *vb1 = next_token(&p);
+            char *vb2 = next_token(&p);
+            char *va1 = next_token(&p);
+            char *va2 = next_token(&p);
+            if (!vst || !vb0 || !vb1 || !vb2 || !va1 || !va2) {
+                if (err_token) *err_token = "BAD_ARGS";
+                if (err_arg)   *err_arg   = "EQ SET";
+                return false;
+            }
+            long stg = strtol(vst, NULL, 10);
+            if (stg < 0 || stg > 255) {
+                if (err_token) *err_token = "OUT_OF_RANGE";
+                if (err_arg)   *err_arg   = "EQ SET stage";
+                return false;
+            }
+            out->kind     = ICHP_CMD_EQ_SET;
+            out->eq_stage = (uint8_t)stg;
+            out->eq_b0    = strtof(vb0, NULL);
+            out->eq_b1    = strtof(vb1, NULL);
+            out->eq_b2    = strtof(vb2, NULL);
+            out->eq_a1    = strtof(va1, NULL);
+            out->eq_a2    = strtof(va2, NULL);
+            return true;
+        }
         if (err_token) *err_token = "BAD_ARGS";
         if (err_arg)   *err_arg   = sub;
         return false;

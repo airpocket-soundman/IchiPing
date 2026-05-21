@@ -36,7 +36,14 @@ typedef enum {
     PATTERN_KIND_NONE  = 0,
     PATTERN_KIND_PULSE = 1,
     PATTERN_KIND_SWEEP = 2,
+    PATTERN_KIND_NOISE = 3,
 } pattern_kind_t;
+
+/* Noise shape selector for PATTERN_KIND_NOISE. */
+typedef enum {
+    PATTERN_NOISE_SHAPE_PRBS    = 0,  /* ±1 binary, crest factor 0 dB (default) */
+    PATTERN_NOISE_SHAPE_UNIFORM = 1,  /* uniform int16, crest ~4.8 dB           */
+} pattern_noise_shape_t;
 
 typedef struct {
     uint32_t freq_hz;
@@ -59,6 +66,12 @@ typedef struct {
             uint32_t sweep_ms;
             uint32_t silence_ms;
         } sweep;
+        struct {
+            uint32_t duration_ms;
+            uint16_t volume_pct;    /* 0..100, amplitude scaling           */
+            uint8_t  shape;         /* pattern_noise_shape_t                */
+            uint8_t  _pad;
+        } noise;
     };
 } pattern_t;
 
@@ -89,6 +102,12 @@ bool pattern_lib_pulse_end(uint8_t repeat);
 bool pattern_lib_add_sweep(const char *name,
                            uint32_t start_hz, uint32_t end_hz,
                            uint32_t sweep_ms, uint32_t silence_ms);
+
+/* Noise pattern. shape uses pattern_noise_shape_t. Atomic add. */
+bool pattern_lib_add_noise(const char *name,
+                           uint32_t duration_ms,
+                           uint16_t volume_pct,
+                           uint8_t  shape);
 
 bool             pattern_lib_select(uint8_t index);
 const pattern_t *pattern_lib_get(uint8_t index);

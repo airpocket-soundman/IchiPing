@@ -1,0 +1,269 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 640" font-family="Hiragino Sans, Yu Gothic UI, Segoe UI, sans-serif">
+  <defs>
+    <style>
+      .enclosure { fill: #f8fafa; stroke: #2a313d; stroke-width: 2; }
+      .enclosure-label { font-size: 16px; font-weight: 800; fill: #1a1d23; }
+      .enclosure-sub { font-size: 11px; fill: #6b7280; }
+
+      .part { stroke: #1a1d23; stroke-width: 1.2; }
+      .part-mcu { fill: #1f3a5f; }
+      .part-mcu-text { fill: #fff; font-weight: 700; font-size: 13px; }
+      .part-mcu-sub  { fill: #cfe2ff; font-size: 10px; }
+
+      .part-display { fill: #102a43; }
+      .part-display-text { fill: #fff; font-weight: 700; font-size: 12px; }
+
+      .part-amp { fill: #5b8dd6; }
+      .part-pca { fill: #5b8dd6; }
+      .part-amp-text { fill: #fff; font-weight: 700; font-size: 12px; }
+
+      .part-toggle { fill: #2a313d; }
+      .part-toggle-text { fill: #fff; font-size: 9px; font-weight: 700; text-anchor: middle; }
+
+      .part-mic { fill: #006b6b; }
+      .part-mic-text { fill: #fff; font-weight: 700; font-size: 12px; }
+
+      .part-sp { fill: #0f1115; }
+      .part-sp-text { fill: #fff; font-weight: 700; font-size: 12px; }
+
+      .part-servo { fill: #ff9f1c; }
+      .part-servo-text { fill: #1a1d23; font-size: 9px; font-weight: 700; text-anchor: middle; }
+
+      .label { font-size: 11px; fill: #4b5563; }
+      .label-small { font-size: 10px; fill: #6b7280; }
+
+      .wire-i2s    { stroke: #2ec4b6; stroke-width: 2.4; fill: none; }
+      .wire-i2c    { stroke: #ff9f1c; stroke-width: 2.4; fill: none; }
+      .wire-spi    { stroke: #6ea8fe; stroke-width: 2.4; fill: none; }
+      .wire-gpio   { stroke: #ff7ab6; stroke-width: 2.4; fill: none; }
+      .wire-pwm    { stroke: #f8b500; stroke-width: 1.6; fill: none; }
+      .wire-audio  { stroke: #1a1d23; stroke-width: 2.6; fill: none; }
+      .wire-label  { font-size: 10px; font-weight: 700; }
+
+      .legend-box { fill: #fff; stroke: #cbd5e1; stroke-width: 1; }
+    </style>
+  </defs>
+
+  <!-- タイトル -->
+  <text x="550" y="28" font-size="18" font-weight="800" text-anchor="middle" fill="#1a1d23">
+    IchiPing システム構成 — コントローラ筐体と House 模型
+  </text>
+  <text x="550" y="46" font-size="11" text-anchor="middle" fill="#6b7280">
+    1 マイク + 能動 chirp + サーボ駆動模型による窓・扉開閉状態の音響推定
+  </text>
+
+  <!-- ============ コントローラ筐体 ============ -->
+  <rect class="enclosure" x="40" y="80" width="500" height="500" rx="14"/>
+  <text class="enclosure-label" x="60" y="106">コントローラ筐体</text>
+  <text class="enclosure-sub"   x="60" y="122">MCU + UI + サーボ/オーディオドライバ</text>
+
+  <!-- MCU FRDM-MCXN947 -->
+  <rect class="part part-mcu" x="200" y="200" width="200" height="120" rx="6"/>
+  <text class="part-mcu-text" x="300" y="232" text-anchor="middle">FRDM-MCXN947</text>
+  <text class="part-mcu-sub"  x="300" y="250" text-anchor="middle">Cortex-M33 + NPU + PowerQuad</text>
+  <text class="part-mcu-sub"  x="300" y="266" text-anchor="middle">SAI / I²C / LPSPI / GPIO</text>
+  <!-- MCU の端子マーカ -->
+  <circle cx="200" cy="240" r="3" fill="#fff"/>
+  <circle cx="200" cy="265" r="3" fill="#fff"/>
+  <circle cx="400" cy="220" r="3" fill="#fff"/>
+  <circle cx="400" cy="250" r="3" fill="#fff"/>
+  <circle cx="400" cy="280" r="3" fill="#fff"/>
+  <circle cx="300" cy="320" r="3" fill="#fff"/>
+  <circle cx="300" cy="200" r="3" fill="#fff"/>
+
+  <!-- ディスプレイ ILI9341 -->
+  <rect class="part part-display" x="60" y="160" width="120" height="80" rx="4"/>
+  <rect x="68" y="168" width="104" height="58" fill="#1f7ae0" stroke="none"/>
+  <text class="part-display-text" x="120" y="198" text-anchor="middle">ILI9341</text>
+  <text x="120" y="214" text-anchor="middle" font-size="9" fill="#cfe2ff">2.4" TFT 240×320</text>
+
+  <!-- アンプ MAX98357A -->
+  <rect class="part part-amp" x="430" y="160" width="100" height="50" rx="4"/>
+  <text class="part-amp-text" x="480" y="180" text-anchor="middle">MAX98357A</text>
+  <text x="480" y="196" text-anchor="middle" font-size="9" fill="#dbe9ff">I²S Class-D 3.2W</text>
+
+  <!-- サーボドライバ PCA9685 -->
+  <rect class="part part-pca" x="430" y="280" width="100" height="50" rx="4"/>
+  <text class="part-amp-text" x="480" y="300" text-anchor="middle">PCA9685</text>
+  <text x="480" y="316" text-anchor="middle" font-size="9" fill="#dbe9ff">I²C 16ch PWM</text>
+
+  <!-- トグルスイッチ ×5 (UI 真値入力) -->
+  <text x="60" y="426" font-size="11" font-weight="700" fill="#1a1d23">トグルスイッチ ×5（真値入力）</text>
+  <g>
+    <g transform="translate(60,440)">
+      <rect class="part part-toggle" width="46" height="46" rx="6"/>
+      <circle cx="23" cy="18" r="6" fill="#7be0a4"/>
+      <rect x="20" y="14" width="6" height="14" fill="#1a1d23"/>
+      <text class="part-toggle-text" x="23" y="42">窓 a</text>
+    </g>
+    <g transform="translate(120,440)">
+      <rect class="part part-toggle" width="46" height="46" rx="6"/>
+      <circle cx="23" cy="18" r="6" fill="#7be0a4"/>
+      <rect x="20" y="14" width="6" height="14" fill="#1a1d23"/>
+      <text class="part-toggle-text" x="23" y="42">窓 b</text>
+    </g>
+    <g transform="translate(180,440)">
+      <rect class="part part-toggle" width="46" height="46" rx="6"/>
+      <circle cx="23" cy="18" r="6" fill="#7be0a4"/>
+      <rect x="20" y="14" width="6" height="14" fill="#1a1d23"/>
+      <text class="part-toggle-text" x="23" y="42">窓 c</text>
+    </g>
+    <g transform="translate(240,440)">
+      <rect class="part part-toggle" width="46" height="46" rx="6"/>
+      <circle cx="23" cy="30" r="6" fill="#ff7ab6"/>
+      <rect x="20" y="18" width="6" height="14" fill="#1a1d23"/>
+      <text class="part-toggle-text" x="23" y="42">扉 AB</text>
+    </g>
+    <g transform="translate(300,440)">
+      <rect class="part part-toggle" width="46" height="46" rx="6"/>
+      <circle cx="23" cy="30" r="6" fill="#ff7ab6"/>
+      <rect x="20" y="18" width="6" height="14" fill="#1a1d23"/>
+      <text class="part-toggle-text" x="23" y="42">扉 BC</text>
+    </g>
+  </g>
+
+  <!-- EXEC ボタン -->
+  <g transform="translate(380,440)">
+    <rect class="part" x="0" y="0" width="60" height="46" rx="6" fill="#c2185b"/>
+    <circle cx="30" cy="20" r="10" fill="#fff" stroke="#1a1d23" stroke-width="1.2"/>
+    <text x="30" y="42" font-size="9" font-weight="700" fill="#fff" text-anchor="middle">EXEC</text>
+  </g>
+
+  <!-- コントローラ筐体内の配線 -->
+  <!-- MCU -> ILI9341 (SPI) -->
+  <path class="wire-spi" d="M200,240 L180,240 L180,220 L180,200"/>
+  <text class="wire-label" x="146" y="252" fill="#6ea8fe">SPI</text>
+
+  <!-- MCU -> MAX98357A (I²S) -->
+  <path class="wire-i2s" d="M400,220 L420,220 L420,185 L430,185"/>
+  <text class="wire-label" x="406" y="178" fill="#2ec4b6">I²S</text>
+
+  <!-- MCU -> PCA9685 (I²C) -->
+  <path class="wire-i2c" d="M400,280 L420,280 L420,305 L430,305"/>
+  <text class="wire-label" x="406" y="328" fill="#ff9f1c">I²C</text>
+
+  <!-- Toggles -> MCU (GPIO) -->
+  <path class="wire-gpio" d="M83,440 L83,360 L240,360 L240,320 L260,320"/>
+  <path class="wire-gpio" d="M143,440 L143,370 L250,370 L250,320 L270,320"/>
+  <path class="wire-gpio" d="M203,440 L203,380 L260,380 L280,380 L280,320"/>
+  <path class="wire-gpio" d="M263,440 L263,390 L290,390 L290,320"/>
+  <path class="wire-gpio" d="M323,440 L323,400 L310,400 L300,400 L300,320"/>
+  <text class="wire-label" x="120" y="356" fill="#ff7ab6">GPIO ×5</text>
+
+  <!-- EXEC -> MCU -->
+  <path class="wire-gpio" d="M410,440 L410,410 L340,410 L340,320"/>
+  <text class="wire-label" x="345" y="406" fill="#ff7ab6">GPIO</text>
+
+  <!-- ============ House 模型 ============ -->
+  <rect class="enclosure" x="600" y="80" width="460" height="500" rx="14"/>
+  <text class="enclosure-label" x="620" y="106">House 模型</text>
+  <text class="enclosure-sub"   x="620" y="122">マイク + スピーカ + 窓・扉サーボ ×5（部品ブロック表示。物理配置は別図参照）</text>
+
+  <!-- スピーカ (8Ω 0.25W) -->
+  <g transform="translate(820,145)">
+    <rect class="part part-sp" x="0" y="0" width="190" height="40" rx="4"/>
+    <circle cx="22" cy="20" r="14" fill="#2a313d" stroke="#fff" stroke-width="1"/>
+    <circle cx="22" cy="20" r="8" fill="#1a1d23"/>
+    <circle cx="22" cy="20" r="3" fill="#fff"/>
+    <text class="part-sp-text" x="115" y="18" text-anchor="middle" fill="#fff">SPK 8Ω 0.25W</text>
+    <text x="115" y="33" text-anchor="middle" font-size="9" fill="#cfe2ff">フルレンジ 45mm</text>
+  </g>
+
+  <!-- マイク INMP441 -->
+  <g transform="translate(820,205)">
+    <rect class="part part-mic" x="0" y="0" width="190" height="40" rx="4"/>
+    <text class="part-mic-text" x="95" y="18" text-anchor="middle">INMP441</text>
+    <text x="95" y="33" text-anchor="middle" font-size="9" fill="#cfe2ff">I²S MEMS mic 24-bit</text>
+  </g>
+
+  <!-- 5 サーボ (窓3 + 扉2) を縦並びに -->
+  <g>
+    <g transform="translate(820,270)">
+      <rect class="part part-servo" width="190" height="40" rx="4"/>
+      <circle cx="22" cy="20" r="10" fill="#1a1d23"/>
+      <rect x="32" y="14" width="14" height="12" fill="#1a1d23"/>
+      <text x="115" y="18" text-anchor="middle" font-size="11" font-weight="700" fill="#1a1d23">SG90 サーボ</text>
+      <text x="115" y="33" text-anchor="middle" font-size="10" font-weight="700" fill="#1a1d23">窓 a</text>
+    </g>
+    <g transform="translate(820,325)">
+      <rect class="part part-servo" width="190" height="40" rx="4"/>
+      <circle cx="22" cy="20" r="10" fill="#1a1d23"/>
+      <rect x="32" y="14" width="14" height="12" fill="#1a1d23"/>
+      <text x="115" y="18" text-anchor="middle" font-size="11" font-weight="700" fill="#1a1d23">SG90 サーボ</text>
+      <text x="115" y="33" text-anchor="middle" font-size="10" font-weight="700" fill="#1a1d23">窓 b</text>
+    </g>
+    <g transform="translate(820,380)">
+      <rect class="part part-servo" width="190" height="40" rx="4"/>
+      <circle cx="22" cy="20" r="10" fill="#1a1d23"/>
+      <rect x="32" y="14" width="14" height="12" fill="#1a1d23"/>
+      <text x="115" y="18" text-anchor="middle" font-size="11" font-weight="700" fill="#1a1d23">SG90 サーボ</text>
+      <text x="115" y="33" text-anchor="middle" font-size="10" font-weight="700" fill="#1a1d23">窓 c</text>
+    </g>
+    <g transform="translate(820,435)">
+      <rect class="part part-servo" width="190" height="40" rx="4"/>
+      <circle cx="22" cy="20" r="10" fill="#1a1d23"/>
+      <rect x="32" y="14" width="14" height="12" fill="#1a1d23"/>
+      <text x="115" y="18" text-anchor="middle" font-size="11" font-weight="700" fill="#1a1d23">SG90 サーボ</text>
+      <text x="115" y="33" text-anchor="middle" font-size="10" font-weight="700" fill="#1a1d23">扉 AB</text>
+    </g>
+    <g transform="translate(820,490)">
+      <rect class="part part-servo" width="190" height="40" rx="4"/>
+      <circle cx="22" cy="20" r="10" fill="#1a1d23"/>
+      <rect x="32" y="14" width="14" height="12" fill="#1a1d23"/>
+      <text x="115" y="18" text-anchor="middle" font-size="11" font-weight="700" fill="#1a1d23">SG90 サーボ</text>
+      <text x="115" y="33" text-anchor="middle" font-size="10" font-weight="700" fill="#1a1d23">扉 BC</text>
+    </g>
+  </g>
+
+  <!-- ============ 筐体間ケーブル ============ -->
+
+  <!-- MAX98357A (530,185) -> スピーカ (820,165) -->
+  <path class="wire-audio" d="M530,185 L670,185 L670,165 L820,165"/>
+  <text class="wire-label" x="556" y="178" fill="#1a1d23">SPK (2 線)</text>
+
+  <!-- MCU I²S (400,250) -> INMP441 (820,225) -->
+  <path class="wire-i2s" d="M400,250 L665,250 L665,225 L820,225"/>
+  <text class="wire-label" x="586" y="244" fill="#2ec4b6">I²S mic (BCLK/WS/SD)</text>
+
+  <!-- PCA9685 -> 5 サーボ（PWM 5 線、左下から扇状に展開して交差最小化） -->
+  <!-- 窓 a (820,290) -->
+  <path class="wire-pwm" d="M530,285 L660,285 L660,290 L820,290"/>
+  <!-- 窓 b (820,345) -->
+  <path class="wire-pwm" d="M530,295 L655,295 L655,345 L820,345"/>
+  <!-- 窓 c (820,400) -->
+  <path class="wire-pwm" d="M530,305 L650,305 L650,400 L820,400"/>
+  <!-- 扉 AB (820,455) -->
+  <path class="wire-pwm" d="M530,315 L645,315 L645,455 L820,455"/>
+  <!-- 扉 BC (820,510) -->
+  <path class="wire-pwm" d="M530,325 L640,325 L640,510 L820,510"/>
+  <text class="wire-label" x="556" y="345" fill="#f8b500">PWM ×5</text>
+
+  <!-- ============ 凡例 ============ -->
+  <g transform="translate(40,594)">
+    <rect class="legend-box" x="0" y="0" width="1020" height="38" rx="4"/>
+    <g transform="translate(14,22)">
+      <line x1="0" y1="0" x2="22" y2="0" class="wire-i2s"/>
+      <text x="28" y="4" font-size="11" fill="#1a1d23">I²S（mic / DAC）</text>
+    </g>
+    <g transform="translate(180,22)">
+      <line x1="0" y1="0" x2="22" y2="0" class="wire-i2c"/>
+      <text x="28" y="4" font-size="11" fill="#1a1d23">I²C（PCA9685）</text>
+    </g>
+    <g transform="translate(330,22)">
+      <line x1="0" y1="0" x2="22" y2="0" class="wire-spi"/>
+      <text x="28" y="4" font-size="11" fill="#1a1d23">SPI（ILI9341）</text>
+    </g>
+    <g transform="translate(470,22)">
+      <line x1="0" y1="0" x2="22" y2="0" class="wire-gpio"/>
+      <text x="28" y="4" font-size="11" fill="#1a1d23">GPIO（トグル / EXEC）</text>
+    </g>
+    <g transform="translate(650,22)">
+      <line x1="0" y1="0" x2="22" y2="0" class="wire-pwm"/>
+      <text x="28" y="4" font-size="11" fill="#1a1d23">PWM ×5（サーボ）</text>
+    </g>
+    <g transform="translate(820,22)">
+      <line x1="0" y1="0" x2="22" y2="0" class="wire-audio"/>
+      <text x="28" y="4" font-size="11" fill="#1a1d23">スピーカ線（2 線）</text>
+    </g>
+  </g>
+</svg>

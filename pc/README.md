@@ -104,6 +104,73 @@ python collector_client.py --port COM7 --plan plan.json --out ../captures
 
 `captures/<label>/labels.csv` がクラスごとに独立して残り、`training/dataset.py` はディレクトリ名をラベルとして読む。コマンド一覧は [09_collector/README.md](../firmware/projects/09_collector/README.md) 参照。
 
+### A2. 非対話モード — AI / シェルスクリプトから操作
+
+REPL を介さず単発コマンドを撃ちたい場合は `--once` または `--script`:
+
+```powershell
+# 1 行だけ撃って終了
+uv run python collector_client.py --port COM7 --once "EQ STATE"
+
+# 複数コマンドを順に撃つ（--once を複数指定可、上から順）
+uv run python collector_client.py --port COM7 `
+  --once "EQ DISABLE" --once "GET CONFIG" --once "PAT INFO"
+
+# ファイルからスクリプト読み込み（# 行はコメント）
+uv run python collector_client.py --port COM7 --script cmds.txt
+```
+
+`cmds.txt` の中身は ichp_cmd プロトコルそのまま 1 行 1 コマンド:
+
+```
+# 全閉キャリブレーション計測用
+EQ DISABLE
+PAT CLEAR
+PAT NOISE wn 3000 30 0
+PAT SELECT 0
+SET REPEATS 1
+RUN
+```
+
+`--once` / `--script` モードは `patterns.yaml` の自動 push をスキップする（スクリプト側で必要なパターンを登録する前提）。push してから単発実行したい場合は `--no-push-patterns` を外す。
+
+### A3. キャリブレーション専用 CLI — `calibrator.py`
+
+SPK / マイクのキャリブレーションを 1 コマンド単位で進められる専用ツール。
+[docs/probe_sound.html](../docs/probe_sound.html) §3.A のワークフローを実装:
+
+```powershell
+# 機材を house から外して布団を被せる（無響近似、§3.A.2）
+
+# 1) フィルタ OFF で 3 秒ホワイトノイズ録音
+uv run python calibrator.py record --port COM7 --out ../captures/raw.wav
+
+# 2) 生の応答を可視化（FFT + STFT 2D 画像 PNG を生成）
+uv run python calibrator.py analyze ../captures/raw.wav
+
+# 3) 8 段 biquad cascade EQ を生 WAV から自動設計
+uv run python calibrator.py design-filter ../captures/raw.wav --out ../captures/filter.json
+
+# 4) ボードに係数を送り EQ ENABLE
+uv run python calibrator.py upload-filter --port COM7 ../captures/filter.json --enable
+
+# 5) フィルタ ON で再録音
+uv run python calibrator.py record --port COM7 --out ../captures/filtered.wav --filter-on
+
+# 6) 比較画像（並列スペクトログラム + FFT オーバーレイ + diff）
+uv run python calibrator.py compare ../captures/raw.wav ../captures/filtered.wav
+```
+
+各サブコマンドは独立して呼べる（シリアル接続をその都度 open/close）。詳細パラメータは `--help`:
+
+```powershell
+uv run python calibrator.py design-filter --help
+```
+
+`design-filter` は `--stages` (default 8) / `--max-gain-db` (default 9) / `--Q` (default 5) / `--f-min` / `--f-max` などで調整可能。
+
+依存: `numpy` / `scipy` / `matplotlib`（`uv sync --extra training` で取得）。
+
 ### B. 実機なしでパイプラインを試す（loopback）
 
 ```powershell

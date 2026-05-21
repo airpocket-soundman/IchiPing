@@ -69,6 +69,19 @@
  *   STOP                              -> OK STOP requested
  *                                     and a final OK RUN aborted frames=<N>
  *
+ *   PAT NOISE <name> <dur_ms> [vol_pct] [shape]
+ *                                     -> OK PAT noise name=<name> dur=<ms> vol=<pct> shape=<n>
+ *       shape: 0 = PRBS (default), 1 = uniform int16
+ *
+ *   EQ ENABLE                         -> OK EQ enabled
+ *   EQ DISABLE                        -> OK EQ disabled   (default at boot)
+ *   EQ RESET                          -> OK EQ reset      (coefs back to identity defaults)
+ *   EQ SET <stage> <b0> <b1> <b2> <a1> <a2>
+ *                                     -> OK EQ set stage=<n>
+ *       8-stage biquad cascade (DF1, a0=1 normalised). stage in 0..7.
+ *   EQ GET                            -> 8 x OK EQ stage=<n> b0=... b1=... b2=... a1=... a2=...
+ *   EQ STATE                          -> OK EQ state=<ENABLED|DISABLED> stages=8
+ *
  * Errors
  * ------
  *   ERR BAD_VERB <token>
@@ -137,9 +150,18 @@ typedef enum {
     ICHP_CMD_PAT_TONE,
     ICHP_CMD_PAT_PULSE_END,
     ICHP_CMD_PAT_SWEEP,
+    ICHP_CMD_PAT_NOISE,
     ICHP_CMD_PAT_INFO,
     ICHP_CMD_PAT_SELECT,
     ICHP_CMD_EMIT,
+    /* Speaker EQ (8-stage biquad cascade). Default: disabled + identity.
+     * See firmware/shared/include/spk_eq.h for the math. */
+    ICHP_CMD_EQ_ENABLE,
+    ICHP_CMD_EQ_DISABLE,
+    ICHP_CMD_EQ_RESET,
+    ICHP_CMD_EQ_SET,
+    ICHP_CMD_EQ_GET,
+    ICHP_CMD_EQ_STATE,
 } ichp_cmd_kind_t;
 
 #define ICHP_PAT_NAME_LEN  32u
@@ -166,6 +188,10 @@ typedef struct {
     char     pat_name[ICHP_PAT_NAME_LEN];
     uint32_t pat_a, pat_b, pat_c, pat_d;
     int32_t  pat_i;
+    /* EQ command fields.
+     *   EQ_SET : eq_stage = 0..7, eq_b0..eq_a2 = float coefficients */
+    uint8_t  eq_stage;
+    float    eq_b0, eq_b1, eq_b2, eq_a1, eq_a2;
 } ichp_cmd_t;
 
 /* Parse one line. `line` is NUL-terminated, in/out. Returns true on a

@@ -103,6 +103,23 @@ bool pattern_lib_add_sweep(const char *name,
     return true;
 }
 
+bool pattern_lib_add_noise(const char *name,
+                           uint32_t duration_ms,
+                           uint16_t volume_pct,
+                           uint8_t  shape)
+{
+    if (g_pattern_lib.count >= PATTERN_LIB_MAX_PATTERNS) return false;
+    if (volume_pct > 100u) volume_pct = 100u;
+    pattern_t *p = &g_pattern_lib.entries[g_pattern_lib.count++];
+    p->kind = PATTERN_KIND_NOISE;
+    copy_name(p->name, name);
+    p->noise.duration_ms = duration_ms;
+    p->noise.volume_pct  = volume_pct;
+    p->noise.shape       = shape;
+    p->noise._pad        = 0u;
+    return true;
+}
+
 bool pattern_lib_select(uint8_t index)
 {
     if (index >= g_pattern_lib.count) return false;
@@ -127,6 +144,8 @@ uint32_t pattern_total_samples(const pattern_t *p, uint32_t sample_rate_hz)
         total_ms *= (uint32_t)p->pulse.repeat;
     } else if (p->kind == PATTERN_KIND_SWEEP) {
         total_ms = p->sweep.sweep_ms + p->sweep.silence_ms;
+    } else if (p->kind == PATTERN_KIND_NOISE) {
+        total_ms = p->noise.duration_ms;
     } else {
         return 0u;
     }
@@ -229,6 +248,59 @@ static uint32_t render_sweep(const pattern_t *p, int16_t *out, uint32_t cap,
     return total;
 }
 
+/* xorshift32 — fast statistically-good PRNG. Sufficient for white-noise
+ * excitation; not cryptographic. Seeded per call from the pattern address
+ * so successive emissions of the same pattern give different waveforms. */
+static uint32_t xorshift32(uint32_t *s)
+{
+    uint32_t x = *s;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    *s = x;
+    return x;
+}
+
+static uint32_t render_noise(const pattern_t *p, int16_t *out, uint32_t cap,
+                             uint32_t sample_rate_hz, int32_t volume_pct)
+{
+    uint32_t total = pattern_total_samples(p, sample_rate_hz);
+    if (total > cap) total = cap;
+    if (total == 0u) return 0u;
+
+    /* User-set scaling: g_volume_pct × pattern's own volume_pct. */
+    float user_v = (float)volume_pct / 100.0f;
+    float pat_v  = (float)p->noise.volume_pct / 100.0f;
+    if (user_v < 0.0f) user_v = 0.0f;  if (user_v > 1.0f) user_v = 1.0f;
+    if (pat_v  < 0.0f) pat_v  = 0.0f;  if (pat_v  > 1.0f) pat_v  = 1.0f;
+    float v = user_v * pat_v;
+
+    /* Seed: mix pattern pointer + duration so repeated emissions of the
+     * same entry produce different noise but deterministic per build. */
+    uint32_t seed = (uint32_t)((uintptr_t)p ^ p->noise.duration_ms);
+    if (seed == 0u) seed = 0xC0FFEEu;
+
+    if (p->noise.shape == PATTERN_NOISE_SHAPE_PRBS) {
+        /* ±1 binary noise, scaled to 30000 × v. crest factor 0 dB. */
+        int16_t hi = (int16_t)(30000.0f * v);
+        int16_t lo = (int16_t)(-30000.0f * v);
+        for (uint32_t i = 0; i < total; i++) {
+            out[i] = (xorshift32(&seed) & 0x80000000u) ? hi : lo;
+        }
+    } else {
+        /* Uniform int16 noise scaled by v. crest factor ~4.8 dB. */
+        for (uint32_t i = 0; i < total; i++) {
+            int32_t r = (int32_t)(xorshift32(&seed) >> 16);  /* 0..65535 */
+            r -= 32768;                                       /* -32768..32767 */
+            float s = (float)r * v;
+            if (s >  32767.0f) s =  32767.0f;
+            if (s < -32768.0f) s = -32768.0f;
+            out[i] = (int16_t)s;
+        }
+    }
+    return total;
+}
+
 uint32_t pattern_render(const pattern_t *p,
                         int16_t *out, uint32_t out_capacity,
                         uint32_t sample_rate_hz, int32_t volume_pct)
@@ -236,5 +308,6 @@ uint32_t pattern_render(const pattern_t *p,
     if (p == NULL || out == NULL || out_capacity == 0u) return 0u;
     if (p->kind == PATTERN_KIND_PULSE) return render_pulse(p, out, out_capacity, sample_rate_hz, volume_pct);
     if (p->kind == PATTERN_KIND_SWEEP) return render_sweep(p, out, out_capacity, sample_rate_hz, volume_pct);
+    if (p->kind == PATTERN_KIND_NOISE) return render_noise(p, out, out_capacity, sample_rate_hz, volume_pct);
     return 0u;
 }

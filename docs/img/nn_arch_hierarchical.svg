@@ -1,0 +1,136 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 520" font-family="Hiragino Sans, Yu Gothic UI, Segoe UI, sans-serif">
+  <defs>
+    <style>
+      .title  { font-size: 15px; font-weight: 800; fill: #1a1d23; }
+      .sub    { font-size: 11px; fill: #6b7280; }
+      .layer-input  { fill: #e5e7eb; stroke: #1a1d23; stroke-width: 1.4; }
+      .layer-back   { fill: #6ea8fe; stroke: #1a1d23; stroke-width: 1.4; }
+      .head-door    { fill: #c2185b; stroke: #1a1d23; stroke-width: 1.4; }
+      .head-win     { fill: #7be0a4; stroke: #1a1d23; stroke-width: 1.4; }
+      .gate         { fill: #ff9f1c; stroke: #1a1d23; stroke-width: 1.4; }
+      .layer-label  { font-size: 11px; font-weight: 800; fill: #fff; text-anchor: middle; }
+      .layer-input-label { font-size: 11px; font-weight: 800; fill: #1a1d23; text-anchor: middle; }
+      .gate-label  { font-size: 11px; font-weight: 800; fill: #1a1d23; text-anchor: middle; }
+      .shape  { font-size: 10px; fill: #4b5563; text-anchor: middle; }
+      .arrow  { stroke: #1a1d23; stroke-width: 1.6; fill: none; marker-end: url(#arr); }
+      .arrow-dotted { stroke: #c2185b; stroke-width: 1.6; fill: none; marker-end: url(#arr-red); stroke-dasharray: 4 3; }
+      .note   { font-size: 10px; fill: #9a3412; font-weight: 700; }
+      .panel-bg { fill: #f8fafa; stroke: #cbd5e1; stroke-width: 1; }
+    </style>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1a1d23"/>
+    </marker>
+    <marker id="arr-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#c2185b"/>
+    </marker>
+  </defs>
+
+  <text class="title" x="500" y="22" text-anchor="middle">案 §3.4: 階層モデル — 観測可能性ツリーに沿った推論</text>
+  <text class="sub" x="500" y="40" text-anchor="middle">扉 AB → 扉 BC → 該当範囲の窓だけを判定（赤破線は分岐ゲート）</text>
+
+  <!-- 入力 -->
+  <g transform="translate(40,90)">
+    <rect class="layer-input" width="120" height="60" rx="4"/>
+    <text class="layer-input-label" x="60" y="22">Input</text>
+    <text class="layer-input-label" x="60" y="38">(STFT 2D or</text>
+    <text class="layer-input-label" x="60" y="52">log-mag 1D)</text>
+  </g>
+
+  <path class="arrow" d="M164,120 L194,120"/>
+
+  <!-- 共有 backbone -->
+  <g transform="translate(195,80)">
+    <rect class="layer-back" width="170" height="80" rx="4"/>
+    <text class="layer-label" x="85" y="25">共有 Backbone</text>
+    <text class="layer-label" x="85" y="42">Conv2D ×3 + GAP</text>
+    <text class="layer-label" x="85" y="60">(NPU)</text>
+    <text class="shape" x="85" y="98">→ (64 ch feature)</text>
+  </g>
+
+  <!-- backbone から 5 ヘッドへ分岐 -->
+  <path class="arrow" d="M370,120 L420,120"/>
+
+  <!-- 5 ヘッドのパネル -->
+  <rect class="panel-bg" x="420" y="60" width="540" height="220" rx="10"/>
+  <text x="430" y="78" font-size="11" font-weight="700" fill="#1a1d23">5 シグモイドヘッド（NPU で並列出力）</text>
+
+  <!-- Head: 扉 AB -->
+  <g transform="translate(440,95)">
+    <rect class="head-door" width="100" height="40" rx="4"/>
+    <text class="layer-label" x="50" y="18">FC → 扉 AB</text>
+    <text class="layer-label" x="50" y="32">σ</text>
+  </g>
+  <!-- Head: 扉 BC -->
+  <g transform="translate(440,145)">
+    <rect class="head-door" width="100" height="40" rx="4"/>
+    <text class="layer-label" x="50" y="18">FC → 扉 BC</text>
+    <text class="layer-label" x="50" y="32">σ</text>
+  </g>
+  <!-- Head: 窓 a -->
+  <g transform="translate(580,95)">
+    <rect class="head-win" width="100" height="40" rx="4"/>
+    <text class="layer-label" x="50" y="18">FC → 窓 a</text>
+    <text class="layer-label" x="50" y="32">σ</text>
+  </g>
+  <!-- Head: 窓 b -->
+  <g transform="translate(580,145)">
+    <rect class="head-win" width="100" height="40" rx="4"/>
+    <text class="layer-label" x="50" y="18">FC → 窓 b</text>
+    <text class="layer-label" x="50" y="32">σ</text>
+  </g>
+  <!-- Head: 窓 c -->
+  <g transform="translate(580,195)">
+    <rect class="head-win" width="100" height="40" rx="4"/>
+    <text class="layer-label" x="50" y="18">FC → 窓 c</text>
+    <text class="layer-label" x="50" y="32">σ</text>
+  </g>
+
+  <!-- 分岐ゲート (CPU 上のロジック) -->
+  <g transform="translate(740,90)">
+    <rect class="gate" width="200" height="180" rx="4"/>
+    <text class="gate-label" x="100" y="22">分岐ゲート (CPU)</text>
+    <text class="gate-label" x="100" y="42" font-size="10">扉状態に応じて窓出力を採用/破棄</text>
+    <line x1="10" y1="55" x2="190" y2="55" stroke="#1a1d23" stroke-width="0.8"/>
+    <text x="14" y="74" font-size="9.5" fill="#1a1d23">扉 AB 閉:</text>
+    <text x="60" y="74" font-size="9.5" font-weight="700" fill="#1a1d23">窓 a のみ採用</text>
+    <text x="14" y="90" font-size="9.5" fill="#1a1d23">扉 AB 開, BC 閉:</text>
+    <text x="100" y="90" font-size="9.5" font-weight="700" fill="#1a1d23">a, b 採用</text>
+    <text x="14" y="106" font-size="9.5" fill="#1a1d23">扉 AB 開, BC 開:</text>
+    <text x="100" y="106" font-size="9.5" font-weight="700" fill="#1a1d23">a, b, c 採用</text>
+    <line x1="10" y1="120" x2="190" y2="120" stroke="#1a1d23" stroke-width="0.8"/>
+    <text x="14" y="138" font-size="9.5" fill="#1a1d23">→ 14 状態のうち 1 つを</text>
+    <text x="14" y="152" font-size="9.5" fill="#1a1d23">  確定（学習はマスク付き loss）</text>
+  </g>
+
+  <!-- 分岐ゲート矢印 -->
+  <path class="arrow" d="M540,115 L740,115"/>
+  <path class="arrow" d="M540,165 L740,170"/>
+  <path class="arrow" d="M680,115 L740,140"/>
+  <path class="arrow" d="M680,165 L740,160"/>
+  <path class="arrow" d="M680,215 L740,200"/>
+
+  <!-- 訓練時の loss 注記 -->
+  <g transform="translate(40,330)">
+    <rect class="panel-bg" x="0" y="0" width="920" height="120" rx="10"/>
+    <text x="14" y="22" font-size="13" font-weight="800" fill="#1a1d23">訓練時の loss 構造</text>
+    <text x="14" y="44" font-size="11" fill="#1a1d23">
+      L = w_AB · BCE(扉 AB) + w_BC · BCE(扉 BC)
+    </text>
+    <text x="14" y="62" font-size="11" fill="#1a1d23">
+      + 1[扉 AB 開] · w_a · BCE(窓 a) + 1[扉 AB 開] · w_b · BCE(窓 b)
+    </text>
+    <text x="14" y="80" font-size="11" fill="#1a1d23">
+      + 1[扉 AB 開 ∧ 扉 BC 開] · w_c · BCE(窓 c)
+    </text>
+    <text x="14" y="100" font-size="10" fill="#9a3412" font-weight="700">
+      → 観測不能領域では loss = 0 にして学習データの偏り（16 配置が遮断側に集約）の影響を抑える
+    </text>
+  </g>
+
+  <text x="500" y="478" text-anchor="middle" font-size="11" fill="#1a1d23">
+    NPU で全 5 ヘッドを並列計算 → CPU で扉状態に応じて窓出力をマスク → 14 状態 1 つに収束
+  </text>
+  <text x="500" y="494" text-anchor="middle" class="note">
+    ※ §3.1（1D backbone）/ §3.2（2D backbone）どちらの backbone とも組み合わせ可能
+  </text>
+</svg>

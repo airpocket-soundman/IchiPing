@@ -26,6 +26,11 @@
       <a href="../docs/bringup.html">実機ブリングアップ</a>
     </div>
     <div class="sidenav-group">
+      <div class="sidenav-h">NN 検討</div>
+      <a href="../docs/probe_sound.html">走査音考察</a>
+      <a href="../docs/nn_review.html">NN 考察</a>
+    </div>
+    <div class="sidenav-group">
       <div class="sidenav-h">ハードウェア</div>
       <a href="../hardware/wiring.html">配線テーブル</a>
       <a href="../hardware/bom.html" class="current">BOM (部品表)</a>
@@ -35,6 +40,11 @@
       <div class="sidenav-h">実装コード</div>
       <a href="../firmware/README.html">firmware ガイド</a>
       <a href="../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">対外発信</div>
+      <a href="../docs/protopedia_preview.html">ProtoPedia プレビュー</a>
+      <a href="../docs/protopedia.md">ProtoPedia 投稿原稿 (md)</a>
     </div>
     <div class="sidenav-group">
       <div class="sidenav-h">メタ</div>
@@ -64,8 +74,7 @@
     価格は 2026-05 時点の <b>参考値</b>。発注前に DigiKey で再確認。
   </div>
   <div class="meta">
-    <span class="meta-stat done"><span class="num">~$245</span> Required 部品計（試算）</span>
-    <span class="meta-stat"><span class="num">~$30</span> 模型・接着系（外注枠）</span>
+    <span class="meta-stat done"><span class="num">~$215</span> Required 部品計（試算）</span>
     <span class="meta-stat"><span class="num">stock</span> 主要部品在庫あり</span>
   </div>
 </header>
@@ -136,7 +145,7 @@
   </tbody>
 </table>
 
-<h3>1.3 表示・センサ・ストレージ</h3>
+<h3>1.3 表示</h3>
 <table>
   <thead><tr><th>カテゴリ</th><th>部品</th><th>数</th><th>単価</th><th>Vendor / 型番</th><th>備考</th></tr></thead>
   <tbody>
@@ -148,33 +157,9 @@
       <td>DigiKey: Adafruit 2478 等</td>
       <td>
         <b>SH1106 から ILI9341 にアップグレード</b>。フルカラー RGB565 でデモ動画映え ◎、
-        LVGL ライブラリも公式サポート。SPI バスは microSD と共有。
+        LVGL ライブラリも公式サポート。
         <a href="display_options.html">display_options.html</a> §採用決定 を参照
       </td>
-    </tr>
-    <tr>
-      <td>気圧センサ（補助）</td>
-      <td>BMP585</td>
-      <td>1</td>
-      <td>$7.50</td>
-      <td>DigiKey: Adafruit 5704</td>
-      <td>0.1 Pa 分解能</td>
-    </tr>
-    <tr>
-      <td>ストレージ</td>
-      <td>microSD ソケット (SPI) <span style="color:#aaa;">— 本計画では未採用</span></td>
-      <td>—</td>
-      <td>$2.95</td>
-      <td>DigiKey: Adafruit 254</td>
-      <td>当初 v1 仕様には載っていたが、学習データの永続化は PC 側（receiver.py）で WAV + CSV 保存する方針に変更。配線・FatFs 工程をスキップできる利点が大きいので削除。将来 MCU 側ローカル蓄積が必要になったら復活させる</td>
-    </tr>
-    <tr>
-      <td>ストレージ</td>
-      <td>microSD 64 GB Class 10 <span style="color:#aaa;">— 本計画では未採用</span></td>
-      <td>—</td>
-      <td>$12.95</td>
-      <td>DigiKey: SanDisk Ultra</td>
-      <td>同上、未採用</td>
     </tr>
   </tbody>
 </table>
@@ -203,47 +188,24 @@
   </tbody>
 </table>
 
-<h2>2. 実験模型（Phase 4 / IP-0.4.3）</h2>
-<p>3 部屋アクリル模型の製作に必要な部材。レーザーカットは fab 工房 or 外注を想定。</p>
-<table>
-  <thead><tr><th>カテゴリ</th><th>部品</th><th>数</th><th>単価</th><th>備考</th></tr></thead>
-  <tbody>
-    <tr><td>素材</td><td>5 mm 透明アクリル板 300×600 mm</td><td>2</td><td>$18</td><td>3 部屋分の壁/床/天井</td></tr>
-    <tr><td>接着</td><td>アクリル用溶剤系接着剤</td><td>1</td><td>$8</td><td>Weld-On 4 等</td></tr>
-    <tr><td>機構</td><td>15 mm ミニ蝶番</td><td>10</td><td>$4</td><td>扉・窓のヒンジ</td></tr>
-    <tr><td>音響</td><td>制振フォーム 5 mm 厚</td><td>1</td><td>$7</td><td>スピーカ-マイク クロストーク抑制</td></tr>
-  </tbody>
-</table>
-
-<h2>3. オプション（あると便利）</h2>
-<table>
-  <thead><tr><th>カテゴリ</th><th>部品</th><th>数</th><th>単価</th><th>備考</th></tr></thead>
-  <tbody>
-    <tr><td>無線</td><td>ESP32-WROOM-32 モジュール</td><td>1</td><td>$4.20</td><td>UART (FC2) 経由。v1 では必須でない</td></tr>
-    <tr><td>バッテリ</td><td>18650 Li-ion 3000 mAh + ホルダ</td><td>1</td><td>$11.50</td><td>携帯動作</td></tr>
-    <tr><td>充電</td><td>TP4056 Li-ion 充電モジュール</td><td>1</td><td>$1.95</td><td>USB-C 充電</td></tr>
-    <tr><td>昇圧</td><td>3.3→5 V Boost 変換モジュール</td><td>1</td><td>$2.95</td><td>LiPo + USB 無し動作時</td></tr>
-    <tr><td>筐体</td><td>3D プリント PLA フィラメント</td><td>1</td><td>~$5</td><td>1 ケース分</td></tr>
-  </tbody>
-</table>
-
-<h2>4. 概算サマリ</h2>
+<h2>2. 概算サマリ</h2>
 <table>
   <thead><tr><th>項目</th><th>小計</th></tr></thead>
   <tbody>
-    <tr><td>必須電子部品 (§1)</td><td>~$215</td></tr>
-    <tr><td>実験模型材料 (§2)</td><td>~$37</td></tr>
-    <tr><td><b>応募 v1 必須計</b></td><td><b>~$252</b></td></tr>
-    <tr><td>オプション全部入り</td><td>+~$26</td></tr>
+    <tr><td>必須電子部品 §1.1 コア演算系（MCU + mic + amp + speaker）</td><td>~$65</td></tr>
+    <tr><td>必須電子部品 §1.2 サーボ系（PCA9685 + SG90 ×5）</td><td>~$47</td></tr>
+    <tr><td>必須電子部品 §1.3 表示（ILI9341）</td><td>~$13</td></tr>
+    <tr><td>必須電子部品 §1.4 ユーザー入力・表示（トグル + EXEC + LED）</td><td>~$10</td></tr>
+    <tr><td>必須電子部品 §1.5 受動部品・ケーブル</td><td>~$24</td></tr>
+    <tr><td><b>応募 v1 必須計</b></td><td><b>~$215</b></td></tr>
   </tbody>
 </table>
 
 <div class="callout warn">
   <strong>応募運用上の注意:</strong> DigiKey M1 応募の <b>myLists 部品表</b>に登録できるのは DigiKey 取扱品のみ。
-  「external（アクリル板等）」は myLists には載せず、ProtoPedia の「使用部品」セクションで補足する。
 </div>
 
-<h2>5. 同期管理</h2>
+<h2>3. 同期管理</h2>
 <p>
   正本 <a href="../docs/spec.html#6">spec.html §6</a> に部品変更があった場合は、本ファイル <b>と</b> <a href="bom.csv">bom.csv</a>
   <b>と</b> <a href="wiring.html">wiring.html</a> をセットで更新する（<a href="../CLAUDE.html">CLAUDE.html</a> §6 行参照）。

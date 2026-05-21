@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NN 考察 — IchiPing</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../index.html">トップ</a>
+      <a href="../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="spec.html">仕様書 (spec)</a>
+      <a href="nn_design.html">NN 設計</a>
+      <a href="mcu_deployment.html">MCU デプロイ</a>
+      <a href="bringup.html">実機ブリングアップ</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">NN 検討</div>
+      <a href="probe_sound.html">走査音考察</a>
+      <a href="nn_review.html" class="current">NN 考察</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="../hardware/wiring.html">配線テーブル</a>
+      <a href="../hardware/bom.html">BOM (部品表)</a>
+      <a href="../hardware/display_options.html">ディスプレイ候補</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../firmware/README.html">firmware ガイド</a>
+      <a href="../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">対外発信</div>
+      <a href="protopedia_preview.html">ProtoPedia プレビュー</a>
+      <a href="protopedia.md">ProtoPedia 投稿原稿</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="vscode_setup.html">VS Code セットアップ</a>
+      <a href="../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a><br>
+    <a href="https://github.com/airpocket-soundman/digikey_project">正本 digikey_project</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../index.html">← IchiPing トップ</a>
+    ／ <a href="../tasks.html">タスクボード</a>
+    ／ <a href="probe_sound.html">← 走査音考察</a>
+    ／ <a href="nn_design.html">NN 設計（v1 固定版）</a>
+  </div>
+  <h1>NN 考察 <span class="pill">NN 検討 / 検討段階</span></h1>
+  <div class="sub">
+    14 状態を判別する NN のアーキテクチャ・入力表現・出力構造を、
+    <a href="probe_sound.html">走査音考察</a> と並行して検討する。
+    既存 <a href="nn_design.html">NN 設計</a> は v1 固定値だが、
+    本ページは <b>「他にどんな選択肢があり、なぜそれを採らないか」</b>を残す検討ノート。
+  </div>
+  <div class="meta">
+    <span class="meta-stat"><span class="num">14 / 32</span> 実効状態</span>
+    <span class="meta-stat"><span class="num">≤ 64 KB</span> モデルサイズ目標</span>
+    <span class="meta-stat"><span class="num">MCXN947 NPU</span> ターゲット</span>
+    <span class="meta-stat"><span class="num">INT8</span> 推論量子化</span>
+  </div>
+</header>
+
+<main>
+
+<div class="callout">
+  <strong>本ページの位置づけ:</strong>
+  <a href="nn_design.html">nn_design.html</a> は <b>v1 として確定したマルチタスク 1D-CNN</b> の
+  詳細設計を書く場所。一方このページは <b>「選んだ理由」と「捨てた選択肢」</b>を残す
+  検討ノートで、Phase 4/5 に入って「やっぱりここを変えたい」が出たときに参照する。
+</div>
+
+<h2 id="sec0">0. 開発順序の原則 — PC フルスペック先行、MCU 制約適合は後</h2>
+
+<div class="callout warn">
+  <strong>初期検討フェーズでは MCU 制約を一切無視する:</strong><br>
+  画像解像度を下げる、入力 bin 数を減らす、層数を減らす、INT8 で訓練する <b>― これらの最適化は
+  「PC 上で 14 状態が判別可能と確認できた後」</b>でしか手を出さない。
+  逆順にやると、性能が出なかったときに <b>「制約のせいか / モデルのせいか / 入力のせいか / 走査音のせいか」が
+  分離できなくなる</b>。
+</div>
+
+<table>
+  <thead>
+    <tr><th>段</th><th>環境</th><th>モデル</th><th>入力</th><th>判定基準</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>① 上限性能の確認</b></td>
+      <td>PC（GPU 可）</td>
+      <td>制約なしの <b>フルスペック</b>（大きめ 2D CNN・FP32）</td>
+      <td>フル解像度 STFT（例 512×128）、フル bin 数</td>
+      <td>14 状態 macro-F1 ≥ 0.95 が出るか</td>
+    </tr>
+    <tr>
+      <td>② 軽量化下限の探索</td>
+      <td>PC（GPU/CPU）</td>
+      <td>段階的に層・チャンネル・解像度を削減</td>
+      <td>削減版 STFT（128×32 など）</td>
+      <td>F1 が ① から何 pt 落ちるか</td>
+    </tr>
+    <tr>
+      <td>③ INT8 量子化</td>
+      <td>PC（CPU シミュレータ）</td>
+      <td>②のモデルを INT8 で QAT or PTQ</td>
+      <td>同上</td>
+      <td>FP32 比 -2 pt 以内</td>
+    </tr>
+    <tr>
+      <td>④ MCU デプロイ</td>
+      <td>MCXN947 NPU</td>
+      <td>③の INT8 を eIQ Toolkit で変換</td>
+      <td>同上</td>
+      <td>レイテンシ・メモリの実測が制約内</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  <b>①で性能が出なかった場合</b>はモデル設計や入力表現の問題ではなく、<b>走査音 or データ収集 or 物理セットアップ</b>に
+  根本問題がある可能性が高いので、<a href="probe_sound.html">走査音考察</a> §4.0 の Day 0 サニティチェックに戻る。
+</p>
+
+<p>
+  <b>②〜④で性能が落ちすぎた場合</b>は <b>PC 推論への退避は選ばない</b>。
+  IchiPing の目標は <b>MCXN947 上でのエッジ推論</b>であり、ここを諦めるとプロジェクトの存在意義
+  （「1 個のセンサ × 1 発の Ping をエッジ AI で閉じる」）が崩れる。
+  代わりに、入力表現・モデル設計・<a href="probe_sound.html">走査音</a>のいずれかに立ち返り、
+  「MCU INT8 で動く規模での 14 状態識別」を成立させる方向で再設計する。
+</p>
+
+<h2>1. 設計上の制約（変えにくいもの）</h2>
+
+<h3 id="sec1-1">1.1 全体制約</h3>
+<table>
+  <thead><tr><th>制約</th><th>値</th><th>由来</th></tr></thead>
+  <tbody>
+    <tr><td>MCU</td><td>FRDM-MCXN947</td><td><a href="spec.html">spec §6</a> 固定</td></tr>
+    <tr><td>NPU</td><td>eIQ Neutron <b>N1-16</b>（4 compute pipe × 4 INT8 MAC = 16 MAC）</td><td>MCXN94x 内蔵</td></tr>
+    <tr><td>NPU 演算精度</td><td><b>INT8 専用</b>（FP16/FP32 は不可）</td><td>Neutron N1-16 仕様</td></tr>
+    <tr><td>NPU スループット</td><td>~4.8 GOPS @ 150 MHz</td><td>= 150 MHz × 4 × 4 × 2</td></tr>
+    <tr><td>NPU 高速化倍率</td><td>CPU 比 最大 40–42×</td><td>NXP 公称値</td></tr>
+    <tr><td>フラッシュ</td><td>2 MB 中、モデル領域は ≤ 64 KB を目安</td><td>ファーム・LVGL・データバッファと共存</td></tr>
+    <tr><td>RAM</td><td>512 KB 中、推論ワーキング ≤ 96 KB</td><td>SAI DMA バッファ・PC 通信バッファと共存</td></tr>
+    <tr><td>レイテンシ</td><td>1 推論あたり ≤ 100 ms（Ping 後）</td><td>UX 上、Ping → 結果表示が 1 s 以内に収まる前提</td></tr>
+    <tr><td>入力サンプリング</td><td>16 kHz, 24-bit</td><td>INMP441 + SAI</td></tr>
+  </tbody>
+</table>
+
+<h3 id="sec1-2">1.2 NPU でサポートされる TFLite Operator（最重要）</h3>
+
+<div class="callout warn">
+  <strong>NPU で動かせる op は極めて限定的:</strong>
+  Neutron N1-16 は TFLite Micro のごく一部のオペレータしか受け付けない。
+  サポート外の op が混ざるとそこだけ CPU フォールバックされて
+  NPU の高速化メリットが消える（最悪、モデル全体が CPU 実行になる）。
+  <b>モデル設計時にこの制約を最優先で意識する</b>。
+</div>
+
+<table>
+  <thead>
+    <tr><th>カテゴリ</th><th>OP</th><th>NPU 対応</th><th>用途・備考</th></tr>
+  </thead>
+  <tbody>
+    <tr><td rowspan="2">畳み込み</td>
+        <td><code>CONV_2D</code></td>
+        <td>✅</td>
+        <td>2D 畳み込み（HW=1×K で 1D conv も実現可）</td></tr>
+    <tr><td><code>DEPTHWISE_CONV_2D</code></td>
+        <td>✅</td>
+        <td>MobileNet 系で多用、パラメータ削減に有効</td></tr>
+    <tr><td>全結合</td>
+        <td><code>FULLY_CONNECTED</code></td>
+        <td>✅</td>
+        <td>分類ヘッドの Dense 層</td></tr>
+    <tr><td rowspan="2">プーリング</td>
+        <td><code>AVERAGE_POOL_2D</code></td>
+        <td>✅</td>
+        <td>Global Average Pool は AVG_POOL_2D で入力サイズ＝カーネルサイズにして実現</td></tr>
+    <tr><td><code>MAX_POOL_2D</code></td>
+        <td>✅</td>
+        <td>ダウンサンプリング</td></tr>
+    <tr><td rowspan="3">テンソル整形</td>
+        <td><code>PAD</code></td>
+        <td>✅</td>
+        <td>境界パディング</td></tr>
+    <tr><td><code>RESHAPE</code></td>
+        <td>✅</td>
+        <td>次元組み替え</td></tr>
+    <tr><td><code>SLICE</code></td>
+        <td>✅</td>
+        <td>テンソル切り出し</td></tr>
+    <tr><td>要素演算</td>
+        <td><code>ADD</code></td>
+        <td>✅</td>
+        <td><b>残差接続（ResNet 系）が使える</b></td></tr>
+    <tr><td rowspan="4" style="background:#3a2333;">サポート外<br>（CPU 実行）</td>
+        <td><code>SOFTMAX</code></td>
+        <td>❌</td>
+        <td>分類最終層。Cortex-M33 上で実行。<b>これは問題ない</b>（最後の数値 14 要素だけなので無視できる負荷）</td></tr>
+    <tr><td><code>CONCATENATION</code></td>
+        <td>❌</td>
+        <td><b>Inception/U-Net 系の特徴マップ結合が使えない</b>。アーキテクチャ設計の制約</td></tr>
+    <tr><td><code>BATCH_NORMALIZATION</code></td>
+        <td>❌（変換時に CONV へ畳み込む）</td>
+        <td>標準的に Conv 重みに事前畳み込む（fold）→ NPU で動作可。PyTorch/TF どちらも変換時に自動 fold</td></tr>
+    <tr><td><code>TRANSPOSE</code> など</td>
+        <td>❌</td>
+        <td>事前に NHWC レイアウトで設計しておけば不要</td></tr>
+  </tbody>
+</table>
+
+<h3 id="sec1-3">1.3 活性化関数</h3>
+<ul>
+  <li>NPU ハードウェアは <b>ReLU / Swish / Mish</b> の非線形を高速適用可能（dedicated activation engine）</li>
+  <li>ただし TFLite Micro 経由のソフトウェア対応は限定的なので、<b>まずは ReLU（CONV_2D に fused）</b>を採用するのが最も確実</li>
+  <li>Leaky ReLU や GELU は CPU フォールバックされる可能性が高い — 避ける</li>
+</ul>
+
+<h3>1.4 量子化</h3>
+<ul>
+  <li><b>PTQ（Per-Tensor Quantization, 非対称 8-bit）</b>: モデル全体に 1 つの scale/zero-point。実装最簡</li>
+  <li><b>PCQ（Per-Channel Quantization, 対称 8-bit）</b>: チャンネル毎に scale。精度劣化が少ない、推奨</li>
+  <li>QAT（量子化を意識した学習）が PTQ より精度を出しやすい。<a href="probe_sound.html">PyTorch FX Graph Mode Quantization</a> または TFLite QAT で実施</li>
+</ul>
+
+<h3>1.5 設計上のチェックリスト（モデル作成前に必ず通す）</h3>
+<ol>
+  <li>使う op が 1.2 の ✅ リストに収まっているか</li>
+  <li>1D 信号を扱う場合は Conv2D の片次元を 1 にして表現できているか（純粋な 1D conv op はない）</li>
+  <li>Concatenation を使っていないか — もし使うなら ADD の残差接続に置換できないか検討</li>
+  <li>Softmax 以外の非線形が ReLU のみで構成されているか</li>
+  <li>BatchNorm は学習時に使い、変換時に fold されることを確認</li>
+  <li>入力テンソルが <b>HWC レイアウト</b>（NHWC）で組まれているか</li>
+  <li>モデル変換は eIQ Toolkit の <b>Neutron Converter Tool</b> を通すこと（標準 TFLite だけでは NPU 化されない）</li>
+</ol>
+
+<p>
+  詳細は <code>eIQ TensorFlow Lite User's Guide</code>（MCUXpresso SDK の
+  <code>middleware/eiq/doc/</code> 配下）と
+  <a href="https://www.nxp.com/docs/en/application-note/AN14700.pdf">AN14700 i.MX RT700 eIQ Neutron NPU Enablement and Performance</a>
+  を参照（RT700 と MCX N は同じ N1-16 NPU を共有）。
+</p>
+
+<h2>1.A ONNX → MCXN947 NPU 変換パイプライン（実装着手前に確認）</h2>
+
+<div class="callout">
+  <strong>本節の位置づけ:</strong>
+  PC 上で訓練した PyTorch モデルを MCXN947 内蔵 Neutron NPU で動かすまでの
+  「公式に通る経路」を整理する。<a href="#sec0">§0 開発原則</a>の段 ④ MCU デプロイの実体に該当。
+</div>
+
+<h3>1.A.1 パイプライン全体図</h3>
+
+<pre><code>PyTorch (.pt, FP32)
+    │   torch.onnx.export(opset=13, batch=1)
+    ▼
+ONNX (.onnx, FP32 or QDQ 量子化済)
+    │   NXP eiq-onnx2tflite（pip install eiq-onnx2tflite）
+    │   - NCHW → NHWC 自動変換
+    │   - BatchNorm を Conv に fold
+    │   - INT64 → INT32 自動キャスト
+    │   - INT8 量子化（PTQ or PCQ）
+    ▼
+TFLite (.tflite, INT8 quantized)
+    │   eIQ Toolkit の Neutron Converter Tool
+    │   eiq-converter --plugin eiq-converter-neutron
+    │                 --custom-options "target mcxn94x"
+    │                 input.tflite output_neutron.tflite
+    │   - サポート op を NeutronGraph 単一 op にまとめる
+    │   - サポート外 op は CPU フォールバック扱いで残す
+    ▼
+Neutron 化 TFLite (.tflite, NPU 用にラップ済)
+    │   MCUXpresso SDK の middleware/eiq/tensorflow-lite に同梱
+    │   - TFLite Micro ランタイム + Neutron NPU プラグイン
+    │   - モデルを const uint8_t[] としてフラッシュに焼く
+    ▼
+MCXN947 上で推論実行（NPU + Cortex-M33 ハイブリッド）
+</code></pre>
+
+<h3>1.A.2 主要ツール</h3>
+
+<table>
+  <thead>
+    <tr><th>ツール</th><th>役割</th><th>入手先</th><th>備考</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>torch.onnx.export</code></td>
+      <td>PyTorch モデルを ONNX 形式にエクスポート</td>
+      <td>PyTorch 標準</td>
+      <td>opset 13 を推奨。batch=1 の固定形状でエクスポート。<code>do_constant_folding=True</code></td>
+    </tr>
+    <tr>
+      <td><b><code>eiq-onnx2tflite</code></b></td>
+      <td>ONNX → TFLite 変換、INT8 量子化</td>
+      <td><a href="https://github.com/NXP/eiq-onnx2tflite">NXP/eiq-onnx2tflite</a><br>
+        <code>pip install --index-url https://eiq.nxp.com/repository/ eiq-onnx2tflite</code></td>
+      <td>NCHW→NHWC・BatchNorm fold・INT64→INT32 を自動処理。<code>--per-channel</code> で PCQ 量子化</td>
+    </tr>
+    <tr>
+      <td><b>eIQ Toolkit</b><br>(Neutron Converter Tool 同梱)</td>
+      <td>TFLite → Neutron NPU 化 TFLite</td>
+      <td>NXP 公式（無料、要アカウント登録）</td>
+      <td>「Neutron Converter Tool」が中核。eIQ Toolkit の CLI 環境から実行（標準コマンドプロンプトでは環境変数が不足）</td>
+    </tr>
+    <tr>
+      <td>MCUXpresso SDK</td>
+      <td>TFLite Micro ランタイム + Neutron NPU プラグイン</td>
+      <td>NXP 公式</td>
+      <td><code>middleware/eiq/tensorflow-lite/</code> 配下。サンプルプロジェクト多数</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>1.A.3 PyTorch 側エクスポート時の注意</h3>
+
+<ul>
+  <li><b>opset_version</b>: 13 推奨（11〜13 で動作実績）。新しすぎる opset は eiq-onnx2tflite が未対応の可能性</li>
+  <li><b>入力形状を固定</b>: <code>dynamic_axes</code> は使わない。バッチ次元も 1 固定（推論時の単発推論前提）</li>
+  <li><b>BatchNorm</b>: 学習時に使ってよい。エクスポート時に <code>model.eval()</code> しておけば
+    Conv に fold される。eiq-onnx2tflite 側でも fold する</li>
+  <li><b>活性化関数は ReLU のみ</b>に統一（<a href="#sec1-3">§1.3</a> 参照）。
+    GELU / Swish / Mish などは CPU フォールバックされる可能性</li>
+  <li><b>Conv2D だけを使う</b>（1D 信号は <code>(1, K)</code> カーネルで表現、<a href="#sec1-2">§1.2</a>）</li>
+  <li><b>Concatenate を使わない</b>: <a href="#sec1-2">§1.2</a> の NPU 非対応 op 表参照。代わりに ADD で残差接続</li>
+  <li><b>Reshape は最小限</b>: <code>SLICE</code> / <code>RESHAPE</code> は使えるが多用は避ける（NPU 化失敗のリスク）</li>
+  <li><b>正則化レイヤは Dropout のみ</b>: 学習時のみ、eval 時は除外される。NPU 化には影響しない</li>
+</ul>
+
+<h3>1.A.4 量子化の手順</h3>
+
+<table>
+  <thead><tr><th>方式</th><th>実施場所</th><th>長所</th><th>短所</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>PTQ (Post-Training Quantization)</td>
+      <td>ONNX エクスポート後、eiq-onnx2tflite で実施</td>
+      <td>追加学習不要、高速</td>
+      <td>FP32 比 -3〜-5 pt の精度劣化があることも</td>
+    </tr>
+    <tr>
+      <td><b>QAT (Quantization-Aware Training)</b></td>
+      <td>PyTorch で fake-quant モジュール挿入して再学習 → ONNX QDQ エクスポート</td>
+      <td>FP32 比 -1〜-2 pt 以内に収まりやすい</td>
+      <td>学習パイプラインの改修が要る</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  IchiPing では <a href="#sec0">§0 開発原則 段 ③</a> で「FP32 比 -2 pt 以内」を目標にしているので、
+  まず PTQ を試して精度落ちが許容範囲なら採用、足りなければ QAT に進む段階的アプローチが筋。
+</p>
+
+<h3>1.A.5 Neutron Converter Tool の使い方</h3>
+
+<pre><code># eIQ Toolkit インストール後、Toolkit 同梱の CLI 環境を開いて実行
+# （標準 Windows cmd だと PATH 環境変数が足りずエラーになる）
+
+eiq-converter --plugin eiq-converter-neutron \
+              --custom-options "target mcxn94x" \
+              input_quantized.tflite \
+              output_neutron.tflite
+</code></pre>
+
+<p>
+  変換後の <code>.tflite</code> は <b>NeutronGraph という単一のカスタム op に NPU 対応部分が
+  集約</b>される。CPU フォールバックが必要な op（Softmax など）は元の op として残る。
+  生成された TFLite を <code>xxd -i</code> で C 配列化してフラッシュに焼くのが標準。
+</p>
+
+<h3>1.A.6 ExecuTorch (将来オプション、現状は不可)</h3>
+
+<p>
+  PyTorch が公式に進めている <a href="https://github.com/pytorch/executorch/blob/main/backends/nxp/README.md">ExecuTorch NXP backend</a> は
+  ONNX を経由しない PyTorch → LiteRT → Neutron 直接パイプラインを目指しているが、
+  2026 年現在は <b>"Prototype Quality"</b>で i.MX RT700 (N3-64 NPU) のみ正式サポート。
+  MCXN947 (N1-16) は未対応のため <b>本プロジェクトでは §1.A.1 の ONNX 経由パイプラインを採用</b>する。
+  将来 ExecuTorch が MCXN947 対応したら乗り換えを検討。
+</p>
+
+<h3>1.A.7 デプロイ前の検証ステップ</h3>
+
+<ol>
+  <li><b>ONNX → TFLite 変換後</b>: TFLite Interpreter (PC で実行) で同じ入力に対して PyTorch FP32 と
+    出力を比較。許容差以内なら OK</li>
+  <li><b>INT8 量子化後</b>: 量子化前後で 14 状態 F1 を測定。FP32 比 -2 pt 以内が目標</li>
+  <li><b>Neutron 化後</b>: NeutronGraph に乗らなかった op がないかログで確認。
+    すべてが NPU 化された理想形なら NeutronGraph 単一 op + 入出力テンソル整形だけになる</li>
+  <li><b>MCXN947 実機ベンチ</b>: <code>middleware/eiq/tensorflow-lite/examples</code> の
+    サンプルを参考に推論時間・メモリ使用量を実測。目標値（<a href="#sec1-1">§1.1</a>）に収まるか確認</li>
+</ol>
+
+<h2>2. 入力表現の候補</h2>
+
+<h3>2.1 候補一覧</h3>
+<table>
+  <thead>
+    <tr><th>方式</th><th>次元</th><th>長所</th><th>短所</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>生 PCM 波形</td>
+      <td>~16 K サンプル</td>
+      <td>情報損失なし、位相情報も保持</td>
+      <td>入力が長く 1D CNN の受容野が大きく要る、INT8 量子化との相性悪</td>
+    </tr>
+    <tr>
+      <td><b>STFT 2D 画像（chirp 中の時間-周波数応答）</b></td>
+      <td>~128 × ~64 = 8 K</td>
+      <td>Linear chirp の<b>掃引中の応答が時間軸に展開</b>される。共鳴は垂直ストリーク、モード分裂は並走ストリームとして直接可視化。2D CNN（画像分類モデル）が使える</td>
+      <td>NPU 上の 2D conv は 1D より重い。INT8 量子化との相性は要検証</td>
+    </tr>
+    <tr>
+      <td><b>log-mag スペクトル（現在の選択）</b></td>
+      <td>1024 bin</td>
+      <td>PowerQuad FFT 1 発で済む、1D CNN との相性最良、解釈しやすい</td>
+      <td>位相情報を捨てている、時間構造が失われる</td>
+    </tr>
+    <tr>
+      <td>整合フィルタ後の RIR</td>
+      <td>~2048 タップ</td>
+      <td>線形応答だけが残り、Ping 形状非依存になる</td>
+      <td>抽出に逆フィルタ計算が要る（PowerQuad で可能）</td>
+    </tr>
+    <tr>
+      <td>Mel スペクトル</td>
+      <td>~64 bin</td>
+      <td>次元削減、人耳特性に整合（人にとっての聞こえやすさには関係するが本タスクには不要かも）</td>
+      <td>低域の解像度が落ちる — 扉 AB 判別の手がかりを失う恐れ</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>2.2 現在の選択と再考の余地</h3>
+<p>
+  <a href="nn_design.html">v1 NN 設計</a> は <b>1024-bin log-mag スペクトル</b>を採用。これは
+  ESS や chirp など任意の Ping に対して安定で、PowerQuad FFT 1 発で計算できる利点が大きい。
+  ただし以下のときは見直し対象:
+</p>
+<ul>
+  <li>RIR の<b>過渡部</b>（最初の数百タップ）に判別性が強く出るなら、整合フィルタ後の RIR を直接食わせる方が筋がいい</li>
+  <li>位相情報が決定的に効くと判明したら、複素スペクトルを実部・虚部 2 チャンネルで入れる選択肢</li>
+</ul>
+
+<h2>3. アーキテクチャ候補</h2>
+
+<h3>3.0 走査音タイプ × NN アーキテクチャの対応関係（最初に見る）</h3>
+
+<div class="callout warn">
+  <strong>走査音と NN は独立に最適化できない:</strong>
+  Linear chirp のように <b>広帯域・時間構造あり</b>の信号と、マルチトーンのように
+  <b>事前に ROI で絞った狭帯域の振幅ベクトル</b>では、NN への入力次元・情報構造が
+  根本的に違うため、最適なアーキテクチャも別物になる。<b>走査音を決めてから NN を選ぶ</b>、
+  または逆に、<b>NN 制約から走査音を選ぶ</b>のどちらかでセットで設計する。
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>走査音タイプ</th>
+      <th>NN 入力</th>
+      <th>入力次元</th>
+      <th>推奨アーキテクチャ</th>
+      <th>パラメータ目安</th>
+      <th>レイテンシ目安</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Linear chirp（フル）</td>
+      <td><b>STFT 2D 画像</b></td>
+      <td>128 × 64</td>
+      <td>2D CNN（<a href="#sec3-2">§3.2</a>）</td>
+      <td>~20 K</td>
+      <td>~30 ms</td>
+    </tr>
+    <tr>
+      <td>Linear chirp（フル）</td>
+      <td>1D log-mag スペクトル</td>
+      <td>1024</td>
+      <td>1D CNN（<a href="#sec3-1">§3.1</a>）</td>
+      <td>~30 K</td>
+      <td>~20 ms</td>
+    </tr>
+    <tr>
+      <td>ESS + Farina</td>
+      <td>RIR タイムドメイン</td>
+      <td>2048</td>
+      <td>1D CNN（<a href="#sec3-1">§3.1</a> 派生）</td>
+      <td>~30 K</td>
+      <td>~30 ms</td>
+    </tr>
+    <tr>
+      <td>ゲート式バーストスイープ</td>
+      <td>周波数別 RMS ベクトル</td>
+      <td>~110</td>
+      <td>小 MLP（<a href="#sec3-6">§3.6</a> 派生）</td>
+      <td>~3 K</td>
+      <td>&lt; 10 ms</td>
+    </tr>
+    <tr>
+      <td><b>マルチトーン（ROI 圧縮後）</b></td>
+      <td><b>振幅・位相ベクトル</b></td>
+      <td><b>16–32</b></td>
+      <td><b>極小 MLP（<a href="#sec3-6">§3.6</a>）</b></td>
+      <td><b>~100–2 K</b></td>
+      <td><b>&lt; 5 ms</b></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  <a href="probe_sound.html">走査音考察 §4</a> の推奨戦略「共鳴探索 → マルチトーン圧縮」は、
+  <b>NN を §3.2（2D CNN）→ §3.6（極小 MLP）に乗り換える</b>ことに対応する。
+  ROI 抽出により入力次元が 2 桁落ち、それに見合った軽量モデルが使える。
+  「同じ NN を別の走査音に使い回す」発想は捨て、走査音側で <b>判別性の高い特徴量を事前抽出</b>した
+  分だけモデル側を縮めるのが筋。
+</p>
+
+<h3 id="sec3-1">3.1 1D CNN（log-mag スペクトル入力、v1 baseline）</h3>
+<img src="img/nn_arch_1d.svg" alt="1D CNN 構成図" style="width: 100%; max-width: 960px; display: block; margin: 12px 0;">
+<ul>
+  <li>共有 backbone（Conv2D 16/32/64 ch、H 次元 = 1 で 1D 畳み込みを実現）+ Global Avg Pool + FC ヘッド</li>
+  <li>パラメータ 数万、INT8 で数 10 KB</li>
+  <li>PowerQuad FFT + NPU の組合せ最適化が効く</li>
+  <li>注意: 純粋な「1D conv op」は Neutron NPU にないので CONV_2D の (1×K) カーネルで表現</li>
+</ul>
+
+<h3 id="sec3-2">3.2 2D CNN — STFT 画像分類アプローチ（注目候補）</h3>
+<img src="img/nn_arch_2d.svg" alt="2D CNN 構成図" style="width: 100%; max-width: 960px; display: block; margin: 12px 0;">
+<p>
+  <a href="probe_sound.html">走査音考察 §4.2</a> で議論した「Linear chirp 中の STFT 2D 画像を
+  そのまま画像分類モデルに食わせる」方向。共鳴探索フェーズで得た 2D 画像を、
+  小型 2D CNN（SqueezeNet/MobileNet 系の縮小版、または独自設計）で 14 状態に分類する。
+</p>
+<ul>
+  <li><b>長所</b>: 時間-周波数両方向の局所性を 2D CNN が学習できる。Linear chirp の<b>掃引で
+    時間軸に展開された応答</b>は 2D 画像として「眼で見ても何が起きているか分かる」ため、
+    モデルの判別根拠も解釈しやすい。画像処理コミュニティの転移学習・data augmentation
+    手法（時間軸シフト、周波数軸マスクなど SpecAugment 系）が転用可能</li>
+  <li><b>短所</b>: パラメータが 1D 系より 1 桁多くなりがち、MCXN947 NPU の 2D conv 演算は重め、
+    モデルサイズと推論レイテンシが制約を超える恐れあり</li>
+  <li><b>サイズ目標は MCU 段階の話</b>: 入力 128×64（時間×周波数）程度に落とせれば、
+    Conv2D 8/16/32 ch + GAP + FC 14 で ~20K パラメータに収まる試算。INT8 で ~20 KB。
+    <b>ただしこれは §0 の段 ② 以降の最適化目標</b>であり、
+    初期検討（段 ①）ではフル解像度 STFT（例 512×128）+ 大きめモデルで上限性能を先に確認する</li>
+  <li><b>判断</b>: 共鳴探索フェーズの 2D 画像を見たうえで、
+    「1D に縮約しても情報が残る」なら §3.1 系統 A、「2D で見ないと判別不能な時間構造」なら
+    こちらの系統 B に振る</li>
+</ul>
+
+<h3>3.3 1D + 2D 並走比較（推奨進め方）</h3>
+<p>
+  v0.6 の段階で 2 系統の NN を並走で訓練・評価する:
+</p>
+<ul>
+  <li><b>系統 A</b>: マルチトーン Ping → 1D log-mag → 1D CNN（§3.1）</li>
+  <li><b>系統 B</b>: Linear chirp → STFT 2D 画像 → 2D CNN（§3.2）</li>
+</ul>
+<p>
+  14 状態 macro-F1・推論レイテンシ・モデルサイズの 3 軸で比較し、MCXN947 NPU 制約下で
+  良い結果を出した方を v1 に採用。</p>
+
+<h3 id="sec3-4">3.4 階層モデル（観測可能性ツリーに沿った構造）</h3>
+<img src="img/nn_arch_hierarchical.svg" alt="階層モデル構成図" style="width: 100%; max-width: 960px; display: block; margin: 12px 0;">
+<p>
+  実効状態数が <b>2 + 4 + 8 = 14</b> という観測可能性ツリーに合わせて、
+  「扉 AB を先に判定 → 扉 BC を判定 → 該当する範囲の窓だけを分類」する
+  ツリー構造の推論器を組む案。§3.1 / §3.2 のどちらの backbone とも組合せ可能。
+</p>
+<ul>
+  <li><b>長所</b>: 各段の負荷が軽く、扉誤判定の悪影響を「窓の取り違え」レベルに留められる。インタプリ性も高い</li>
+  <li><b>長所</b>: 訓練データの偏り（扉閉 16 配置 vs 全開 8 配置）に対しても、各分岐内では均等にできる</li>
+  <li><b>短所</b>: ステージ間の誤差伝搬。第 1 段で扉 AB を誤ると後段が全滅</li>
+  <li><b>実装</b>: 単一 NN で「ヘッド優先度」を持たせる方法（loss 重み付け）でも擬似的に実現可能</li>
+</ul>
+
+<h3>3.5 オートエンコーダ系</h3>
+<img src="img/nn_arch_autoencoder.svg" alt="オートエンコーダ構成図" style="width: 100%; max-width: 960px; display: block; margin: 12px 0;">
+
+<h4>3.5.a 単一 AE（全閉学習 + 異常検知）</h4>
+<p>
+  状態ラベルなしで「全閉」のスペクトルだけを学習し、再構成誤差で「何か開いた」を検知する案。
+  <a href="spec.html">spec.html</a> §3 に既出。
+</p>
+<ul>
+  <li><b>長所</b>: ラベル不要、未知状態への異常検知が効く</li>
+  <li><b>短所</b>: 何が開いたか（5 ビット）は当てられない、二値検知止まり</li>
+  <li><b>用途</b>: v0.5 の「二値分類」相当に</li>
+</ul>
+
+<h4>3.5.b 並列 AE 3 本（窓 a / b / c の独立二値判定）</h4>
+<p>
+  単一 AE では「何が開いたか」が当てられない弱点を補う案。各 AE は対応する窓が <b>開いている
+  あらゆる観測可能パターンを学習</b>し、その分布から外れた入力を「異常 = その窓は開いていない」と判定する。
+  3 本を並列に走らせれば、a/b/c それぞれの開閉が独立に得られる。
+</p>
+
+<table>
+  <thead><tr><th>AE</th><th>学習データ（その窓が開いている観測可能パターンすべて）</th><th>判定</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>AE_a</td>
+      <td>窓 a 開 × (窓 b 任意) × (窓 c 任意) × (扉 AB 任意) × (扉 BC 任意) のうち <b>観測可能な全構成</b></td>
+      <td>err_a 低 ⇒ <b>窓 a は開</b></td>
+    </tr>
+    <tr>
+      <td>AE_b</td>
+      <td>窓 b 開 × 扉 AB 開（窓 b が観測可能になる条件）× 残り任意</td>
+      <td>err_b 低 ⇒ <b>窓 b は開</b>（扉 AB が開いていることが前提）</td>
+    </tr>
+    <tr>
+      <td>AE_c</td>
+      <td>窓 c 開 × 扉 AB 開 × 扉 BC 開 × 残り任意</td>
+      <td>err_c 低 ⇒ <b>窓 c は開</b>（両扉が開いていることが前提）</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><b>推論時のロジック:</b></p>
+<pre><code>err_a = ‖x − AE_a(x)‖²    # AE_a の学習分布からの外れ度
+err_b = ‖x − AE_b(x)‖²
+err_c = ‖x − AE_c(x)‖²
+
+is_a_open = err_a &lt; θ_a    # 各 AE は独立に「自分の窓が開いているか」を判定
+is_b_open = err_b &lt; θ_b
+is_c_open = err_c &lt; θ_c
+
+# 3 本の判定を組合せれば窓 a/b/c の状態 (2³ = 8 通り) が直接得られる
+# 扉の状態は別系統（階層モデル §3.4 のドアヘッド）で判定して観測可能性を確認
+</code></pre>
+
+<p>
+  各 AE は <b>one-class classifier</b> として働く。AE_a が学習する分布は「窓 a が開いている全パターン」
+  なので、入力が窓 a 閉のパターン（AE_a の学習分布外）なら高い再構成誤差を返す。
+  これにより a/b/c の開閉を 3 つの独立した二値判定として取り出せる。
+</p>
+
+<ul>
+  <li><b>長所</b>: 出力が <b>3 つの独立な二値判定</b>になるので、複合状態（a+b 同時開など）も
+    そのまま扱える。argmin 方式ではなく <b>各窓を独立に評価</b> するのがこの方式の核心</li>
+  <li><b>長所</b>: 解釈性が高い。「err_a だけが低い」→「窓 a は開、b/c は閉」と直接対応</li>
+  <li><b>長所</b>: 拡張性◎。窓を追加するときも AE を 1 本足すだけ。窓ごとに独立に閾値調整可能</li>
+  <li><b>長所</b>: <b>サンプル使い回しが効く</b>。窓 a が開いた状態のサンプルは AE_a の学習に使え、
+    同じサンプルで b も開いていれば AE_b の学習にも使える（観測可能性さえ満たせば）</li>
+  <li><b>短所</b>: 観測可能性の制約が AE_b / AE_c の学習データに直接効く — 扉 AB が閉のときは
+    窓 b の状態が観測不能なので、AE_b の学習データはあくまで「扉 AB が開いているサンプル」に限られる</li>
+  <li><b>短所</b>: 閾値 θ_a / θ_b / θ_c のチューニングが必要（混合ガウス分布の境界を切るような調整）</li>
+  <li><b>短所</b>: 扉開閉のモード分裂は別経路で判定する必要 — <a href="#sec3-4">階層モデル §3.4</a> と組み合わせるか、
+    別途 AE_AB / AE_BC を追加する派生案も考えられる</li>
+  <li><b>NPU 適合性</b>: 3 本独立に NPU 推論を回すか、共有 encoder + 3 個の decoder ヘッドにまとめるか選択可能。
+    後者は計算重複が減る</li>
+</ul>
+
+<p>
+  <b>判断</b>: 3.5.a の単一 AE は <b>v0.5 ベースライン</b>（「何かが開いた」の二値検知）に、
+  3.5.b の並列 AE は <b>v0.6 の窓判別段</b>として有力。扉判別は <a href="#sec3-4">§3.4 階層モデル</a>
+  に任せ、窓 a/b/c の独立判定だけを 3 本の AE で実装するハイブリッド構成が筋がいい。
+</p>
+
+<h3 id="sec3-6">3.6 マルチトーン入力 × 極小 MLP（ROI 圧縮後の本番運用）</h3>
+<img src="img/nn_arch_multitone_mlp.svg" alt="マルチトーン極小 MLP 構成図" style="width: 100%; max-width: 960px; display: block; margin: 12px 0;">
+<p>
+  <a href="probe_sound.html">走査音考察 §4</a> の「共鳴探索 → マルチトーン圧縮」フローを通った後の
+  <b>本番運用用 NN</b>。走査音側で ROI（判別寄与の高い 16–32 周波数）が選定済みなので、
+  入力は <b>その周波数群の振幅ベクトル（or 位相付き複素ベクトル）だけ</b>になる。
+  入力次元が 2 桁落ちるため、CNN ではなく <b>極小 MLP</b>（あるいはロジスティック回帰）で十分。
+</p>
+<ul>
+  <li><b>入力</b>: マルチトーン Ping の各周波数の振幅 16–32 次元（必要なら位相も含めて 32–64 次元）</li>
+  <li><b>構成</b>: FC 32 → ReLU → FC 16 → ReLU → FC 14 → Softmax(CPU)。総パラメータ ~2 K（INT8 で ~2 KB）</li>
+  <li><b>レイテンシ</b>: NPU 不要レベル。Cortex-M33 単独で &lt; 5 ms</li>
+  <li><b>長所</b>: モデルが極小なので学習サンプル数が少なくて済む（数百サンプルで F1 ≥ 0.9 が射程内）。
+    全推論を MCU で完結する目標 (<a href="#sec0">§0</a>) を最も達成しやすい構成</li>
+  <li><b>長所</b>: 解釈性が高い。FC 重みを可視化すれば「窓 a 開はこの周波数のこの方向に動く」が直接読める。
+    Logistic Regression（FC → 14 のみ、~500 params）まで縮めるとさらに明瞭</li>
+  <li><b>短所</b>: <b>走査音側の ROI 選定が当たっていることが前提</b>。判別性のない周波数を選んでいた場合、
+    モデルがいくら賢くても精度は出ない（責任が走査音側にある）</li>
+  <li><b>短所</b>: 環境変化（温度・家具配置）で共鳴周波数がドリフトすると、選定済み周波数が
+    狙いから外れて精度が落ちる。再キャリブレーションが要る</li>
+  <li><b>運用</b>: §3.1 / §3.2 の重量モデルで上限性能を確認した後、本番デプロイ用に
+    このアーキへ落とし込むのが理想形</li>
+</ul>
+
+<h2>4. 出力構造の候補</h2>
+
+<table>
+  <thead><tr><th>方式</th><th>出力</th><th>備考</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>5 ビット独立シグモイド</td>
+      <td>p(窓 a), p(窓 b), p(窓 c), p(扉 AB), p(扉 BC)</td>
+      <td>シンプルだが扉閉時の「無意味な窓出力」をどう扱うか問題</td>
+    </tr>
+    <tr>
+      <td>14 状態 softmax</td>
+      <td>14 次元 one-hot</td>
+      <td>観測可能な集合に正面から対応、評価軸（14 状態 F1）と揃う</td>
+    </tr>
+    <tr>
+      <td>32 状態 softmax</td>
+      <td>32 次元 one-hot</td>
+      <td>遮断状態を「あえて分類できなくする」ペナルティ設計が要る、評価が複雑</td>
+    </tr>
+    <tr>
+      <td>階層: 扉 → 窓</td>
+      <td>3-way (扉 AB/BC 状態) + 条件付き窓ヘッド</td>
+      <td>§3.3 と整合、推奨候補</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  <b>推奨</b>: 階層出力 — 扉 AB/BC で 3-way（閉, 開閉, 開開）に分類し、
+  分岐先で該当する窓だけのヘッドを動かす。学習も簡単で評価も自然。
+</p>
+
+<h2>5. 訓練データの取り方（NN 側の要件）</h2>
+
+<ul>
+  <li><b>サンプル数の最低ライン</b>: 14 状態 × 30 サンプル = 420 サンプル / セッション。理想は 1000+</li>
+  <li><b>収集方法</b>: 模型のトグルスイッチ ×5 を真値ラベルとし、収集クライアント
+    （<a href="../pc/collector_client.py">pc/collector_client.py</a>）で WAV + CSV ラベルを記録</li>
+  <li><b>data augmentation</b>: マイク位置を 1–2 cm 動かす、室温変化、背景雑音重畳</li>
+  <li><b>遮断状態</b>: 32 配置 - 14 観測可 = 18 配置は<b>真値が違っても観測上同一</b>。学習時は同一クラスとして扱う</li>
+</ul>
+
+<h2>6. 評価基準</h2>
+
+<table>
+  <thead><tr><th>指標</th><th>目標</th></tr></thead>
+  <tbody>
+    <tr><td>14 状態 macro-F1</td><td>≥ 0.90（v0.5 段階）</td></tr>
+    <tr><td>扉 AB 開閉精度</td><td>≥ 0.98（最優先）</td></tr>
+    <tr><td>窓 a 単独開検出精度</td><td>≥ 0.95（最も頻度高い）</td></tr>
+    <tr><td>推論レイテンシ</td><td>≤ 50 ms (MCXN947 NPU 上)</td></tr>
+    <tr><td>INT8 量子化後の F1 低下</td><td>FP32 比で -2 pt 以内</td></tr>
+  </tbody>
+</table>
+
+<h2>7. 開発フェーズと NN の関係</h2>
+
+<table>
+  <thead><tr><th>フェーズ</th><th>NN の状態</th><th>環境</th><th>備考</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>v0.4a</td>
+      <td><b>Day 0 サニティチェック</b>（3 パターン × 1）</td>
+      <td>PC（目視）</td>
+      <td><a href="probe_sound.html">走査音考察 §4.0</a>。差が見えるデータ展開を発見</td>
+    </tr>
+    <tr>
+      <td>v0.4b</td>
+      <td>本格データ収集</td>
+      <td>PC</td>
+      <td>3 部屋模型 + トグル真値で 14 状態 × 30 サンプル収集</td>
+    </tr>
+    <tr>
+      <td>v0.5</td>
+      <td>二値分類（全閉 / 何か開）</td>
+      <td>PC FP32</td>
+      <td>オートエンコーダ + 再構成誤差。ベースラインの動作確認</td>
+    </tr>
+    <tr>
+      <td><b>v0.6 ①</b></td>
+      <td><b>14 状態フルスペック分類（上限確認）</b></td>
+      <td><b>PC FP32 GPU</b></td>
+      <td><b>制約なしの大きめ 2D CNN + フル解像度 STFT で macro-F1 ≥ 0.95 を達成できるか確認。性能の天井を見る</b></td>
+    </tr>
+    <tr>
+      <td>v0.6 ②</td>
+      <td>軽量化下限探索</td>
+      <td>PC FP32 CPU</td>
+      <td>v0.6 ① から層・チャンネル・入力解像度を段階削減し F1 落差を測定</td>
+    </tr>
+    <tr>
+      <td>v0.6 ③</td>
+      <td>INT8 量子化</td>
+      <td>PC CPU シミュレータ</td>
+      <td>v0.6 ② を INT8 で QAT or PTQ。FP32 比 -2 pt 以内が目標</td>
+    </tr>
+    <tr>
+      <td>v0.7</td>
+      <td>MCU デプロイ</td>
+      <td>MCXN947 NPU</td>
+      <td>v0.6 ③ の INT8 を eIQ Toolkit 経由で MCU に載せ、レイテンシとメモリを実測</td>
+    </tr>
+    <tr>
+      <td>v1.0</td>
+      <td>TFT 表示連動（MCU 完結）</td>
+      <td>MCU</td>
+      <td>推論結果を ILI9341 のフロアプランに重畳。<b>全推論を MCXN947 NPU 上で完結</b>させるのが目標</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>8. 未解決の疑問</h2>
+<ul>
+  <li>転移学習でどこまでサンプル数を削れるか — 全閉スペクトル数十枚で pretrain して 14 状態 1–2 サンプルでも当たるか</li>
+  <li>マイク位置のずれを augmentation で頑健化できるか、それとも実位置のキャリブレーションが要るか</li>
+  <li>家具配置の変化（季節の生活変化）でモデルがどれだけ劣化するか — オンライン再学習の必要性</li>
+  <li>扉 BC 単独開（扉 AB 閉時）は観測不能なので学習対象外で良いか、それとも「不能」ラベルを正式に学習するか</li>
+</ul>
+
+<div class="footer-note">
+  関連:
+  <a href="probe_sound.html">走査音考察</a> ／
+  <a href="nn_design.html">NN 設計（v1 固定版）</a> ／
+  <a href="spec.html">仕様書 §3, §4</a> ／
+  <a href="mcu_deployment.html">MCU デプロイ手順</a>
+</div>
+
+</main>
+</body>
+</html>
