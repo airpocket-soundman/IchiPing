@@ -1,0 +1,32 @@
+# Single-step "quick test" plan — edit the values below and run:
+#
+#   uv run python collector_client.py --port COMx --plan plans/quick.yaml \
+#       --run-id quick_<descriptive_name>
+#
+# Output: captures/<run-id>/<label>/{frame_NNN.wav, labels.csv, meta.json}
+#
+# Field reference (also see plans/example_door_states.yaml):
+#   label    : capture subdirectory name. Use something memorable so it is
+#              easy to find later. Combined with --run-id you get a stable
+#              path like captures/quick_test_1/test_a_open/.
+#   pattern  : integer index into the MCU pattern library (PAT SELECT <n>).
+#              Run `:patterns` in the REPL to see the live index ↔ name
+#              mapping. patterns.yaml at push time defines 0..3:
+#                0 multiband_default  (6-band pulse train, 1.8 s)
+#                1 chirp_200_6k       (linear sweep 200→6000 Hz, 2 s)
+#                2 silence_2s         (pure silence baseline)
+#                3 dual_low_high      (1 kHz / 5 kHz pulse pair)
+#   repeats  : number of ICHP frames to capture for this step.
+#   doors    : per-servo target state, OPEN or CLOSE. The PC resolves these
+#              to mech_deg via the MCU's current home_deg / open_deg.
+#   volume   : optional, 0..100 percent. Omit to keep the current setting.
+
+- label: test_a_open
+  pattern: 1
+  repeats: 5
+  doors:
+    a: OPEN
+    b: CLOSE
+    c: CLOSE
+    AB: CLOSE
+    BC: CLOSE

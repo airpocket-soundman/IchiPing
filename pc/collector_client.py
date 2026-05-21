@@ -13,32 +13,43 @@ Interactive REPL:
 
     python collector_client.py --port COM7 --out ../captures
 
-Plan-driven (JSON list of steps):
+Plan-driven (YAML list of steps):
 
-    python collector_client.py --port COM7 --plan plan.json --out ../captures
+    python collector_client.py --port COM7 --plan plans/example.yaml --out ../captures
 
-Each plan step supports:
-    {
-        "label":   "<dir-name>",                  # required
-        "pins":    {"AB": 0, ...},                # optional, otherwise CLEAR PINS
-        "pattern": "multiband_default",           # optional, name from patterns.yaml
-        "volume":  5,                             # optional integer 0..100 percent
-        "repeats": 30                             # required
-    }
+Each plan step:
+    - label:   <dir-name>                       # required
+      doors:   { a: OPEN, b: CLOSE, ... }       # OPEN/CLOSE per servo
+      pattern: <int>                            # PAT SELECT index, optional
+      volume:  <0..100>                         # optional
+      repeats: <N>                              # required
 
-Saves WAVs to <out>/<label>/frame_NNNNNN.wav with one CSV row in
-<out>/<label>/labels.csv per accepted frame.
+The plan sends CLOSE ALL once at start so the tracker matches reality;
+subsequent steps only move the doors whose state actually changes.
+
+Saves WAVs to <out>/<run_id>/<label>/frame_NNNNNN.wav with one CSV row
+in <out>/<run_id>/<label>/labels.csv per accepted frame, plus
+<out>/<run_id>/<label>/meta.json holding the full pattern definition
++ door states + calibration + start time for the step (so the dataset
+stays interpretable even if patterns.yaml is later edited and indices
+shift). run_id defaults to a timestamp so each invocation lands in its
+own folder; override with --run-id <name> for stable paths.
 """
 from __future__ import annotations
 
 import argparse
 import csv
+import dataclasses
+import datetime as _dt
 import json
+import re
 import struct
 import sys
 import threading
 import time
 import wave
+
+import yaml
 from dataclasses import dataclass, field
 from pathlib import Path
 from queue import Queue, Empty
@@ -57,7 +68,25 @@ from ichp_frame import (
     CRC_SIZE,
     crc16_ccitt,
 )
-from patterns import PatternLibrary, summary as pattern_summary
+from patterns import (
+    PatternLibrary,
+    PulsePattern,
+    SweepPattern,
+    summary as pattern_summary,
+)
+
+
+def pattern_to_dict(pat) -> dict:
+    """Serialise a Pattern (pulse / sweep) into a JSON-friendly dict with
+    an explicit 'type' tag so meta.json is self-describing and survives
+    later changes to pc/patterns.yaml. Uses dataclasses.asdict to capture
+    every numeric parameter (freq_hz, on_ms, off_ms, etc.)."""
+    d = dataclasses.asdict(pat)
+    if isinstance(pat, PulsePattern):
+        d = {"type": "pulse", **d}
+    elif isinstance(pat, SweepPattern):
+        d = {"type": "sweep", **d}
+    return d
 
 SERVO_NAMES = ("a", "b", "c", "AB", "BC")   # short physical-mount labels (matches firmware ICHP_SERVO_NAMES)
 DEFAULT_PATTERNS_PATH = Path(__file__).resolve().parent / "patterns.yaml"
@@ -211,7 +240,12 @@ class StreamReader(threading.Thread):
 
 class CaptureSaver:
     """Write incoming frames to <out>/<label>/frame_NNNNNN.wav + labels.csv.
-    Label is set externally per plan step or via set_label() in REPL."""
+    Label is set externally per plan step or via set_label() in REPL.
+
+    Also writes <out>/<label>/meta.json once per step when set_step_meta()
+    has been called — this captures the *exact* pattern definition, door
+    states, calibration, and timestamps used for the recording so the
+    dataset stays interpretable even if pc/patterns.yaml changes later."""
 
     def __init__(self, out_root: Path):
         self.out_root = out_root
@@ -220,9 +254,19 @@ class CaptureSaver:
         self.counters: dict[str, int] = {}
         self._csv_handles: dict[str, csv.writer] = {}
         self._csv_files: dict[str, "object"] = {}
+        # Meta for the next step to be written on first save() call after
+        # set_step_meta(). Cleared once written so a label change without a
+        # fresh set_step_meta doesn't reuse stale data.
+        self._pending_meta: Optional[dict] = None
 
     def set_label(self, label: str) -> None:
         self.label = label
+
+    def set_step_meta(self, meta: dict) -> None:
+        """Stash the full context dict for the next save(). Will be written
+        once to <label>/meta.json (overwriting any prior file for the same
+        label, so re-running a step replaces its meta with the latest)."""
+        self._pending_meta = meta
 
     def save(self, frame: Frame) -> Path:
         label = self.label or "unlabeled"
@@ -230,6 +274,13 @@ class CaptureSaver:
         ldir.mkdir(parents=True, exist_ok=True)
         idx = self.counters.get(label, 0)
         self.counters[label] = idx + 1
+
+        if self._pending_meta is not None:
+            (ldir / "meta.json").write_text(
+                json.dumps(self._pending_meta, indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            self._pending_meta = None
 
         wav_path = ldir / f"frame_{idx:06d}.wav"
         with wave.open(str(wav_path), "wb") as wf:
@@ -310,23 +361,120 @@ def wait_for_ack(reader: StreamReader, timeout: float = 2.0) -> Optional[str]:
 
 @dataclass
 class PlanStep:
+    """One row from the plan YAML.
+
+    doors  : {servo_name: "OPEN"|"CLOSE"} — symbolic state per door/window.
+             Resolved to mechanical degrees on the PC side using cached
+             GET HOME / GET OPEN values, so the YAML stays calibration-
+             agnostic (re-running SAVE HOME on the MCU just shifts the
+             physical positions; the plan stays valid).
+    pattern: int — index into the MCU's pattern library (PAT SELECT <n>).
+             Use :patterns in the REPL to see the index ↔ name mapping.
+    """
     label: str
     repeats: int
-    pins: dict = field(default_factory=dict)
-    pattern: Optional[str] = None    # name from patterns.yaml
-    volume: Optional[int] = None     # 0..100 percent
+    doors: dict = field(default_factory=dict)
+    pattern: Optional[int] = None
+    volume: Optional[int] = None
+
+
+class ServoStateTracker:
+    """Tracks the PC's belief about each servo's logical state (OPEN/CLOSE)
+    plus the mechanical angles those states resolve to. Used by plan mode
+    to skip redundant moves: if a door was already OPEN in the previous
+    step and the next step also wants it OPEN, we don't bother sending an
+    OPEN command. Initial state is established with an explicit CLOSE ALL
+    so the tracker matches reality from step 0."""
+
+    def __init__(self) -> None:
+        self.current: dict[str, str] = {}      # name -> "OPEN" | "CLOSE"
+        self.home_deg: dict[str, int] = {}     # CLOSE position in mech_deg
+        self.open_deg: dict[str, int] = {}     # OPEN position in mech_deg
+
+    def mark_all_closed(self) -> None:
+        self.current = {n: "CLOSE" for n in SERVO_NAMES}
+
+    def diff(self, target: dict[str, str]) -> list[tuple[str, str]]:
+        return [(n, s) for n, s in target.items() if self.current.get(n) != s]
+
+    def update(self, target: dict[str, str]) -> None:
+        self.current.update(target)
+
+    def resolve(self, name: str, state: str) -> int:
+        if state == "OPEN":
+            return self.open_deg[name]
+        if state == "CLOSE":
+            return self.home_deg[name]
+        raise ValueError(f"door state must be OPEN or CLOSE, got {state!r}")
+
+
+_GET_LINE_RE = re.compile(r"\b([a-zA-Z]+)\s*=\s*(-?\d+)")
+
+
+def query_calibration(ser: "serial.Serial", reader: "StreamReader",
+                      tracker: ServoStateTracker) -> None:
+    """Ask the MCU for the live GET HOME / GET OPEN values and cache them
+    so the tracker can resolve OPEN/CLOSE symbols to mech_deg. Idempotent;
+    re-call after SAVE HOME if calibration changed mid-session."""
+    for verb, dest in (("GET HOME", tracker.home_deg),
+                       ("GET OPEN", tracker.open_deg)):
+        send(ser, verb)
+        line = wait_for_prefix(reader, "OK", timeout=2.0)
+        if line is None:
+            raise SystemExit(f"timeout waiting for response to {verb}")
+        dest.clear()
+        for name, deg in _GET_LINE_RE.findall(line):
+            if name in SERVO_NAMES:
+                dest[name] = int(deg)
+        missing = [n for n in SERVO_NAMES if n not in dest]
+        if missing:
+            raise SystemExit(f"{verb} response missing servos: {missing} (got: {line!r})")
 
 
 def load_plan(path: Path) -> list[PlanStep]:
-    data = json.loads(path.read_text(encoding="utf-8"))
+    """Plan files are YAML. Each entry is a step:
+
+        - label: a_open
+          pattern: 1            # PAT SELECT index
+          repeats: 30
+          doors:
+            a: OPEN
+            b: CLOSE
+            c: CLOSE
+            AB: CLOSE
+            BC: CLOSE
+
+    Door values must be the literal strings OPEN or CLOSE; PC resolves
+    them to mech_deg via the cached GET HOME / GET OPEN values."""
+    raw = path.read_text(encoding="utf-8")
+    try:
+        data = yaml.safe_load(raw)
+    except yaml.YAMLError as exc:
+        raise SystemExit(f"plan {path}: YAML parse error: {exc}")
+    if data is None:
+        raise SystemExit(f"plan {path}: empty file")
+    if not isinstance(data, list):
+        raise SystemExit(f"plan {path}: top level must be a list of steps")
     steps: list[PlanStep] = []
     for i, entry in enumerate(data):
         try:
+            doors_raw = entry.get("doors", {})
+            doors: dict[str, str] = {}
+            for k, v in doors_raw.items():
+                s = str(v).upper()
+                if s not in ("OPEN", "CLOSE"):
+                    raise ValueError(f"door {k!r} must be OPEN or CLOSE, got {v!r}")
+                if k not in SERVO_NAMES:
+                    raise ValueError(f"unknown servo {k!r}")
+                doors[k] = s
+            pattern = entry.get("pattern")
+            if pattern is not None:
+                pattern = int(pattern)
             steps.append(PlanStep(
-                label=entry["label"],
+                label=str(entry["label"]),
                 repeats=int(entry["repeats"]),
-                pins={k: float(v) for k, v in entry.get("pins", {}).items()},
-                pattern=entry.get("pattern"),
+                doors=doors,
+                pattern=pattern,
                 volume=(int(entry["volume"]) if "volume" in entry else None),
             ))
         except (KeyError, TypeError, ValueError) as exc:
@@ -336,25 +484,82 @@ def load_plan(path: Path) -> list[PlanStep]:
 
 def run_plan(plan: list[PlanStep], ser: serial.Serial, reader: StreamReader,
              saver: CaptureSaver, lib: PatternLibrary) -> None:
+    # Establish a known starting state (everything closed) and snapshot the
+    # current calibration so OPEN/CLOSE labels can be turned into degrees.
+    tracker = ServoStateTracker()
+    print("plan: initial CLOSE ALL to sync door state...")
+    send(ser, "CLOSE ALL")
+    line = wait_for_prefix(reader, "OK", timeout=10.0)
+    if line is None:
+        raise SystemExit("timeout waiting for CLOSE ALL OK")
+    tracker.mark_all_closed()
+    # Wipe any SET PIN overrides left over from a previous client session.
+    # RUN now relies on the firmware's current-angle tracker by default,
+    # so stale pins would silently override the OPEN/CLOSE state we just
+    # established.
+    send(ser, "CLEAR PINS")
+    wait_for_prefix(reader, "OK", timeout=2)
+    query_calibration(ser, reader, tracker)
+    print(f"plan: home={tracker.home_deg} open={tracker.open_deg}")
+
     for step in plan:
-        print(f"\n=== step: label={step.label} repeats={step.repeats} ===")
+        print(f"\n=== step: label={step.label} repeats={step.repeats} "
+              f"pattern={step.pattern} ===")
+
+        # Resolve the pattern definition NOW so meta.json snapshots the
+        # exact entry (name + parameters), not just the index that
+        # patterns.yaml might re-shuffle later.
+        pattern_def = None
+        if step.pattern is not None:
+            try:
+                _, pat = lib.find(step.pattern)
+                pattern_def = pattern_to_dict(pat)
+                pattern_def["idx"] = step.pattern
+            except KeyError as exc:
+                raise SystemExit(f"plan step {step.label!r}: {exc}")
+
+        # Build the full provenance record before sending any commands so
+        # it accurately reflects the inputs (not whatever state ends up on
+        # the MCU). It is written once when the first frame arrives.
+        meta = {
+            "label": step.label,
+            "started_at": _dt.datetime.now().isoformat(timespec="seconds"),
+            "repeats": step.repeats,
+            "volume_pct": step.volume,
+            "doors": dict(step.doors),
+            "calibration": {
+                "home_deg": dict(tracker.home_deg),
+                "open_deg": dict(tracker.open_deg),
+            },
+            "pattern": pattern_def,
+        }
+        saver.set_step_meta(meta)
+
         if step.volume is not None:
             send(ser, f"SET VOLUME {step.volume}")
             wait_for_prefix(reader, "OK", timeout=2)
         if step.pattern is not None:
-            try:
-                idx, _ = lib.find(step.pattern)
-            except KeyError as exc:
-                raise SystemExit(f"plan step {step.label!r}: {exc}")
-            send(ser, f"PAT SELECT {idx}")
+            send(ser, f"PAT SELECT {step.pattern}")
             wait_for_prefix(reader, "OK", timeout=2)
-        send(ser, "CLEAR PINS")
-        wait_for_prefix(reader, "OK", timeout=2)
-        for sname, deg in step.pins.items():
-            if sname not in SERVO_NAMES:
-                raise SystemExit(f"unknown servo: {sname}")
-            send(ser, f"SET PIN {sname} {deg}")
-            wait_for_prefix(reader, "OK", timeout=2)
+
+        # Diff-based door moves: only physically swing the servos whose
+        # target state differs from where we left them last step. Each
+        # OPEN/CLOSE on the MCU side already settles + releases PWM and
+        # updates the firmware's current-angle tracker, so RUN reproduces
+        # the resulting pose without needing SET PIN. Doors that didn't
+        # change are skipped entirely — the firmware still remembers
+        # their last commanded position.
+        changes = tracker.diff(step.doors)
+        if changes:
+            print(f"  doors changing: {changes}")
+            for name, state in changes:
+                verb = "OPEN" if state == "OPEN" else "CLOSE"
+                send(ser, f"{verb} {name}")
+                wait_for_prefix(reader, "OK", timeout=5)
+        else:
+            print("  doors unchanged from previous step — skipping all servo moves")
+        tracker.update(step.doors)
+
         send(ser, f"SET REPEATS {step.repeats}")
         wait_for_prefix(reader, "OK", timeout=2)
 
@@ -570,11 +775,22 @@ def run_repl(ser: serial.Serial, reader: StreamReader, saver: CaptureSaver,
                     if lib.patterns:
                         send(ser, "PAT SELECT 0")
                         wait_for_ack(reader, timeout=2.0)
+                    # Snap doors to a known state so the operator (and any
+                    # subsequent plan run) doesn't have to guess where the
+                    # servos parked through the reset, then drop any pre-
+                    # reset SET PIN overrides (the new RUN behaviour uses
+                    # the firmware's current-angle tracker; stale pins
+                    # would silently override what OPEN/CLOSE just set).
+                    send(ser, "CLOSE ALL")
+                    wait_for_prefix(reader, "OK CLOSE all", timeout=10.0)
+                    send(ser, "CLEAR PINS")
+                    wait_for_ack(reader, timeout=2.0)
                 finally:
                     reader.line_callback = saved_cb
                 with out_lock:
                     sys.stdout.write(
-                        f"  ! re-pushed {len(lib.patterns)} patterns; PAT SELECT 0\n> ")
+                        f"  ! re-pushed {len(lib.patterns)} patterns; "
+                        f"PAT SELECT 0; CLOSE ALL; CLEAR PINS\n> ")
                     sys.stdout.flush()
             finally:
                 auto_push_lock.release()
@@ -654,9 +870,16 @@ def main() -> int:
     p.add_argument("--port", required=True, help="serial port (e.g. COM7 or /dev/ttyACM0)")
     p.add_argument("--baud", type=int, default=921600)
     p.add_argument("--out", type=Path, default=Path("./captures"),
-                   help="output root directory (per-label subdirs are created)")
+                   help="parent directory for run dirs (default: ./captures)")
+    p.add_argument("--run-id", default=None,
+                   help="run dir name appended under --out (default: auto "
+                        "timestamp like 'run_2026-05-20T15-30-00'). Use this "
+                        "to give an important session a stable, descriptive "
+                        "name; pass an empty string to write straight into "
+                        "--out without a subfolder")
     p.add_argument("--plan", type=Path, default=None,
-                   help="JSON plan file; if omitted, run interactive REPL")
+                   help="YAML plan file (see pc/plans/example_door_states.yaml); "
+                        "if omitted, run interactive REPL")
     p.add_argument("--label", default=None,
                    help="initial label for REPL (default: 'unlabeled')")
     p.add_argument("--patterns", type=Path, default=DEFAULT_PATTERNS_PATH,
@@ -678,11 +901,25 @@ def main() -> int:
 
     reader = StreamReader(ser)
     reader.start()
-    saver = CaptureSaver(args.out)
+
+    # Resolve the run dir. The default appends a timestamped subdir to
+    # --out so each invocation lands in its own folder — patterns or
+    # calibration may have changed between runs and we don't want the
+    # frames mixed in with prior sessions. Empty --run-id skips the
+    # suffix for users who want raw control.
+    if args.run_id is None:
+        run_id = "run_" + _dt.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
+        run_root = args.out / run_id
+    elif args.run_id == "":
+        run_root = args.out
+    else:
+        run_root = args.out / args.run_id
+
+    saver = CaptureSaver(run_root)
     if args.label:
         saver.set_label(args.label)
 
-    print(f"connected {args.port} @ {args.baud} bps, output -> {args.out}")
+    print(f"connected {args.port} @ {args.baud} bps, output -> {run_root}")
     print(f"loaded {len(lib.patterns)} patterns from {args.patterns}")
 
     # Wait for the MCU boot to finish before pushing patterns. The firmware

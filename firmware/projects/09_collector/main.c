@@ -20,9 +20,11 @@
  *   Command loop       : poll LPUART4 RX byte-by-byte, accumulate lines,
  *                        parse with ichp_cmd_parse(), dispatch.
  *   RUN                : for i in 0..repeats-1:
- *                          - build pattern for trial i (pinned values, else
- *                            random binary choice between home and open per
- *                            servo using an LFSR);
+ *                          - build pattern for trial i (SET PIN overrides
+ *                            where present, otherwise the last commanded
+ *                            mechanical angle from SERVO/OPEN/CLOSE; no
+ *                            randomisation any more — the PC client owns
+ *                            the state machine);
  *                          - drive servos, wait settle;
  *                          - fire excitation, capture audio;
  *                          - pack ICHP frame (servo_deg[] = actual angles set
@@ -128,6 +130,14 @@ typedef struct {
     int32_t           repeats;
     bool              pin_present[ICHP_SERVO_COUNT];
     float             pin_deg[ICHP_SERVO_COUNT];
+    /* Last mechanical angle commanded for each servo. Used by RUN to
+     * decide where to drive any servo without an explicit SET PIN — the
+     * earlier randomised fill is gone; RUN now reproduces whatever the
+     * operator (or plan client) last asked for. Initialised from
+     * SERVO_CONFIG_DEFAULTS at boot and replaced by the home-drive on
+     * startup; thereafter every SERVO/OPEN/CLOSE/SERVO_ALL_OFF-ish
+     * dispatcher path and RUN's per-trial apply update it. */
+    float             current_deg[ICHP_SERVO_COUNT];
     bool              stop_requested;
 } col_state_t;
 
@@ -136,6 +146,7 @@ static col_state_t s_state = {
     .repeats        = COL_DEFAULT_REPEATS,
     .pin_present    = { false, false, false, false, false },
     .pin_deg        = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
+    .current_deg    = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
     .stop_requested = false,
 };
 
@@ -226,28 +237,20 @@ static void play_and_capture(const int16_t *tx, int16_t *rx, size_t n)
 
 /* ---- Pattern + servo control ---- */
 
-/* xorshift32 LFSR — small, MCU-friendly, good enough for binary choice
- * across trials. Seed from SysTick at first use. */
-static uint32_t s_rng = 0;
-static uint32_t rng_next(void)
-{
-    if (s_rng == 0) { s_rng = s_uptime_ms | 0xA5A5A5A5u; }
-    uint32_t x = s_rng;
-    x ^= x << 13; x ^= x >> 17; x ^= x << 5;
-    s_rng = x;
-    return x;
-}
 
 /* Fill `target_deg[5]` for one trial given pin state and home/open config. */
 static void build_trial_pattern(float target_deg[ICHP_SERVO_COUNT])
 {
-    const servo_config_t *cfg = servo_config_get();
+    /* RUN no longer randomises unpinned channels — it just reproduces the
+     * last commanded mechanical angle (the PC client is now responsible
+     * for sequencing OPEN/CLOSE/SERVO commands before RUN to put the
+     * model into the right state). SET PIN still overrides per channel
+     * for the rare case where you want RUN to drive a specific raw angle
+     * without going through OPEN/CLOSE. */
     for (uint8_t i = 0; i < ICHP_SERVO_COUNT; i++) {
-        if (s_state.pin_present[i]) {
-            target_deg[i] = s_state.pin_deg[i];
-        } else {
-            target_deg[i] = (rng_next() & 1u) ? cfg->open_deg[i] : cfg->home_deg[i];
-        }
+        target_deg[i] = s_state.pin_present[i]
+            ? s_state.pin_deg[i]
+            : s_state.current_deg[i];
     }
 }
 
@@ -255,6 +258,9 @@ static void servo_apply_pattern(const float target_deg[ICHP_SERVO_COUNT])
 {
     (void)servo_set_first_n_deg(&s_servo, target_deg, ICHP_SERVO_COUNT);
     collector_display_set_pattern(&s_disp, target_deg);
+    for (uint8_t i = 0; i < ICHP_SERVO_COUNT; i++) {
+        s_state.current_deg[i] = target_deg[i];
+    }
 }
 
 /* ---- Command dispatch ---- */
@@ -524,6 +530,7 @@ static void apply_cmd(const ichp_cmd_t *cmd, ichp_cmd_lbuf_t *lb)
                             ICHP_SERVO_NAMES[cmd->servo_idx], (long)s);
                 break;
             }
+            s_state.current_deg[cmd->servo_idx] = cmd->deg;
             collector_display_set_servo(&s_disp, cmd->servo_idx, cmd->deg);
             /* Hold long enough for the SG90 to settle, then release PWM so
              * the channel stops drawing holding current and humming. Same
@@ -567,6 +574,7 @@ static void apply_cmd(const ichp_cmd_t *cmd, ichp_cmd_lbuf_t *lb)
                             verb, ICHP_SERVO_NAMES[cmd->servo_idx], (long)s);
                 break;
             }
+            s_state.current_deg[cmd->servo_idx] = target;
             collector_display_set_servo(&s_disp, cmd->servo_idx, target);
             /* Hold PWM long enough for the SG90 to traverse the full swing,
              * then release the channel so it stops drawing holding current
@@ -609,6 +617,7 @@ static void apply_cmd(const ichp_cmd_t *cmd, ichp_cmd_lbuf_t *lb)
                     failed = true;
                     break;
                 }
+                s_state.current_deg[i] = targets[i];
                 collector_display_set_servo(&s_disp, i, targets[i]);
                 delay_ms(COL_NAMED_MOVE_MS);
                 (void)servo_set_off(&s_servo, i);
@@ -850,6 +859,12 @@ int main(void)
         } else {
             uart_printf("WARN BOOT servo home write status=%ld (chip may be unresponsive)",
                         (long)s);
+        }
+        /* Seed RUN's "current commanded angle" tracker so its first trial
+         * (if no OPEN/CLOSE has run since boot) reproduces the home pose
+         * instead of whatever the array was initialised to (zeros). */
+        for (uint8_t i = 0; i < ICHP_SERVO_COUNT; i++) {
+            s_state.current_deg[i] = cfg->home_deg[i];
         }
     }
     /* Give servos time to swing from arbitrary boot positions (worst case

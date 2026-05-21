@@ -1,0 +1,40 @@
+# IchiPing collector plan — example.
+#
+# Each step:
+#   label    : capture subdirectory under <out>/.
+#   pattern  : integer index into the MCU pattern library (PAT SELECT <n>).
+#              Run `:patterns` in the REPL to see the live index ↔ name
+#              mapping. 0 = first entry of patterns.yaml at push time.
+#   repeats  : N. The MCU emits N ICHP frames per step.
+#   doors    : per-servo target state. Must be OPEN or CLOSE; the PC client
+#              resolves these to mech_deg via the MCU's GET HOME / GET OPEN
+#              values, so re-running SAVE HOME on the MCU does not invalidate
+#              this file.
+#   volume   : optional, 0..100. Omit to keep the current MCU volume.
+#
+# Diff-only motion: between steps, only the doors whose target differs from
+# the previous step's state get an OPEN/CLOSE command. The plan starts with
+# an implicit CLOSE ALL (sent by collector_client.py), so step 1 only moves
+# the doors that should be OPEN.
+#
+# Servo names: a, b, c (windows), AB, BC (doors).
+
+- label: all_closed
+  pattern: 1
+  repeats: 30
+  doors: { a: CLOSE, b: CLOSE, c: CLOSE, AB: CLOSE, BC: CLOSE }
+
+- label: window_a_open
+  pattern: 1
+  repeats: 30
+  doors: { a: OPEN,  b: CLOSE, c: CLOSE, AB: CLOSE, BC: CLOSE }
+
+- label: door_AB_open
+  pattern: 1
+  repeats: 30
+  doors: { a: CLOSE, b: CLOSE, c: CLOSE, AB: OPEN,  BC: CLOSE }
+
+- label: all_open
+  pattern: 1
+  repeats: 30
+  doors: { a: OPEN,  b: OPEN,  c: OPEN,  AB: OPEN,  BC: OPEN }
