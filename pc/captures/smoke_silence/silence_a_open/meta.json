@@ -1,0 +1,42 @@
+{
+  "label": "silence_a_open",
+  "started_at": "2026-05-21T22:51:22",
+  "repeats": 1,
+  "volume_pct": 0,
+  "doors": {
+    "a": "OPEN",
+    "b": "CLOSE",
+    "c": "CLOSE",
+    "AB": "CLOSE",
+    "BC": "CLOSE"
+  },
+  "calibration": {
+    "home_deg": {
+      "a": 180,
+      "b": 180,
+      "c": 180,
+      "AB": 180,
+      "BC": 180
+    },
+    "open_deg": {
+      "a": 0,
+      "b": 0,
+      "c": 0,
+      "AB": 0,
+      "BC": 0
+    }
+  },
+  "pattern": {
+    "type": "pulse",
+    "name": "silence_2s",
+    "tones": [
+      {
+        "freq_hz": 0,
+        "on_ms": 0,
+        "off_ms": 2000
+      }
+    ],
+    "repeat": 1,
+    "idx": 2
+  }
+}

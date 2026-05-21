@@ -1,0 +1,38 @@
+{
+  "label": "s10100",
+  "started_at": "2026-05-21T23:16:05",
+  "repeats": 1,
+  "volume_pct": 3,
+  "doors": {
+    "a": "OPEN",
+    "b": "CLOSE",
+    "c": "OPEN",
+    "AB": "CLOSE",
+    "BC": "CLOSE"
+  },
+  "calibration": {
+    "home_deg": {
+      "a": 180,
+      "b": 180,
+      "c": 180,
+      "AB": 180,
+      "BC": 180
+    },
+    "open_deg": {
+      "a": 0,
+      "b": 0,
+      "c": 0,
+      "AB": 0,
+      "BC": 0
+    }
+  },
+  "pattern": {
+    "type": "sweep",
+    "name": "chirp_200_6k",
+    "start_hz": 200,
+    "end_hz": 6000,
+    "sweep_ms": 2000,
+    "silence_ms": 0,
+    "idx": 1
+  }
+}

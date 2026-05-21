@@ -1,0 +1,2 @@
+seq,ts_ms,rate_hz,n_samples,a,b,c,AB,BC,wav,crc_ok
+1,81473,16000,32000,0.0,0.0,180.0,0.0,180.0,frame_000000.wav,1
