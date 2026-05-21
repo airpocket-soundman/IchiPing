@@ -56,10 +56,10 @@
  *   SERVO ALL OFF                     -> OK SERVO all off           (release all PWM)
  *   OPEN <servo>                      -> OK OPEN <servo> deg=<n>    (move to open_deg, wait, release)
  *   CLOSE <servo>                     -> OK CLOSE <servo> deg=<n>   (move to home_deg, wait, release)
- *   OPEN ALL                          -> OK OPEN all                (sequential a→b→c→AB→BC to open_deg, 0.3 s each)
- *   CLOSE ALL                         -> OK CLOSE all               (sequential BC→AB→c→b→a to home_deg, 0.3 s each — reverse, airlock)
+ *   OPEN ALL                          -> OK OPEN all                (sequential a→b→c→AB→BC to open_deg, distance-scaled settle)
+ *   CLOSE ALL                         -> OK CLOSE all               (sequential BC→AB→c→b→a to home_deg, distance-scaled settle — reverse, airlock)
  *
- *   SERVO / OPEN / CLOSE all share the same "move → 0.3 s settle →
+ *   SERVO / OPEN / CLOSE all share the same "move → distance-scaled settle →
  *   release PWM on that channel" pattern so the chassis stays silent at
  *   idle (SG90 hum). RUN drives servos via a separate path that keeps
  *   them energised through capture.
@@ -120,6 +120,7 @@ extern const char *const ICHP_SERVO_NAMES[ICHP_SERVO_COUNT];
  * buffer must not outlive that buffer (the parser does not copy). */
 typedef enum {
     ICHP_CMD_NONE = 0,
+    ICHP_CMD_COMMENT,                  /* INFO ... — accepted as no-op */
     ICHP_CMD_PING,
     ICHP_CMD_GET_CONFIG,
     ICHP_CMD_GET_HOME,

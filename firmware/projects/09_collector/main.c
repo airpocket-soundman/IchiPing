@@ -92,7 +92,8 @@ extern void BOARD_InitHardware(void);
 #define COL_DEFAULT_VOLUME    5                /* integer percent (0..100); small box, 5% ≈ -26 dB */
 #define COL_DEFAULT_REPEATS   30
 #define COL_SERVO_SETTLE_MS   400u             /* SG90 worst-case 60deg ~= 400 ms */
-#define COL_NAMED_MOVE_MS     300u             /* SERVO/OPEN/CLOSE settle: hold PWM 0.3 s after move, then release */
+/* PWM hold time per servo move (servo_set_deg → off). */
+#define COL_NAMED_MOVE_MS    500u
 
 #ifndef COL_UART_BAUD
 #define COL_UART_BAUD         921600u
@@ -271,15 +272,6 @@ static void build_trial_pattern(float target_deg[ICHP_SERVO_COUNT])
     }
 }
 
-static void servo_apply_pattern(const float target_deg[ICHP_SERVO_COUNT])
-{
-    (void)servo_set_first_n_deg(&s_servo, target_deg, ICHP_SERVO_COUNT);
-    collector_display_set_pattern(&s_disp, target_deg);
-    for (uint8_t i = 0; i < ICHP_SERVO_COUNT; i++) {
-        s_state.current_deg[i] = target_deg[i];
-    }
-}
-
 /* ---- Command dispatch ---- */
 
 static void say_config(void)
@@ -446,12 +438,25 @@ static void do_run(ichp_cmd_lbuf_t *lb)
     for (int32_t i = 0; i < s_state.repeats && !s_state.stop_requested; i++) {
         float target_deg[ICHP_SERVO_COUNT];
         build_trial_pattern(target_deg);
-        servo_apply_pattern(target_deg);
+        /* Diff-based per-channel move: only re-position the servos whose
+         * target differs from the last commanded angle. Each moved ch gets
+         * settle time then PWM release (same pattern as OPEN/CLOSE). When
+         * the plan keeps the same door state across all repeats, every
+         * trial after the first does zero servo writes and goes straight
+         * to capture — PWM stays off, no hum, no current draw, no I²C
+         * traffic during audio recording. */
+        for (uint8_t ch = 0; ch < ICHP_SERVO_COUNT; ch++) {
+            if (target_deg[ch] == s_state.current_deg[ch]) continue;
+            (void)servo_set_deg(&s_servo, ch, target_deg[ch]);
+            collector_display_set_servo(&s_disp, ch, target_deg[ch]);
+            delay_ms(COL_NAMED_MOVE_MS);
+            (void)servo_set_off(&s_servo, ch);
+            s_state.current_deg[ch] = target_deg[ch];
+        }
         collector_display_set_footer(&s_disp,
                                      p->name,
                                      s_state.volume_pct,
                                      i + 1, s_state.repeats);
-        delay_ms(COL_SERVO_SETTLE_MS);
 
         int16_t *rec_payload = (int16_t *)(s_tx_buf + ICHP_HEADER_SIZE);
         play_and_capture(s_excite, rec_payload, n_samp);
@@ -506,6 +511,11 @@ static void do_emit(int32_t index)
 static void apply_cmd(const ichp_cmd_t *cmd, ichp_cmd_lbuf_t *lb)
 {
     switch (cmd->kind) {
+        case ICHP_CMD_COMMENT:
+            /* INFO line from the PC side — accepted silently so it doesn't
+             * pollute the trace with ERR BAD_VERB. No reply, no side
+             * effects; PC uses it as a wire-trace marker only. */
+            break;
         case ICHP_CMD_PING:
             uart_write_line("OK PONG " __DATE__ " " __TIME__);
             break;

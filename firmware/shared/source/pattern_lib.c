@@ -271,8 +271,10 @@ static uint32_t render_noise(const pattern_t *p, int16_t *out, uint32_t cap,
     /* User-set scaling: g_volume_pct × pattern's own volume_pct. */
     float user_v = (float)volume_pct / 100.0f;
     float pat_v  = (float)p->noise.volume_pct / 100.0f;
-    if (user_v < 0.0f) user_v = 0.0f;  if (user_v > 1.0f) user_v = 1.0f;
-    if (pat_v  < 0.0f) pat_v  = 0.0f;  if (pat_v  > 1.0f) pat_v  = 1.0f;
+    if (user_v < 0.0f) user_v = 0.0f;
+    if (user_v > 1.0f) user_v = 1.0f;
+    if (pat_v  < 0.0f) pat_v  = 0.0f;
+    if (pat_v  > 1.0f) pat_v  = 1.0f;
     float v = user_v * pat_v;
 
     /* Seed: mix pattern pointer + duration so repeated emissions of the

@@ -110,6 +110,14 @@ bool ichp_cmd_parse(char *line, ichp_cmd_t *out, const char **err_token,
         out->kind = ICHP_CMD_STOP;
         return true;
     }
+    /* INFO is normally MCU → PC for human-readable annotations, but the
+     * collector_client.py plan loop also sends "INFO label=<name>" to
+     * stamp the wire trace. Accept it as a no-op comment so it does not
+     * produce ERR BAD_VERB INFO noise. The dispatcher ignores it. */
+    if (strcmp(verb, "INFO") == 0) {
+        out->kind = ICHP_CMD_COMMENT;
+        return true;
+    }
 
     if (strcmp(verb, "OPEN") == 0 || strcmp(verb, "CLOSE") == 0) {
         char *sname = next_token(&p);

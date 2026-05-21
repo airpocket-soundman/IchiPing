@@ -30,13 +30,13 @@ ASCII 行と ICHP バイナリは同一 UART に多重化。PC は `ICHP` magic 
 | 校正 | `SET HOME <servo> <deg>` | `SET HOME a 12` | home（閉位置, mechanical）を RAM 更新 |
 | 校正 | `SET OPEN <servo> <deg>` | `SET OPEN a 87` | open（全開位置, mechanical）を RAM 更新 |
 | 校正 | `SAVE HOME` | `SAVE HOME` | home / open を MCXN947 PFlash 末尾セクタへ書込（boot 時に自動復元） |
-| マニュアル | `SERVO <servo> <deg>` | `SERVO a 45` | 1 ch を動かす → 0.3 s 待機 → 自動で当該 ch OFF（hum 防止） |
+| マニュアル | `SERVO <servo> <deg>` | `SERVO a 45` | 1 ch を動かす → 移動距離分待機（300 ms + 5 ms/deg、最長 1.5 s）→ 自動で当該 ch OFF（hum 防止） |
 | マニュアル | `SERVO <servo> OFF` | `SERVO AB OFF` | 1 ch のみ即 PWM 停止（脱力） |
 | マニュアル | `SERVO ALL OFF` | `SERVO ALL OFF` | 全 PWM 即停止 |
-| マニュアル | `OPEN <servo>` | `OPEN a` | `open_deg` に動かす → 0.3 s 待機 → 自動で当該 ch OFF |
-| マニュアル | `CLOSE <servo>` | `CLOSE AB` | `home_deg` に動かす → 0.3 s 待機 → 自動で当該 ch OFF |
-| マニュアル | `OPEN ALL` | `OPEN ALL` | **a→b→c→AB→BC** を 1 ch ずつ `open_deg` に動かす（窓 → 扉 の順、各 0.3 s 待ち + 自動 OFF）。合計 1.5 s |
-| マニュアル | `CLOSE ALL` | `CLOSE ALL` | **BC→AB→c→b→a** を 1 ch ずつ `home_deg` に動かす（扉 → 窓 の順、airlock スタイル、各 0.3 s + 自動 OFF）。合計 1.5 s |
+| マニュアル | `OPEN <servo>` | `OPEN a` | `open_deg` に動かす → 移動距離分待機 → 自動で当該 ch OFF |
+| マニュアル | `CLOSE <servo>` | `CLOSE AB` | `home_deg` に動かす → 移動距離分待機 → 自動で当該 ch OFF |
+| マニュアル | `OPEN ALL` | `OPEN ALL` | **a→b→c→AB→BC** を 1 ch ずつ `open_deg` に動かす（窓 → 扉、各 ch 距離分待機 + 自動 OFF）。フル 180° 移動なら合計 ~4.5 s、変化なしなら即終了 |
+| マニュアル | `CLOSE ALL` | `CLOSE ALL` | **BC→AB→c→b→a** を 1 ch ずつ `home_deg` に動かす（扉 → 窓、airlock、各 ch 距離分待機 + 自動 OFF） |
 | 実行 | `RUN` | `RUN` | repeats 回データ採取 |
 | 中断 | `STOP` | `STOP` | 次フレーム境界で中断 |
 | パターン | `PAT NOISE <name> <dur_ms> [vol_pct] [shape]` | `PAT NOISE wn3s 3000 30 0` | ホワイトノイズパターンを追加（shape: 0=PRBS, 1=uniform。vol_pct 既定 30、shape 既定 0=PRBS） |
@@ -52,13 +52,16 @@ servo 名: `a` / `b` / `c` / `AB` / `BC`（大文字小文字無視）。角度�
 
 ```
 boot
- └ servo_config_init → drive servos to home_deg → wait 0.3 s → release PWM (idle, silent) → READY
+ └ servo_config_init → drive servos to home_deg → wait full-swing settle (~1.2 s, worst case 180° from arbitrary boot) → release PWM (idle, silent) → READY
 loop:
  └ poll UART RX
     ├ line complete → parse → dispatch → respond
     │   └ on RUN:
     │       for i in 0..repeats-1:
-    │         build trial pattern (pinned values + random fill)
+    │         build trial pattern (SET PIN values where present;
+    │           otherwise s_state.current_deg, i.e. the last
+    │           SERVO/OPEN/CLOSE/CLOSE_ALL/OPEN_ALL position —
+    │           no randomisation, the PC client owns state)
     │         drive servos, settle 400 ms
     │         render selected pattern from pattern_lib (cached at start)
     │         play_and_capture (full-duplex SAI1, n_samples per pattern)

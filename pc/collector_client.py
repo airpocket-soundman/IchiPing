@@ -63,10 +63,10 @@ except ImportError:
 
 from ichp_frame import (
     MAGIC,
-    HEADER_FMT,
     HEADER_SIZE,
     CRC_SIZE,
     crc16_ccitt,
+    unpack_header,
 )
 from patterns import (
     PatternLibrary,
@@ -136,41 +136,71 @@ class StreamReader(threading.Thread):
         self.frame_callback = None     # set to callable(Frame) for async save
         self._stop = threading.Event()
         self._line_buf = bytearray()
+        # Unified pre-read buffer. All byte consumption (main loop's
+        # magic scan and _read_frame_body's header/payload/CRC pulls)
+        # goes through this so a MAGIC detected mid-chunk doesn't
+        # accidentally consume the wrong bytes from the serial port.
+        self._buf = bytearray()
 
     def stop(self) -> None:
         self._stop.set()
 
-    def run(self) -> None:
-        window = bytearray()
-        while not self._stop.is_set():
+    def _ensure(self, n: int) -> bool:
+        """Refill self._buf until it has at least n bytes. Returns False
+        only when stop was requested mid-wait."""
+        while len(self._buf) < n and not self._stop.is_set():
+            try:
+                chunk = self.ser.read(max(n - len(self._buf), 1024))
+            except serial.SerialException:
+                return False
+            if chunk:
+                self._buf.extend(chunk)
+        return len(self._buf) >= n
+
+    def _next_byte(self) -> Optional[int]:
+        """Pop one byte from the buffer, or None on timeout / stop."""
+        if not self._buf:
             try:
                 chunk = self.ser.read(1024)
             except serial.SerialException:
-                break
+                return None
             if not chunk:
-                # 100 ms read timeout fired with no bytes. The
-                # 4-byte trailing window is only there to detect ICHP
-                # magic that arrives in one piece — the firmware writes
-                # frames atomically, so a stalled window can no longer be
-                # the start of a frame. Drain it through the ASCII pipe
-                # so trailing "\r\n" of an MCU response finally triggers
-                # _flush_line. Without this, the last 4 bytes of every
-                # response sit in the window until the user types
-                # another command and shifts them out.
+                return None
+            self._buf.extend(chunk)
+        b = self._buf[0]
+        del self._buf[0]
+        return b
+
+    def _read_n(self, n: int) -> bytes:
+        """Consume exactly n bytes from the buffer (refilling as needed).
+        Returns fewer bytes only on shutdown."""
+        if not self._ensure(n):
+            return bytes(self._buf[:])  # whatever we have at shutdown
+        out = bytes(self._buf[:n])
+        del self._buf[:n]
+        return out
+
+    def run(self) -> None:
+        window = bytearray()
+        while not self._stop.is_set():
+            b = self._next_byte()
+            if b is None:
+                # 100 ms read timeout fired with no bytes. The 4-byte
+                # trailing window only matches MAGIC if every byte
+                # arrives together; once we see idle time the window
+                # can no longer be the start of a frame. Drain it
+                # through the ASCII pipe so a stranded trailing "\r\n"
+                # of an MCU response finally fires _flush_line.
                 while window:
                     self._flush_one_ascii(window.pop(0))
                 continue
-            for b in chunk:
-                window.append(b)
-                if len(window) > 4:
-                    self._flush_one_ascii(window.pop(0))
-                if bytes(window) == MAGIC:
-                    self._flush_line()
-                    window.clear()
-                    self._read_frame_body()
-            # Whatever remains in the window may include the tail of a
-            # short ASCII line ("...01\r\n" with len ≤ 4). The next
-            # read-timeout iteration above will drain it.
+            window.append(b)
+            if len(window) > 4:
+                self._flush_one_ascii(window.pop(0))
+            if bytes(window) == MAGIC:
+                self._flush_line()
+                window.clear()
+                self._read_frame_body()
 
     def _flush_one_ascii(self, b: int) -> None:
         c = bytes([b])
@@ -191,27 +221,24 @@ class StreamReader(threading.Thread):
                 else:
                     self.lines.put(line)
 
-    def _read_n(self, n: int) -> bytes:
-        buf = bytearray()
-        while len(buf) < n and not self._stop.is_set():
-            chunk = self.ser.read(n - len(buf))
-            if not chunk:
-                continue
-            buf.extend(chunk)
-        return bytes(buf)
-
     def _read_frame_body(self) -> None:
         # Header without the magic we already consumed.
         remainder = self._read_n(HEADER_SIZE - 4)
         if len(remainder) < HEADER_SIZE - 4:
             return
         header_bytes = bytes(MAGIC) + remainder
+        # Go through unpack_header for full field validation. A chirp at
+        # moderate level can plant the literal byte sequence 0x49 0x43
+        # 0x48 0x50 ("ICHP") inside the audio payload of a real frame; if
+        # we'd accepted the raw bytes that followed it as a header we'd
+        # then try to read an arbitrary-sized payload + CRC and lose sync
+        # for the rest of the run. unpack_header rejects anything whose
+        # type / rate_hz / n_samples / servo_deg don't match the contract.
         try:
-            magic, type_, _rsv, seq, ts, n_samp, rate, *servo = struct.unpack(
-                HEADER_FMT, header_bytes
-            )
-        except struct.error:
+            h = unpack_header(header_bytes)
+        except (ValueError, struct.error):
             return
+        n_samp = h["n_samples"]
         payload_bytes = n_samp * 2
         payload = self._read_n(payload_bytes)
         crc_bytes = self._read_n(CRC_SIZE)
@@ -220,11 +247,11 @@ class StreamReader(threading.Thread):
         expected = crc16_ccitt(header_bytes + payload)
         got = crc_bytes[0] | (crc_bytes[1] << 8)
         frame = Frame(
-            seq=seq,
-            timestamp_ms=ts,
-            rate_hz=rate,
+            seq=h["seq"],
+            timestamp_ms=h["timestamp_ms"],
+            rate_hz=h["rate_hz"],
             n_samples=n_samp,
-            servo_deg=tuple(servo),
+            servo_deg=h["servo_deg"],
             samples=payload,
             crc_ok=(expected == got),
         )
@@ -482,8 +509,48 @@ def load_plan(path: Path) -> list[PlanStep]:
     return steps
 
 
+def _write_run_readme(saver: CaptureSaver, plan: list[PlanStep]) -> None:
+    """Drop a README.md at the run root summarising every step's label,
+    door state, pattern, and repeats. Makes it possible to recover the
+    label → state mapping months later without re-running the generator."""
+    lines: list[str] = []
+    lines.append(f"# Run {saver.out_root.name}\n")
+    lines.append(f"_{len(plan)} steps, generated by run_plan at start of execution._\n")
+    lines.append("\n")
+    lines.append("## Door label encoding\n")
+    lines.append("\n")
+    lines.append("Labels like `s10010` use 5 bits, ordered **a b c AB BC** "
+                 "(matches firmware ICHP_SERVO_NAMES). "
+                 "Bit set (`1`) → OPEN, bit clear (`0`) → CLOSE.\n")
+    lines.append("\n")
+    lines.append("Example: `s10010` ⇒ `a=OPEN b=CLOSE c=CLOSE AB=OPEN BC=CLOSE`.\n")
+    lines.append("\n")
+    lines.append("Labels that don't follow this convention are plain step names; "
+                 "the full door state is recorded in each step's `meta.json` regardless.\n")
+    lines.append("\n")
+    lines.append("## Steps\n")
+    lines.append("\n")
+    lines.append("| # | label | a | b | c | AB | BC | pattern | repeats | volume |\n")
+    lines.append("|---|---|---|---|---|---|---|---|---|---|\n")
+    for i, step in enumerate(plan):
+        cells = [str(i), step.label]
+        for name in SERVO_NAMES:
+            cells.append(step.doors.get(name, "-"))
+        cells.append(str(step.pattern) if step.pattern is not None else "-")
+        cells.append(str(step.repeats))
+        cells.append(str(step.volume) if step.volume is not None else "-")
+        lines.append("| " + " | ".join(cells) + " |\n")
+    (saver.out_root / "README.md").write_text("".join(lines), encoding="utf-8")
+
+
 def run_plan(plan: list[PlanStep], ser: serial.Serial, reader: StreamReader,
              saver: CaptureSaver, lib: PatternLibrary) -> None:
+    # Drop a top-level summary into the run dir before any servo activity
+    # — keeps the label → door mapping available even if execution is
+    # interrupted mid-plan.
+    saver.out_root.mkdir(parents=True, exist_ok=True)
+    _write_run_readme(saver, plan)
+
     # Establish a known starting state (everything closed) and snapshot the
     # current calibration so OPEN/CLOSE labels can be turned into degrees.
     tracker = ServoStateTracker()
@@ -602,10 +669,10 @@ Commands forwarded to the MCU (case-insensitive verb):
   SET REPEATS <N>
   SET PIN <servo> <deg>        /  CLEAR PIN <servo>  /  CLEAR PINS
   SET HOME <servo> <deg>       /  SET OPEN <servo> <deg>  /  SAVE HOME
-  SERVO <servo> <deg>          (move, 0.3 s, auto-OFF)  /  SERVO <servo> OFF  /  SERVO ALL OFF
-  OPEN <servo>                 /  CLOSE <servo>      (move to open/home, 0.3 s, auto-OFF)
-  OPEN ALL                     (a→b→c→AB→BC, 0.3 s each)
-  CLOSE ALL                    (BC→AB→c→b→a reverse, 0.3 s each)
+  SERVO <servo> <deg>          (move, distance-scaled settle, auto-OFF)  /  SERVO <servo> OFF  /  SERVO ALL OFF
+  OPEN <servo>                 /  CLOSE <servo>      (move to open/home, distance-scaled settle, auto-OFF)
+  OPEN ALL                     (a→b→c→AB→BC, distance-scaled settle each)
+  CLOSE ALL                    (BC→AB→c→b→a reverse, distance-scaled settle each)
   PAT INFO                     /  PAT SELECT <idx>
   EMIT <idx>                   (test-play current pattern, no recording)
   RUN                          /  STOP
@@ -952,6 +1019,17 @@ def main() -> int:
 
     try:
         ser = serial.Serial(args.port, args.baud, timeout=0.1)
+        # Windows' default kernel RX buffer is ~4 KB. ICHP frames at 32k
+        # samples × 2B + header + CRC are ~64 KB, so the kernel buffer
+        # overflows mid-frame whenever the reader thread pauses to dispatch
+        # a previous chunk — silently dropping bytes and corrupting the
+        # next CRC check. 256 KB gives ample headroom for multi-frame
+        # back-to-back bursts. No-op on POSIX (set_buffer_size not
+        # implemented there, but kernel default is already much larger).
+        try:
+            ser.set_buffer_size(rx_size=256 * 1024, tx_size=64 * 1024)
+        except (AttributeError, NotImplementedError):
+            pass
     except serial.SerialException as exc:
         print(f"FAIL opening {args.port}: {exc}", file=sys.stderr)
         return 2
@@ -985,10 +1063,30 @@ def main() -> int:
     # we send sit in the RX FIFO until they overflow it, losing CR/LF and
     # leaving the firmware out of sync. Opening the OpenSDA port can also
     # toggle DTR and reset the MCU, so we must always honour this gate.
+    #
+    # The startup banner currently takes ~3 s on FRDM-MCXN947 (servo init +
+    # SAI init + TFT init + 0.3 s settle), but on the first cold boot or a
+    # slower I2C scan it can run several seconds longer. Wait generously
+    # before falling back; pushing PAT_* lines into a still-booting MCU
+    # silently overflows the 8-byte LPUART RX FIFO and breaks the library.
     print("waiting for MCU boot...")
-    ready = wait_for_prefix(reader, "INFO IchiPing", timeout=6.0)
+    BOOT_WAIT_S = 30.0
+    ready = wait_for_prefix(reader, "INFO IchiPing", timeout=BOOT_WAIT_S)
     if ready is None:
-        print("  (no boot banner seen in 6 s; assuming MCU was already up)")
+        print(f"  (no boot banner seen in {BOOT_WAIT_S:.0f} s; probing with PING...)")
+        # Last-resort sanity check: maybe the MCU was already up when we
+        # connected and the banner is long gone. PING is cheap and either
+        # confirms reachability or proves the link is dead before we waste
+        # a 30 s pattern push that has nowhere to land.
+        send(ser, "PING")
+        pong = wait_for_prefix(reader, "OK PONG", timeout=2.0)
+        if pong is None:
+            raise SystemExit(
+                "MCU did not respond to PING after boot-wait timeout — "
+                "check power, USB cable, that the firmware was actually "
+                "flashed, and that no other process is holding the COM port."
+            )
+        print(f"  PING ok ({pong}) — proceeding with pattern push")
 
     # Push the YAML library to the MCU. After reset the firmware's pattern
     # library is empty, so RUN won't work until this completes. Pace each

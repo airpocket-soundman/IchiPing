@@ -21,9 +21,32 @@
 #              to mech_deg via the MCU's current home_deg / open_deg.
 #   volume   : optional, 0..100 percent. Omit to keep the current setting.
 
-- label: test_a_open
+- label: all_closed
+  pattern: 1            # chirp_200_6k
+  repeats: 5
+  volume: 3
+  doors:
+    a: CLOSE
+    b: CLOSE
+    c: CLOSE
+    AB: CLOSE
+    BC: CLOSE
+
+- label: AB_open
   pattern: 1
   repeats: 5
+  volume: 3
+  doors:
+    a: CLOSE
+    b: CLOSE
+    c: CLOSE
+    AB: OPEN
+    BC: CLOSE
+
+- label: a_open
+  pattern: 1
+  repeats: 5
+  volume: 3
   doors:
     a: OPEN
     b: CLOSE
