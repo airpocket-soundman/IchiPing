@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NN 考察 — IchiPing</title>
 <link rel="stylesheet" href="style.css">
+<script src="embed.js"></script>
 </head>
 <body>
 
@@ -84,7 +85,7 @@
 
 <div class="callout">
   <strong>本ページの位置づけ:</strong>
-  <a href="nn_design.html">nn_design.html</a> は <b>v1 として確定したマルチタスク 1D-CNN</b> の
+  <a href="nn_design.html">nn_design.html</a> は <b>v1 として確定した 14-class softmax 1D-CNN</b> の
   詳細設計を書く場所。一方このページは <b>「選んだ理由」と「捨てた選択肢」</b>を残す
   検討ノートで、Phase 4/5 に入って「やっぱりここを変えたい」が出たときに参照する。
 </div>
@@ -819,6 +820,22 @@ is_c_open = err_c &lt; θ_c
       <td>TFT 表示連動（MCU 完結）</td>
       <td>MCU</td>
       <td>推論結果を ILI9341 のフロアプランに重畳。<b>全推論を MCXN947 NPU 上で完結</b>させるのが目標</td>
+    </tr>
+    <tr>
+      <td><b>v1.5</b></td>
+      <td><b>配置先 PC 再学習による雑踏適応</b>（v1.0 モデルが fix した後に詳細化）</td>
+      <td>PC + MCU flash 書込</td>
+      <td>
+        展示会場等の高雑音環境で、配置先で <b>環境ノイズ 30-60 秒だけ録音</b> →
+        PC 側で元データに対してオフライン augmentation（noise overlay）→ FC ヘッド
+        fine-tune（backbone freeze）→ 新 INT8 .tflite を USB CDC 経由で MCU
+        flash 末尾セクタへ書込。**所要 ~10 分**で雑踏適応モデル完成。
+        <br>新規ラベル付きサンプルは不要、雑音 WAV だけで augmentation して
+        4000+ 件の augmented サンプルを生成する戦略。
+        <b>v1.0 でモデル構造と訓練パイプラインが確定してから詳細仕様を詰める</b>。
+        実装は <code>pc/training/augment_noise.py</code> + <code>finetune.py</code>
+        + <code>deploy_to_mcu.py</code> の 3 ファイル想定
+      </td>
     </tr>
   </tbody>
 </table>

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>pc/training — IchiPing</title>
 <link rel="stylesheet" href="../../docs/style.css">
+<script src="../../docs/embed.js"></script>
 </head>
 <body>
 
@@ -81,7 +82,9 @@
   </div>
   <h1>pc/training — IchiPing v1 学習パイプライン</h1>
   <div class="sub">
-    DigiKey v1 用の 1D-CNN マルチタスク NN（<a href="../../docs/spec.html">spec.html §4.3</a>）の訓練・エクスポート一式。
+    DigiKey v1 用の 1D-CNN（<a href="../../docs/nn_design.html">NN 設計</a>: <b>14-class softmax 単ヘッド</b>）の訓練・エクスポート一式。
+    本ページの記述には旧 6-head 混合構成への参照が残っているが、これは実装書き換え未完了のため。
+    新設計の根拠は <a href="../../docs/nn_design.html">nn_design.html §なぜ 14-class softmax 単ヘッドなのか</a>。
   </div>
   <div class="meta">
     <span class="meta-stat"><span class="num">v0.5</span> ターゲット</span>

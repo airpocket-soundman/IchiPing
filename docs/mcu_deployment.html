@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MCXN947 デプロイ手順 — IchiPing v1</title>
 <link rel="stylesheet" href="style.css">
+<script src="embed.js"></script>
 </head>
 <body>
 
@@ -79,6 +80,14 @@
 </header>
 
 <main>
+
+<div class="callout warn">
+  <strong>注意 — モデル設計が更新されています</strong>:
+  本ページのコード例は <b>6-head 混合 (any_open / door_AB / door_BC / window_a/b/c)</b> 時代のもの。
+  最新の <a href="nn_design.html">NN 設計</a> では <b>14-class softmax 単ヘッド</b>に統一済み。
+  デプロイ時のロジックは「argmax14 → equiv_class index」に簡素化され、複数ヘッドの出力デコードは
+  不要になる。本ページの 6-head 関連の記述は v1 実装書き換え時に追従更新予定。
+</div>
 
 <h2>全体フロー</h2>
 <img src="img/deploy_flow.svg" alt="MCXN947 デプロイフロー: PC で訓練 + ONNX エクスポート → eIQ Toolkit で INT8 量子化と C コード生成 → MCUXpresso で firmware に統合 → 推論結線とレイテンシ計測" style="width: 100%; max-width: 820px; display: block; margin: 16px 0;">

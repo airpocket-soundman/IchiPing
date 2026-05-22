@@ -118,6 +118,32 @@ body { padding-left: 232px; }
   .sidenav-group { display: inline-block; vertical-align: top; margin: 8px 14px 0 0; min-width: 140px; }
 }
 
+/* Embedded mode — when this page is loaded inside the index.html shell
+ * iframe, hide our own sidebar (the shell already shows one) and fill the
+ * full width. Detection: embed.js adds `embedded` class to <html>. */
+html.embedded .sidenav { display: none; }
+html.embedded body     { padding-left: 0; }
+html.embedded header.page { padding-left: 24px; }
+
+/* ---- SPA shell layout (index.html only) ---- */
+.shell-iframe {
+  position: fixed;
+  left: 232px;
+  top: 0;
+  width: calc(100vw - 232px);
+  height: 100vh;
+  border: 0;
+  background: var(--bg);
+}
+@media (max-width: 900px) {
+  .shell-iframe {
+    position: static;
+    left: 0;
+    width: 100%;
+    height: calc(100vh - 220px);   /* leave room for the collapsed sidenav */
+  }
+}
+
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
@@ -126,12 +152,14 @@ code, pre, kbd {
 }
 code {
   background: var(--panel-2);
+  color: #e8d8b0;                     /* warm sand — readable on the dark panel */
   padding: 1px 6px;
   border-radius: 4px;
   font-size: 0.92em;
 }
 pre {
-  background: var(--panel);
+  background: #0c0f14;                /* slightly darker than --panel for contrast */
+  color: #e5e9f0;                     /* explicit light text — was inheriting and being overridden in cards */
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 14px 16px;
@@ -139,7 +167,25 @@ pre {
   font-size: 13px;
   line-height: 1.55;
 }
-pre code { background: none; padding: 0; }
+pre code, pre code.hljs {
+  background: none;
+  color: inherit;                     /* take pre's light colour unless hljs theme overrides */
+  padding: 0;
+}
+
+/* highlight.js token colours — atom-one-dark inspired, fits the project palette.
+ * Applied by docs/embed.js which loads highlight.js at runtime. */
+.hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-name { color: #c678dd; }
+.hljs-string, .hljs-attr                                    { color: #98c379; }
+.hljs-number, .hljs-literal, .hljs-symbol                   { color: #d19a66; }
+.hljs-title, .hljs-section, .hljs-function .hljs-title      { color: #61afef; }
+.hljs-comment, .hljs-quote                                  { color: #5c6370; font-style: italic; }
+.hljs-meta, .hljs-meta-keyword                              { color: #56b6c2; }
+.hljs-variable, .hljs-template-variable                     { color: #e06c75; }
+.hljs-type, .hljs-class .hljs-title                         { color: #e5c07b; }
+.hljs-tag, .hljs-attribute                                  { color: #61afef; }
+.hljs-deletion                                              { color: #e06c75; }
+.hljs-addition                                              { color: #98c379; }
 
 header.page {
   padding: 24px 32px 18px;

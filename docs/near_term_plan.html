@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>当面の実行計画 — IchiPing</title>
+<link rel="stylesheet" href="style.css">
+<script src="embed.js"></script>
+<style>
+  .step-card {
+    background: var(--panel, #181b22);
+    border: 1px solid var(--border, #2a313d);
+    border-left: 4px solid var(--accent-2, #7be0a4);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 14px 0;
+  }
+  .step-card.deferred { border-left-color: var(--pending, #5a6478); opacity: 0.85; }
+  .step-card.decision { border-left-color: var(--warn, #ffb454); }
+  .step-card.done { border-left-color: var(--done, #7be0a4); opacity: 0.7; }
+  .step-card h3 {
+    margin: 0 0 6px 0;
+    font-size: 15px;
+  }
+  .step-card .when { color: var(--muted, #8b95a7); font-size: 11px; margin-bottom: 6px; }
+  .step-card pre {
+    background: var(--panel-2, #1f242d);
+    padding: 8px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    overflow-x: auto;
+  }
+  .badge {
+    display: inline-block; padding: 1px 8px; border-radius: 9px;
+    font-size: 10px; font-weight: 700; margin-right: 5px;
+    vertical-align: middle;
+  }
+  .badge.now { background: #c2185b; color: white; }
+  .badge.next { background: #ff9f1c; color: #1a1d23; }
+  .badge.decide { background: #ffb454; color: #1a1d23; }
+  .badge.future { background: #5a6478; color: white; }
+  .badge.done { background: #7be0a4; color: #1a1d23; }
+</style>
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../index.html">トップ</a>
+      <a href="../tasks.html">タスクボード</a>
+      <a href="near_term_plan.html" class="current">当面の実行計画</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="spec.html">仕様書 (spec)</a>
+      <a href="nn_design.html">NN 設計</a>
+      <a href="mcu_deployment.html">MCU デプロイ</a>
+      <a href="bringup.html">実機ブリングアップ</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">NN 検討</div>
+      <a href="probe_sound.html">走査音考察</a>
+      <a href="nn_review.html">NN 考察</a>
+      <a href="full32_initial_test.html">Full 32 初期計測</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="../hardware/wiring.html">配線テーブル</a>
+      <a href="../hardware/bom.html">BOM (部品表)</a>
+      <a href="../hardware/display_options.html">ディスプレイ候補</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../firmware/README.html">firmware ガイド</a>
+      <a href="../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">対外発信</div>
+      <a href="protopedia_preview.html">ProtoPedia プレビュー</a>
+      <a href="protopedia.md">ProtoPedia 投稿原稿</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="vscode_setup.html">VS Code セットアップ</a>
+      <a href="../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a><br>
+    <a href="https://github.com/airpocket-soundman/digikey_project">正本 digikey_project</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../index.html">← IchiPing トップ</a>
+    ／ <a href="../tasks.html">タスクボード</a>
+    ／ <a href="full32_initial_test.html">Full 32 初期計測</a>
+    ／ <a href="probe_sound.html">走査音考察</a>
+    ／ <a href="nn_review.html">NN 考察</a>
+  </div>
+  <h1>当面の実行計画 <span class="pill">2026-05-22 時点</span></h1>
+  <div class="sub">
+    Day 0 サニティチェック直後の意思決定フェーズ。本ページは
+    <b>「次に何を計測 / 決定するか」</b> の生きた索引で、
+    決定が確定したら <a href="probe_sound.html">probe_sound</a> /
+    <a href="nn_review.html">nn_review</a> 等の正本へ反映してから旧記述を畳む。
+  </div>
+  <div class="meta">
+    <span class="meta-stat done"><span class="num">32 / 32</span> 状態取得済 (chirp)</span>
+    <span class="meta-stat"><span class="num">0 / 32</span> 状態取得済 (noise)</span>
+    <span class="meta-stat"><span class="num">0 / 2</span> 雑音条件取得済</span>
+    <span class="meta-stat active"><span class="num">3</span> 未決定事項</span>
+  </div>
+</header>
+
+<main>
+
+<h2>1. 直近で実行する計測 (1 時間以内)</h2>
+
+<div class="step-card">
+  <h3><span class="badge now">NOW</span>Step A — 静寂 vs TV 雑音床の比較計測</h3>
+  <div class="when">所要 ~30 分（計測 1 分 + TV ON/OFF 切替 + 解析）</div>
+  <p>
+    開発環境（個室）と展示会場想定（TV 再生中）の 2 条件で SPK 駆動なしの
+    silence 計測。雑音床スペクトルが帯域別にどう変わるかを直接観測。
+  </p>
+  <pre>cd D:\workspace\github\IchiPing\pc
+
+# A-1: TV OFF
+uv run python collector_client.py --port COM3 `
+    --plan plans/silence_quiet.yaml --run-id silence_2cond_v1
+
+# A-2: TV ON、通常音量、模型から 1-2 m
+uv run python collector_client.py --port COM3 `
+    --plan plans/silence_tv.yaml --run-id silence_2cond_v1
+
+# A-3: 解析
+uv run --extra training python analyze_noise.py</pre>
+  <p><b>得られる判断材料</b>:</p>
+  <ul>
+    <li>captures/silence_2cond_v1/analysis/ に 5 枚 PNG</li>
+    <li>TV 条件下で雑音増加 dB が大きい帯域 → ROI から除外候補</li>
+    <li>chirp 信号との SNR マップ → 20 dB 以上の帯域が「使える領域」</li>
+  </ul>
+</div>
+
+<div class="step-card">
+  <h3><span class="badge next">NEXT</span>Step B — ホワイトノイズで 32 状態取得</h3>
+  <div class="when">所要 ~5 分（計測のみ）</div>
+  <p>
+    chirp 計測と同条件（静か、volume 3、5 サーボ全配置）で、励振方式だけを
+    PRBS 2 秒に変えて 32 状態を取得。chirp との比較材料。
+  </p>
+  <pre>uv run python collector_client.py --port COM3 `
+    --plan plans/full_32_noise.yaml --run-id full_32_noise_v1
+
+# 解析（既存スクリプトで OK）
+uv run --extra training python analyze_full32.py `
+    --root captures/full_32_noise_v1</pre>
+</div>
+
+<div class="step-card">
+  <h3><span class="badge next">NEXT</span>Step C — chirp vs ホワイトノイズ 比較解析</h3>
+  <div class="when">所要 ~10 分（既存 PNG を並べて目視 + 数値比較）</div>
+  <p>
+    Step A + B 完了後に、両方のデータでの判別性を比較。
+    具体的には:
+  </p>
+  <ul>
+    <li>同じ等価クラス内の RMS dB ばらつき → 安定性</li>
+    <li>異クラス間の RMS dB 差 → 判別性</li>
+    <li>外れ値 s10100/s11000 の有無</li>
+    <li>各条件 (TV あり/なし) での SNR</li>
+  </ul>
+  <p>
+    → <b>「chirp or ホワイトノイズ」を本命に確定</b>
+  </p>
+</div>
+
+<h2>2. 現在未決定の項目</h2>
+
+<div class="step-card decision">
+  <h3><span class="badge decide">DECIDE</span>D-1. 走査音方式 — chirp / white noise</h3>
+  <p>
+    どちらも 200-6000 Hz 帯域をカバーできる。判断は実測比較 (Step A-C) 後に。
+    現時点の仮判定:
+  </p>
+  <table>
+    <thead><tr><th>観点</th><th>chirp</th><th>ホワイトノイズ</th></tr></thead>
+    <tbody>
+      <tr><td>2D STFT で時間-周波数構造</td><td>◎ 直線として可視化</td><td>△ 統計的に定常、時間情報なし</td></tr>
+      <tr><td>1D 時間平均 FFT</td><td>○ 利用可</td><td>◎ 自然な表現（|H(f)|² 直読）</td></tr>
+      <tr><td>解析パイプライン</td><td>整合フィルタ要</td><td>FFT 平均だけ</td></tr>
+      <tr><td>SPK 駆動</td><td>線形掃引、瞬間的単一周波数</td><td>全帯域同時駆動、低クレスト (PRBS)</td></tr>
+      <tr><td>雑音耐性</td><td>整合フィルタで +30-45 dB SNR</td><td>時間平均で √N の減衰</td></tr>
+      <tr><td>実装複雑度</td><td>低</td><td>最低</td></tr>
+    </tbody>
+  </table>
+  <p>
+    <b>判定基準</b>: Step C の比較で
+    クラス内ばらつきが小さい方を採用。同等なら<b>ホワイトノイズ優位</b>
+    （解析が単純、雑音と同種なので扱いやすい）。
+  </p>
+</div>
+
+<div class="step-card decision">
+  <h3><span class="badge decide">DECIDE</span>D-2. 本番運用励振 — マルチトーン or ゲート式バースト</h3>
+  <p>
+    ROI 確定後の本番運用方式。現時点の見立て:
+  </p>
+  <table>
+    <thead><tr><th>観点</th><th>マルチトーン</th><th>ゲート式バースト</th></tr></thead>
+    <tbody>
+      <tr><td>計測時間</td><td>~100 ms (高速)</td><td>~800 ms (16 周波)</td></tr>
+      <tr><td>雑音耐性</td><td>△ IMD で偽ピーク</td><td>◎ OFF 区間で雑音床直接計測</td></tr>
+      <tr><td>per-freq SNR 判定</td><td>不可（同時駆動のため）</td><td>◎ ON/OFF で per-frequency に判定</td></tr>
+      <tr><td>SPK 出力効率</td><td>クレストで損</td><td>◎ 単音、フル振幅</td></tr>
+      <tr><td>NN 入力との接続</td><td>振幅 16 dim ベクトル</td><td>同（同形式）</td></tr>
+    </tbody>
+  </table>
+  <p>
+    <b>現時点の仮選択</b>: <b>ゲート式バースト</b>（雑踏運用必須 + UX レイテンシ 1 s 許容）。
+    マルチトーンに振るのは ROI が「2-3 周波数の狭帯域」に収束した場合のみ。
+  </p>
+</div>
+
+<div class="step-card decision">
+  <h3><span class="badge decide">DECIDE</span>D-3. ROI 帯域の最終確定</h3>
+  <p>
+    現時点の仮判定: <b>500-6000 Hz</b>（400 Hz 以下は外部雑音と SPK 弱域が支配）。
+    Step A の雑音床解析と Step C の判別性解析を見て確定。
+    ROI 確定後にマルチトーン用の 8-16 周波数選定 (§4.4 の判別性スコア最大化) に進む。
+  </p>
+</div>
+
+<h2>3. 確定済み事項（参考）</h2>
+
+<div class="step-card done">
+  <h3><span class="badge done">DONE</span>等価クラス理論</h3>
+  <p>
+    32 真状態 → <b>14 観測等価クラス</b>に集約される（マイク Room A、扉 AB / BC 閉塞による）。
+    詳細: <a href="full32_initial_test.html">Full 32 初期計測 §2</a>。
+  </p>
+</div>
+
+<div class="step-card done">
+  <h3><span class="badge done">DONE</span>Day 0 サニティチェック — 仮合格</h3>
+  <p>
+    chirp 励振で 32 状態を取得し、等価クラス予言と実測 RMS_dB がほぼ整合
+    （A2 の s10100 / s11000 に外れ値あるが <b>低域 200-400 Hz の外部雑音</b>由来の可能性大、
+    Step A の無音計測で確認予定）。本格展開に進める判断。
+  </p>
+</div>
+
+<div class="step-card done">
+  <h3><span class="badge done">DONE</span>SPK EQ + ホワイトノイズ実装</h3>
+  <p>
+    ファーム側に EQ (8 段 biquad cascade, デフォルト OFF) + PAT NOISE コマンド追加済。
+    PC 側に calibrator.py + analyze_noise.py / analyze_full32.py 実装済。
+    詳細: <a href="../firmware/projects/09_collector/README.html">09_collector/README §EQ</a>。
+  </p>
+</div>
+
+<h2>4. 後で詳細化する項目</h2>
+
+<div class="step-card deferred">
+  <h3><span class="badge future">v1.5</span>配置先 PC 再学習による雑踏適応</h3>
+  <p>
+    展示会場で <b>環境ノイズ 30-60 秒録音だけ</b> 取り、PC でオフライン
+    augmentation + FC ヘッド fine-tune (backbone freeze) で適応モデル生成、
+    USB CDC 経由で MCU flash に書込。所要 ~10 分の運用フロー。
+  </p>
+  <p>
+    <b>詳細化は v1.0 確定後</b>。MCU 上での追加学習は NPU の制約上不可能だが、
+    PC 経由でのこのフローは十分実用的。
+    関連: <a href="nn_review.html">NN 考察 §7 v1.5</a>。
+  </p>
+</div>
+
+<div class="step-card deferred">
+  <h3><span class="badge future">v0.6+</span>整合フィルタによる chirp デコンボリューション</h3>
+  <p>
+    chirp 採用が確定した場合の signal-processing 強化。<code>scipy.signal.fftconvolve</code>
+    で時間反転 chirp と畳み込み → 線形 RIR を抽出 → 雑音 √N 抑制。
+    Step C で chirp が選ばれた場合に <code>pc/analyze_full32_matched.py</code> として実装。
+  </p>
+</div>
+
+<div class="step-card deferred">
+  <h3><span class="badge future">v0.6+</span>repeats=5 で再計測 + 中央値集約</h3>
+  <p>
+    1-shot 計測のばらつきを排除する基本対策。本命走査音方式が決まったあと、
+    本データセット (label data for NN training) を取り直すフェーズで
+    <code>plans/gen32.py</code> の <code>REPEATS = 5</code> に変更して全 14 等価
+    クラス × 30 サンプル相当を再取得。
+  </p>
+</div>
+
+<div class="step-card deferred">
+  <h3><span class="badge future">物理改善</span>模型の遮音強化</h3>
+  <p>
+    A2 等価クラス内で s10100 等のずれが 1 dB レベルで残る場合の対策。
+    扉 AB / BC のパネルにゴムガスケットを足す、外側に制振フォームを内貼り。
+    Step A + Step B 後の判断。
+  </p>
+</div>
+
+<h2>5. 意思決定の流れ図</h2>
+
+<pre>
+            Step A: silence_2cond_v1 を取得
+                       ↓
+            雑音床マップを得る
+                       ↓
+       ┌────TV で低域だけ雑音増加 ?────┐
+       │                                                │
+      YES                                              NO
+       │                                                │
+       ▼                                                ▼
+ROI = 500-6000 Hz 確定        広帯域雑音 → 物理対策 or EQ で対応検討
+       │
+       ▼
+            Step B: full_32_noise_v1 を取得
+                       ↓
+       Step C: chirp vs noise の比較解析
+                       ↓
+       ┌──ホワイトノイズが等価性で勝つ ?──┐
+       │                                                            │
+      YES                                                          NO
+       │                                                            │
+       ▼                                                            ▼
+本命 = ホワイトノイズ              本命 = chirp + 整合フィルタ
+       │                                                            │
+       └──────────┬───────────────┘
+                                     ▼
+            ROI 抽出 (判別性 × SNR 最大化)
+                                     ▼
+       ┌──ROI が 2-3 周波の狭帯域 ?──┐
+       │                                                │
+      YES                                              NO
+       │                                                │
+       ▼                                                ▼
+マルチトーン同時放射            <b>ゲート式バーストスイープ</b>
+       │                                                │
+       └──────────┬─────────────┘
+                                ▼
+            v0.6 NN 学習開始 (FP32 PC) → v0.7 INT8 → v1.0
+                                ▼
+            v1.0 fix 後、v1.5 雑踏適応モードを詳細化
+</pre>
+
+<div class="callout">
+  <strong>本ページの更新ポリシー:</strong>
+  Step A/B/C の結果が出るたびに「2. 現在未決定の項目」セクションの該当 D-1〜D-3
+  を「3. 確定済み事項」に移動。確定した内容は <a href="probe_sound.html">probe_sound.html</a> /
+  <a href="nn_review.html">nn_review.html</a> 等の正本へ反映してから本ページから畳む。
+</div>
+
+<div class="footer-note">
+  関連:
+  <a href="full32_initial_test.html">Full 32 初期計測</a> ／
+  <a href="probe_sound.html">走査音考察</a> ／
+  <a href="nn_review.html">NN 考察</a> ／
+  <a href="../tasks.html">タスクボード（フェーズ全体）</a>
+</div>
+
+</main>
+</body>
+</html>

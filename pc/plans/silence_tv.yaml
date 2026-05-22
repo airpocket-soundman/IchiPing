@@ -1,0 +1,16 @@
+# 無音計測 — 展示会雑踏想定 (テレビ再生中)
+# - SPK 駆動なし (pattern: silence_2s)、TV の音だけがマイクに乗る
+# - 10 reps (TV の時系列でスペクトルが変動しやすいので quiet より多めに)
+# - silence_quiet.yaml と同じ --run-id を指定して同じディレクトリに収める
+#
+# 実行手順:
+#   1. silence_quiet.yaml を先に取得 (TV OFF)
+#   2. TV を ON にして通常聴取音量に設定
+#   3. このプランを実行:
+#      uv run python collector_client.py --port COM3 \
+#          --plan plans/silence_tv.yaml --run-id silence_2cond_v1
+
+- label: silence_tv
+  pattern: 2          # silence_2s
+  repeats: 10
+  volume: 3

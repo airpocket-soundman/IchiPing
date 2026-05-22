@@ -55,7 +55,20 @@ class SweepPattern:
         return self.sweep_ms + self.silence_ms
 
 
-Pattern = Union[PulsePattern, SweepPattern]
+@dataclass
+class NoisePattern:
+    """White-noise pattern. Mirrors firmware/shared/include/pattern_lib.h
+    PATTERN_KIND_NOISE."""
+    name: str
+    duration_ms: int
+    volume_pct: int = 30
+    shape: int = 0          # 0 = PRBS (±1, crest 0 dB), 1 = uniform int16
+
+    def total_ms(self) -> int:
+        return self.duration_ms
+
+
+Pattern = Union[PulsePattern, SweepPattern, NoisePattern]
 
 
 # ---------------------------------------------------------------------------
@@ -151,6 +164,11 @@ class PatternLibrary:
                     f"PAT SWEEP {p.name} {p.start_hz} {p.end_hz} "
                     f"{p.sweep_ms} {p.silence_ms}"
                 )
+            elif isinstance(p, NoisePattern):
+                _emit(
+                    f"PAT NOISE {p.name} {p.duration_ms} "
+                    f"{p.volume_pct} {p.shape}"
+                )
             else:
                 raise TypeError(f"unsupported pattern type {type(p).__name__}")
 
@@ -207,6 +225,17 @@ def _parse_entry(entry: dict) -> Pattern:
             sweep_ms=int(entry["sweep_ms"]),
             silence_ms=int(entry.get("silence_ms", 0)),
         )
+    if kind == "noise":
+        # shape accepts either an integer or a string alias.
+        sh = entry.get("shape", 0)
+        if isinstance(sh, str):
+            sh = {"prbs": 0, "uniform": 1}.get(sh.lower(), 0)
+        return NoisePattern(
+            name=name,
+            duration_ms=int(entry["duration_ms"]),
+            volume_pct=int(entry.get("volume_pct", 30)),
+            shape=int(sh),
+        )
     raise ValueError(f"pattern {name!r}: unknown type {kind!r}")
 
 
@@ -221,5 +250,10 @@ def summary(p: Pattern) -> str:
         return (
             f"sweep  {p.start_hz}..{p.end_hz}Hz sweep={p.sweep_ms}ms "
             f"silence={p.silence_ms}ms dur={p.total_ms()}ms  {p.name}"
+        )
+    if isinstance(p, NoisePattern):
+        shape_name = {0: "PRBS", 1: "uniform"}.get(p.shape, f"shape{p.shape}")
+        return (
+            f"noise  {shape_name} dur={p.duration_ms}ms vol={p.volume_pct}%  {p.name}"
         )
     return f"???  {getattr(p, 'name', '?')}"

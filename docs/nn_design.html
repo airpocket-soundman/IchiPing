@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NN 詳細設計 — IchiPing v1</title>
 <link rel="stylesheet" href="style.css">
+<script src="embed.js"></script>
 </head>
 <body>
 
@@ -67,15 +68,16 @@
   </div>
   <h1>NN 詳細設計 — IchiPing v1 (DigiKey)</h1>
   <div class="sub">
-    マルチタスク 1D-CNN。<a href="spec.html">spec.html §4.3</a> を踏襲しつつ、
+    <b>14-class softmax 1D-CNN</b>（観測等価クラスを直接出力する単ヘッド構成）。
+    <a href="spec.html">spec.html §4.3</a> を踏襲しつつ、
     <a href="../pc/training/model.py">pc/training/model.py</a> の実装と
     <a href="../pc/training/features.py">features.py</a> の前処理を結びつけて、
     NPU 上での INT8 推論まで一気通貫で説明する。
   </div>
   <div class="meta">
-    <span class="meta-stat"><span class="num">~30 K</span> params</span>
-    <span class="meta-stat"><span class="num">~30 KB</span> INT8</span>
-    <span class="meta-stat"><span class="num">6</span> 出力ヘッド</span>
+    <span class="meta-stat"><span class="num">~13 K</span> params</span>
+    <span class="meta-stat"><span class="num">~13 KB</span> INT8</span>
+    <span class="meta-stat"><span class="num">14</span> クラス softmax</span>
     <span class="meta-stat"><span class="num">MCXN947</span> NPU ターゲット</span>
   </div>
 </header>
@@ -83,9 +85,51 @@
 <main>
 
 <h2>アーキテクチャ全体</h2>
-<img src="img/nn_architecture.svg" alt="IchiPing v1 NN アーキテクチャ: 1024-bin 入力 → Conv1D 16/32/64 ch → Global Average Pool → 6 つの出力ヘッド" style="width: 100%; max-width: 820px; display: block; margin: 16px 0;">
+<img src="img/nn_architecture.svg" alt="IchiPing v1 NN アーキテクチャ: 1024-bin 入力 → Conv1D 16/32/64 ch → Global Average Pool → 14-class softmax" style="width: 100%; max-width: 820px; display: block; margin: 16px 0;">
 
-<p>3 層の Conv1D が共有 backbone、6 つの全結合ヘッドが各タスクを担当。<b>共有 backbone により</b>「any_open」のような強信号タスクから学んだ特徴を、回帰・多クラス分類タスクに転用できる（マルチタスク学習による正則化効果）。</p>
+<p>3 層の Conv1D backbone + Global Average Pool + 単一の全結合層 (64→14) + softmax。<b>出力 = 14 観測等価クラス</b> (A1, A2, B1..B4, C1..C8) を直接予測する。</p>
+
+<h3>なぜ 14-class softmax 単ヘッドなのか — 理論的根拠</h3>
+
+<div class="callout">
+  <strong>結論</strong>: 観測情報量上限 $I(\text{観測}; \text{真状態}) \le \log_2 14 \approx 3.81$ bit と
+  出力エントロピー上限が一致する。これは情報理論的に「無駄なし・捏造なし」の最適構造。
+</div>
+
+<p>
+  IchiPing は 5 サーボ × open/close = <b>32 真状態</b>を持つが、ドアによる遮蔽で
+  音響的に区別不可能な等価クラスが生じ、<b>観測可能な区別は最大 14 クラス</b>に縮退する
+  （詳細: <a href="full32_initial_test.html">14 等価クラス解析</a>）。
+  これは物理から導かれる hard constraint で、学習で破れない。
+</p>
+
+<table>
+  <thead><tr><th>候補アーキ</th><th>出力次元</th><th>$H(\text{出力})$ 上限</th><th>チャネル容量との差</th><th>判定</th></tr></thead>
+  <tbody>
+    <tr><td><b>14-class softmax</b></td><td>14</td><td>$\log_2 14 \approx 3.81$ bit</td><td><b>一致</b>（無駄なし）</td><td>★ 本命</td></tr>
+    <tr><td>32-class softmax</td><td>32</td><td>$\log_2 32 = 5$ bit</td><td>+1.19 bit（ノイズから捏造）</td><td>科学検証用</td></tr>
+    <tr><td>6-head 混合 (sigmoid + softmax)</td><td>~216</td><td>$\log_2 216 \approx 7.75$ bit</td><td>+3.94 bit</td><td>退避（連続角度時代の遺物）</td></tr>
+  </tbody>
+</table>
+
+<p>
+  容量超過のビットは、データのノイズ成分にフィットさせるしかない。32-class は同じ等価クラス内 4 状態に対し
+  posterior を均等分割すべきところを、訓練データの偶発的バイアスから「どちらかに振る」よう学んでしまう。
+  これは情報理論的に有害で、有限データ域では汎化を阻害する。
+</p>
+
+<p>
+  ベイズ最適分類器の観点からも 14-class が直接 $P(\text{equiv\_class}_k \mid x)$ を表現する。
+  バイアス-分散トレードオフでも、VC 次元の小さい 14-class の方が同データ量での汎化誤差が小さい。
+</p>
+
+<h4>32-class 変種の存在意義</h4>
+<p>
+  本命は 14-class だが、<b>観測可能性予言の経験的検証</b>のために 32-class softmax variant
+  (<a href="../pc/training/model_32cls.py">model_32cls.py</a>) を併設する。
+  予言通りなら test acc が ~0.44 (= 14/32) で頭打ち、32×32 confusion で 4×4 等価ブロックが
+  浮かび上がるはず。これは仮説検証の 1 回限りの実験であり、本番モデルには使わない。
+</p>
 
 <h2>各層の設計理由</h2>
 
@@ -115,22 +159,70 @@
   最後に <code>AdaptiveAvgPool1d(1)</code> で時間軸を畳む（→ 64-d shared embedding）。
 </p>
 
-<h3>6 出力ヘッド</h3>
+<h3>出力ヘッド <span class="pill">FC 64→14 + softmax</span></h3>
+
+<p>
+  共有 backbone から 64-d embedding を受け、<b>単一の全結合層</b> (weights 64×14 = 896, bias 14) で
+  14 等価クラスのロジットに射影し、softmax で確率分布を得る。損失は標準的な cross-entropy 1 本。
+</p>
+
 <table>
-  <thead><tr><th>ヘッド</th><th>形</th><th>損失</th><th>正解信号</th></tr></thead>
+  <thead><tr><th>項目</th><th>値</th></tr></thead>
   <tbody>
-    <tr><td><code>any_open</code></td><td>scalar (sigmoid)</td><td>BCEWithLogits</td><td>5 サーボのいずれかが OPEN_THRESHOLD 超</td></tr>
-    <tr><td><code>door_AB</code></td><td>scalar (linear)</td><td>MSE</td><td>servo_AB / 90.0</td></tr>
-    <tr><td><code>door_BC</code></td><td>3-class</td><td>CrossEntropy</td><td>bucketise(servo_BC, [closed, half, full])</td></tr>
-    <tr><td><code>window_a</code></td><td>scalar (linear)</td><td>MSE</td><td>servo_a / 90.0</td></tr>
-    <tr><td><code>window_b</code></td><td>3-class</td><td>CrossEntropy</td><td>bucketise(servo_b)</td></tr>
-    <tr><td><code>window_c</code></td><td>3-class</td><td>CrossEntropy</td><td>bucketise(servo_c)</td></tr>
+    <tr><td>出力次元</td><td>14（A1, A2, B1..B4, C1..C8）</td></tr>
+    <tr><td>活性化</td><td>softmax（訓練時は cross-entropy with logits）</td></tr>
+    <tr><td>損失</td><td>F.cross_entropy（class weight オプションあり）</td></tr>
+    <tr><td>正解信号</td><td>5-bit state → equiv_class index (0..13) への決定論的マッピング</td></tr>
+    <tr><td>推論出力</td><td>argmax → equiv_class index、または softmax 確率全 14 次元</td></tr>
   </tbody>
 </table>
+
+<h4>5-bit state → 14 equiv_class マッピング</h4>
+
 <p>
-  ロス重みは [training/train.py](../pc/training/train.py) 冒頭の <code>LOSS_WEIGHTS</code> に集約。
-  実データ収集後に <b>各タスクのロスが同オーダーになる</b>よう調整する。
+  データ収集時のラベルは 5-bit (a, b, c, AB, BC) だが、訓練前に等価クラス index に変換する。
+  この変換は <code>pc/training/dataset.py</code> の <code>STATE_TO_EQUIV</code> table で行う。
 </p>
+
+<table>
+  <thead><tr><th>equiv_class</th><th>意味</th><th>5-bit state メンバー</th><th>個数</th></tr></thead>
+  <tbody>
+    <tr><td>A1</td><td>全閉</td><td>s00000, s00010, s00100, s00110, s01000, s01010, s01100, s01110, s10000, s10010, s10100, s10110, s11000, s11010, s11100, s11110</td><td>16</td></tr>
+    <tr><td>A2</td><td>AB 閉, 窓 a のみ開</td><td>s10001, s10011, s10101, s10111, s11001, s11011, s11101, s11111</td><td>8</td></tr>
+    <tr><td>B1..B4</td><td>AB 開, BC 閉</td><td>(各 1 つ)</td><td>4</td></tr>
+    <tr><td>C1..C8</td><td>AB 開, BC 開</td><td>(各 1 つ)</td><td>8</td></tr>
+  </tbody>
+</table>
+
+<p>
+  完全な等価クラス定義表は <a href="full32_initial_test.html">Full 32 初期計測 §等価クラス一覧</a>。
+  16 + 8 + 4 + 8 = 36 ≠ 32 に見えるが、A1/A2 は重複なく分割される (16 + 8 = 24)
+  ので最終的に 24 + 4 + 8 = <b>32 真状態が 14 クラスに分割</b>される。
+</p>
+
+<h4>32-class 変種（科学検証用）</h4>
+<p>
+  本命の 14-class とは別に、<b>単一の 32-class softmax ヘッド</b>を持つ variant
+  <code>IchiPingV1_32cls</code> を <a href="../pc/training/model_32cls.py">model_32cls.py</a> に併設
+  （backbone 同一）。観測可能性予言の経験的検証用で、本番モデルではない。
+</p>
+<p>
+  <b>予想結果</b>: full_32_v1 で A2 クラス内 8 メンバーの RMS std は 800-6000 Hz 帯で
+  <b>0.07 dB</b>（雑音床と同オーダー）。クラス内シグナルはほぼ無く、
+  <b>32 クラス test acc は ~0.44 (= 14/32) で頭打ち</b>になると見込む。
+  32×32 confusion matrix で 4×4 等価ブロックが浮かび上がれば予言通り。詳細:
+  <a href="training_plan.html">学習計画 §2.5</a>。
+</p>
+
+<h4>退避: 6-head 混合（連続サーボ角度時代の遺物）</h4>
+<div class="callout warn">
+  <strong>過去案: sigmoid (binary / [0,1] 連続) + 3-class softmax の 6-head 混合</strong>。
+  当初はサーボ角を連続値で扱う想定だったため設計されたが、現ラベルは binary 開閉のみで、
+  6-head の出力空間は 216 通り → そのうち実在は 32 → 観測可能は 14 という<b>二重の縮退</b>を
+  NN に強いる構造で情報理論的に非効率。<b>2026-05-22 に正式廃止</b>、
+  将来サーボを連続角度で動かす計画が復活した場合の参考として
+  <code>model_legacy_multihead.py</code> に退避予定。
+</div>
 
 <h2>特徴抽出パイプライン（PC と MCU で共通設計）</h2>
 <img src="img/feature_pipeline.svg" alt="WAV → 整合フィルタ → RIR 窓 → rFFT → log-magnitude → 1024 bin 入力" style="width: 100%; max-width: 820px; display: block; margin: 16px 0;">
@@ -154,6 +246,114 @@
   </tbody>
 </table>
 
+<h3>初期計測で観察された特異点 (full_32_v1)</h3>
+
+<div class="callout warn">
+  <strong>クラス A2 内に 2 つの外れ値: s10100 / s11000</strong>:
+  Linear chirp で全 32 状態を 1 ショットずつ取得した
+  <a href="full32_initial_test.html">full_32_v1</a> 解析で、観測等価クラス A2
+  （扉 AB 閉 × 窓 a 開、メンバー 8 個）の中で 2 つの状態がクラス内中央値から
+  系統的にずれていることが判明した。本来このクラスの 8 メンバーは
+  原理上同一スペクトルになるはずだが:
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>state</th><th>RMS_dB vs A2 中央値</th><th>max\|Δ\| 周波数</th><th>ずれの性質</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>s10100</code></td>
+      <td>+5.00 dB</td>
+      <td>326 Hz</td>
+      <td>強い peak 差（クラス内最大の外れ）</td>
+    </tr>
+    <tr>
+      <td><code>s11000</code></td>
+      <td>+1.58 dB</td>
+      <td>215 Hz（200-280 Hz 帯に集中）</td>
+      <td>軽度の dip（低域に系統的減衰）</td>
+    </tr>
+    <tr>
+      <td>その他 A2 メンバー (6 個)</td>
+      <td>1.00 〜 1.46 dB</td>
+      <td>多様</td>
+      <td>クラスタとして tight</td>
+    </tr>
+  </tbody>
+</table>
+
+<h4>原因仮説 — 外部雑音の可能性が最有力</h4>
+
+<ol>
+  <li>
+    <b>外部雑音の影響（最有力）</b>: max\|Δ\| のピーク周波数が両者とも
+    <b>200-330 Hz の低域</b>に集中しており、ここは
+    <ul>
+      <li>SPK (45 mm, 0.25 W) の物理的出力が弱い帯域</li>
+      <li>外部生活雑音（空調・通行音・低周波振動）が乗りやすい帯域</li>
+      <li>chirp の開始周波数 200 Hz 直後の遷移帯</li>
+    </ul>
+    が重なる「<b>計測ノイズが本物の信号を上回る領域</b>」。同じデータでも 400 Hz
+    以上に限定して RMS を再計算すると、A2 クラス内の std が 0.316 → 0.072 dB と
+    <b>4.4× 改善し外れ値が消える</b>。これは「外れ値の正体は低域雑音」という
+    仮説を強く支持する。
+  </li>
+  <li>
+    <b>扉 AB の遮音不完全</b>: 仮説 1 が違う場合、扉 AB の物理的な隙間から
+    向こう側の窓状態が漏れて見えている可能性。s10100 は窓 c 開、s11000 は窓 b 開、
+    両者とも「向こう側の窓が開いている」状態で、観測等価性が崩れている方向。
+  </li>
+  <li>
+    <b>サーボ機械的ばらつき</b>: SG90 の位置決め精度 ±2° 程度の差で
+    模型の小開口部が微妙に変わる可能性。
+  </li>
+</ol>
+
+<h4>NN 設計上の対策</h4>
+
+<table>
+  <thead><tr><th>対策</th><th>段階</th><th>効果</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><b>入力帯域を 500-6000 Hz に制限</b></td>
+      <td>v0.4 特徴抽出（features.py）</td>
+      <td>低域雑音帯を学習対象から外す。クラス内分散が劇的に改善 (×4)</td>
+    </tr>
+    <tr>
+      <td><b>repeats=5 中央値集約</b></td>
+      <td>v0.4 データ収集（plans/）</td>
+      <td>1 ショット特異点を多サンプル中央値で吸収</td>
+    </tr>
+    <tr>
+      <td><b>整合フィルタによる chirp デコンボリューション</b></td>
+      <td>v0.4 前処理</td>
+      <td>chirp と無相関な雑音を √N 抑制（+30〜45 dB SNR 改善）</td>
+    </tr>
+    <tr>
+      <td><b>雑音 augmentation</b>（実環境雑音 WAV を学習時に overlay）</td>
+      <td>v0.6 学習</td>
+      <td>NN が雑音込みデータで頑健化、配置先の雑踏に対する精度低下を抑制</td>
+    </tr>
+    <tr>
+      <td><b>配置先 PC 再学習</b>（v1.5 計画）</td>
+      <td>v1.5 配置時</td>
+      <td>展示会場等で雑音 30-60 秒採取 → PC で head fine-tune → MCU flash 書込</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  詳細解析と意思決定は <a href="full32_initial_test.html">Full 32 初期計測 §A2 / §6</a>、
+  外部雑音対策の全体方針は <a href="probe_sound.html">走査音考察 §7 リスクと制約</a>
+  および <a href="nn_review.html">NN 考察 §0 開発順序</a> 参照。
+  s10100 / s11000 の本当の原因切り分けは
+  <a href="near_term_plan.html">当面の実行計画 Step A</a> の silence_2cond_v1
+  計測完了後に確定する。
+</p>
+
 <h2>パラメータ数の根拠</h2>
 
 <p>各 Conv 層と Linear 層の素朴な見積もり：</p>
@@ -166,27 +366,29 @@
     <tr><td>BN2</td><td>—</td><td>64</td><td>64</td></tr>
     <tr><td>conv3 (32→64, k=4)</td><td>8,192</td><td>64</td><td>8,256</td></tr>
     <tr><td>BN3</td><td>—</td><td>128</td><td>128</td></tr>
-    <tr><td>head_any_open (64→1)</td><td>64</td><td>1</td><td>65</td></tr>
-    <tr><td>head_door_AB</td><td>64</td><td>1</td><td>65</td></tr>
-    <tr><td>head_door_BC (64→3)</td><td>192</td><td>3</td><td>195</td></tr>
-    <tr><td>head_window_a</td><td>64</td><td>1</td><td>65</td></tr>
-    <tr><td>head_window_b (64→3)</td><td>192</td><td>3</td><td>195</td></tr>
-    <tr><td>head_window_c (64→3)</td><td>192</td><td>3</td><td>195</td></tr>
-    <tr><th>合計</th><th></th><th></th><th><b>~13,660</b></th></tr>
+    <tr><td><b>head (64→14)</b></td><td><b>896</b></td><td><b>14</b></td><td><b>910</b></td></tr>
+    <tr><th>合計</th><th></th><th></th><th><b>~13,690</b></th></tr>
   </tbody>
 </table>
 
-<div class="callout warn">
-  <strong>備考:</strong> 上記は最小構成。spec.html §4.3 の「~30 K params」見積もりに合わせる場合は
-  conv2/conv3 のチャネル数を倍にする余地あり（その場合 ~50 K）。実データで underfit を確認してから増やす。
+<div class="callout">
+  <strong>備考:</strong> 6-head 混合版 (~13,660 params) とほぼ同じ規模。出力ヘッド側の差は微小で、
+  パラメータ削減目的ではなく <b>情報理論的整合性と汎化性能</b>のために 14-class に統一する。
+  spec.html §4.3 の「~30 K params」見積もりに合わせて backbone を厚くする余地は残っているが、
+  実データで underfit を確認してから増やす方針。
 </div>
 
-<h2>マルチタスク学習のコツ</h2>
+<h2>14-class softmax 学習のコツ</h2>
 <ul>
-  <li><b>ロス重みは固定じゃない</b> — 訓練初期はクラス分類の方が CE で大きく出るので、回帰側を重めに（あるいは MSE を MAE/Huber に切替）</li>
-  <li><b>any_open は冗長</b>に見えるが「OOD（学習外環境）」検出のフックとして残す。再構成誤差スコアの代用に使える</li>
-  <li><b>door_BC は「AB が開いている時のみ可視」</b>（spec.html §2 観測可能性）。マスクして loss を 0 にする実装も検討</li>
-  <li><b>未経験状態 holdout の評価</b>を必ず別途取る。組み合わせ汎化が破綻すると spec §11 の v1 主張が崩れる</li>
+  <li><b>クラス不均衡対策</b>: A1 (全閉) は 32 状態のうち 16 個 (50%) を占める一方、B1..B4 / C1..C8 は各 1 個ずつ。
+    収集データもこの分布になるので、訓練時に <code>class_weight</code> 設定（逆頻度 or effective number of samples）または
+    クラスバランス サンプリングを使う。</li>
+  <li><b>未経験状態 holdout の評価</b>を必ず別途取る。例えば C 系列のうち 1 状態を holdout にし、
+    他 7 状態だけで訓練して holdout で評価する。等価クラス内の汎化が破綻すると spec §11 の v1 主張が崩れる。</li>
+  <li><b>OOD 検出</b>: any_open の代わりに softmax の最大確率や entropy を OOD スコアとして使える。
+    雑踏環境で全クラス確率が均等に低い → 未知音と判定。</li>
+  <li><b>32-class variant も同時訓練</b>: 同じ backbone で 32-class head を訓練して 32×32 confusion を取り、
+    14-class 等価ブロックが浮かび上がるか確認する。これが観測可能性予言の経験的検証になる。</li>
 </ul>
 
 <h2>ロードマップ上の位置づけ</h2>

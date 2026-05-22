@@ -13,6 +13,11 @@
 #   sweep  — linear chirp from start_hz to end_hz over sweep_ms, then
 #            silence_ms of trailing silence.
 #            Recording window = sweep_ms + silence_ms.
+#   noise  — pseudo-random white noise for duration_ms.
+#            shape: 0 = PRBS (±1, crest factor 0 dB, recommended), 1 = uniform int16.
+#            volume_pct: 0..100 amplitude scaling (keep low: noise drives the
+#            full band at once, easy to saturate the speaker).
+#            Recording window = duration_ms.
 #
 # Limits (matched to firmware constants in pattern_lib.h):
 #   - up to 16 patterns total
@@ -54,3 +59,12 @@ patterns:
     tones:
       - {freq_hz: 1000, on_ms: 100, off_ms: 100}
       - {freq_hz: 5000, on_ms: 100, off_ms: 100}
+
+  # White noise (PRBS, 2 s). Excites all frequencies simultaneously; pair
+  # with EQ DISABLE for the SPK/mic calibration measurement, or use as a
+  # full-band probe alternative to chirp_200_6k for resonance discovery.
+  - name: noise_2s_prbs
+    type: noise
+    duration_ms: 2000
+    volume_pct: 30
+    shape: prbs

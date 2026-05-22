@@ -256,6 +256,10 @@ gcc/MinGW があれば `test_ctypes_packer.py` も走り、C 側 `ichp_pack_fram
 | [`receiver.py`](receiver.py) | シリアル / TCP / ファイル → CRC 検証 → WAV+CSV 保存のメインスクリプト（01 / 05 / 08 で使用） |
 | [`collector_client.py`](collector_client.py) | [09_collector](../firmware/projects/09_collector/) と対向。PC→MCU の ASCII コマンド（SET / SERVO / RUN / STOP）と MCU→PC の ICHP フレームを多重で処理。インタラクティブ REPL / `--plan plan.json` 両対応。`captures/<label>/` にラベル分け保存 |
 | [`inference_client.py`](inference_client.py) | [10_inference](../firmware/projects/10_inference/) と対向（読み専用モニタ）。RESULT 行をパースして整形表示 + 任意で CSV 記録。`:label <name>` で真値タグを付けてオンライン精度確認可 |
+| [`live_infer.py`](live_infer.py) | **PC 側で推論**するライブツール。MCU を Ping → 1 フレーム取得 → `training/features.py` で前処理 → PyTorch モデルで予測。`live`（連続）/ `single`（1 発）/ `verify`（plan で 32 状態自動掃引 + per-class 精度）の 3 モード。モデル試行錯誤中の主力ツール |
+| [`calibrator.py`](calibrator.py) | SPK/mic キャリブレーション CLI。`record` / `analyze` / `design-filter` / `upload-filter` / `compare` |
+| [`analyze_noise.py`](analyze_noise.py) | 静寂 vs TV の雑音床比較スペクトル PNG 生成 |
+| [`analyze_full32.py`](analyze_full32.py) | 32 状態 chirp/noise 計測の FFT + 2D STFT + 等価クラス grouped diff |
 | [`emulator.py`](emulator.py) | 実機なしでダミーフレームを生成する偽 MCU。stdout / TCP / file の 3 出口 |
 | [`verify.py`](verify.py) | 受信ストリームを 8 項目（type/CRC/seq 連番/ts 単調/n_samples/rate/サーボ範囲/サンプル範囲）で検証する CLI。`--strict` で CI 利用可 |
 | [`test_frame_format.py`](test_frame_format.py) | unittest 9 件。ヘッダ層 + CRC ラウンドトリップ |

@@ -1,0 +1,14 @@
+# 無音計測 — 開発環境 (静かな個室) ベースライン
+# - SPK 駆動なし (pattern: silence_2s = 2 秒の無音再生)
+# - 5 reps、合計 ~10 秒
+# - doors を指定しないので servo は動かず servo hum は乗らない
+# - 同じ run-id を --run-id silence_2cond_v1 で渡し、silence_tv.yaml と同居させる
+#
+# 実行:
+#   uv run python collector_client.py --port COM3 \
+#       --plan plans/silence_quiet.yaml --run-id silence_2cond_v1
+
+- label: silence_quiet
+  pattern: 2          # silence_2s の index (patterns.yaml で 3 番目 = 0-indexed の 2)
+  repeats: 5
+  volume: 3

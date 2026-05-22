@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>学習計画 — IchiPing</title>
+<link rel="stylesheet" href="style.css">
+<script src="embed.js"></script>
+<style>
+  .phase-card {
+    background: var(--panel, #181b22);
+    border: 1px solid var(--border, #2a313d);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 14px 0;
+  }
+  .phase-card .phase-tag {
+    display: inline-block;
+    background: var(--accent, #6ea8fe);
+    color: #0f1115;
+    padding: 2px 10px;
+    border-radius: 9px;
+    font-size: 11px;
+    font-weight: 800;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+  .phase-card .phase-tag.A { background: #c2185b; color: #fff; }
+  .phase-card .phase-tag.B { background: #ff9f1c; color: #1a1d23; }
+  .phase-card .phase-tag.C { background: #6ea8fe; color: #0f1115; }
+  .phase-card .phase-tag.D { background: #7be0a4; color: #0f1115; }
+  .phase-card .phase-tag.E { background: #ffb454; color: #1a1d23; }
+  .phase-card .phase-tag.F { background: #c2185b; color: #fff; }
+  .phase-card h3 {
+    margin: 0 0 4px 0;
+    font-size: 15px;
+  }
+  .phase-card .when {
+    color: var(--muted, #8b95a7);
+    font-size: 11px;
+    margin-bottom: 8px;
+  }
+  .gate-table th, .gate-table td { font-size: 12px; }
+</style>
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../index.html">トップ</a>
+      <a href="../tasks.html">タスクボード</a>
+      <a href="near_term_plan.html">当面の実行計画</a>
+      <a href="training_plan.html" class="current">学習計画</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">NN 検討</div>
+      <a href="probe_sound.html">走査音考察</a>
+      <a href="nn_review.html">NN 考察</a>
+      <a href="nn_design.html">NN 設計</a>
+      <a href="full32_initial_test.html">Full 32 初期計測</a>
+    </div>
+  </nav>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../index.html">← IchiPing トップ</a>
+    ／ <a href="near_term_plan.html">当面の実行計画</a>
+    ／ <a href="probe_sound.html">走査音考察</a>
+    ／ <a href="nn_review.html">NN 考察</a>
+    ／ <a href="nn_design.html">NN 設計</a>
+  </div>
+  <h1>学習計画 — Train / Quantize / Deploy ループ <span class="pill">v1 PoC 想定</span></h1>
+  <div class="sub">
+    走査音方式が確定したら即着手するための学習パイプライン。
+    <b>device 収集 → PC 学習 → PC 推論検証 → 量子化 → MCU デプロイ</b>を 1 周
+    ~45 分で回し、1 日 5-10 周の試行錯誤で精度を仕上げる方針。
+    実装は <a href="../pc/training/">pc/training/</a> 配下に完成済み。
+  </div>
+  <div class="meta">
+    <span class="meta-stat"><span class="num">30</span> サンプル/状態（推奨）</span>
+    <span class="meta-stat"><span class="num">960</span> 総サンプル数</span>
+    <span class="meta-stat"><span class="num">~45 分</span> 反復 1 周</span>
+    <span class="meta-stat"><span class="num">5-10</span> 周/日</span>
+    <span class="meta-stat done"><span class="num">8</span> プログラム実装済</span>
+  </div>
+</header>
+
+<main>
+
+<div class="callout">
+  <strong>モデル構成 — 14-class softmax 単ヘッド（情報理論的に最適）</strong>
+  <p>
+    出力は <b>14 観測等価クラス</b>を直接予測する softmax 単ヘッド。
+    観測情報量上限 $\log_2 14 \approx 3.81$ bit と出力エントロピーが一致するため捏造ビットがゼロ、
+    Bayes 最適分類器に直接対応する構成。詳細根拠は
+    <a href="nn_design.html">NN 設計 §なぜ 14-class softmax 単ヘッドなのか</a>。
+    32-class variant (<code>model_32cls.py</code>) は科学検証用として併走させる（§2.5 参照）。
+  </p>
+  <p>
+    <b>注</b>: <code>pc/training/model.py</code> の <code>IchiPingV1</code> は現状まだ 6-head 混合版
+    （連続サーボ角度時代の遺物）が残っている。本計画 Phase B 着手前に 14-class softmax 単ヘッドへ
+    書き換える必要がある（backbone は流用、出力ヘッドだけ <code>Linear(64, 14)</code> に置換）。
+  </p>
+</div>
+
+<div class="callout">
+  <strong>入力データ形式の選択 — 本計画は 1D FFT を baseline とする</strong>
+  <p>
+    <a href="../pc/training/features.py">features.py</a> は WAV を整合フィルタで畳み込んだ後に FFT を取り、
+    <b>1024 bin の 1D log-magnitude スペクトル</b>に変換する。
+    モデルは Conv<b>1D</b> ベースの ~13.7 K params NN
+    （<a href="nn_design.html">NN 設計</a> 通りの構成）。
+  </p>
+  <table>
+    <thead><tr><th>観点</th><th>1D log-mag (現状)</th><th>2D STFT (将来オプション)</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>ホワイトノイズ励振との相性</td>
+        <td>◎ 定常確率で時間軸に情報なし → 1D で十分</td>
+        <td>△ 時間軸が冗長</td>
+      </tr>
+      <tr>
+        <td>chirp 励振との相性</td>
+        <td>○ 整合フィルタ後の RIR を 1D 化すれば等価</td>
+        <td>◎ 時間-周波数構造を直接保持</td>
+      </tr>
+      <tr>
+        <td>MCXN947 NPU 負荷</td>
+        <td>◎ Conv1D は軽い</td>
+        <td>△ Conv2D は 1 桁重い</td>
+      </tr>
+      <tr>
+        <td>実装枯れ度</td>
+        <td>nn_design.html で v1 baseline 確定</td>
+        <td><a href="nn_review.html">nn_review §3.2</a> で「注目候補」段階</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>
+    走査音方式 (<a href="near_term_plan.html">D-1</a>) で
+    <b>ホワイトノイズが選ばれれば 1D が最適</b>。chirp が選ばれた場合は 1D（整合フィルタ後）+
+    2D STFT 並走比較を検討する余地がある。
+  </p>
+  <p>
+    <b>2D への切替コストは小さい</b>:
+    変更するのは <code>features.py</code>（出力 shape）と <code>model.py</code>（Conv1D→Conv2D）の 2 ファイルのみ。
+    dataset / augment / train / infer / export_onnx / quantize は <b>tensor shape 非依存</b>で再利用可能。
+    走査音確定後 1 時間で並走比較セットを作れる疎結合設計。
+  </p>
+</div>
+
+<h2>1. サンプル所要量</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>フェーズ</th>
+      <th>状態あたり</th>
+      <th>総数<br>(32 真状態)</th>
+      <th>拡張後 effective</th>
+      <th>計測時間</th>
+      <th>用途</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>PoC</td>
+      <td>10</td>
+      <td>320</td>
+      <td>~2,000</td>
+      <td>~8 分</td>
+      <td>動作確認、loss が下がるかの sanity</td>
+    </tr>
+    <tr style="background: rgba(123,224,164,0.08);">
+      <td><b>本収集 v1（推奨）</b></td>
+      <td><b>30</b></td>
+      <td><b>960</b></td>
+      <td><b>~5,000</b></td>
+      <td><b>~25 分</b></td>
+      <td><b>学習可能な実用モデル</b></td>
+    </tr>
+    <tr>
+      <td>本収集 v2</td>
+      <td>100</td>
+      <td>3,200</td>
+      <td>~20,000</td>
+      <td>~80 分</td>
+      <td>高精度・頑健化</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>根拠</h3>
+
+<ul>
+  <li><b>14 等価クラス × 30 = 420</b>: 経験則「params ≤ data × 10」に対し、30 K params の
+    NN なら data = 数千 effective で十分汎化</li>
+  <li><b>32 真状態 × 30 = 960</b>: 観測等価クラス内の機械バラツキ（サーボ位置 ±2°、扉パネル微差等）が
+    自然な augmentation として機能する → クラスあたり実効 30 × 8 = 240 サンプル相当</li>
+  <li><b>×5 拡張</b>: TimeShift（±10 ms）/ LevelJitter（±2 dB）/ NoiseOverlay（SNR 10-30 dB） /
+    GaussianHiss で 1 サンプルあたり 5 通りの摂動 → 5,000 effective</li>
+  <li><b>14 クラス macro-F1 ≥ 0.90 が目標</b>。届かなければ本収集 v2 に進む</li>
+</ul>
+
+<h3>実行コマンド</h3>
+
+<pre><code>cd pc
+
+# REPEATS=1 → 30 にしてプラン再生成
+# (注: gen32.py の PATTERN_IDX は走査音方式の最終決定後に確定値に揃える)
+python plans/gen32.py > plans/full_32_v2.yaml
+
+# 計測 (~25 分)
+uv run python collector_client.py --port COM3 \
+    --plan plans/full_32_v2.yaml --run-id full_32_v2
+</code></pre>
+
+<h2>2. 反復ループ — Train / Eval / Deploy</h2>
+
+<div class="phase-card">
+  <h3><span class="phase-tag A">A</span>実機 収集 — 960 サンプル取得</h3>
+  <div class="when">所要 ~25 分（initial + 改善ごとに再収集も可）</div>
+  <pre><code>uv run python collector_client.py --port COM3 \
+    --plan plans/full_32_v2.yaml --run-id full_32_v2</code></pre>
+  <p>出力: <code>captures/full_32_v2/sXXXXX/frame_*.wav</code> ×960</p>
+</div>
+
+<div class="phase-card">
+  <h3><span class="phase-tag B">B</span>PC 学習 (FP32) — 14-class softmax 1D-CNN</h3>
+  <div class="when">所要 5-10 分（RTX 4060 想定、CPU でも 30 分程度）</div>
+  <pre><code>uv run --extra training python -m training.train \
+    --captures captures/full_32_v2 \
+    --out runs/v1 --epochs 50</code></pre>
+  <p>
+    出力:
+    <code>runs/v1/best.pt</code>（PyTorch ckpt）/
+    <code>train_log.csv</code>（per-epoch loss）/
+    <code>config.json</code>（再現用メタ）
+  </p>
+  <p>
+    モデルは <a href="nn_design.html">NN 設計</a> の <code>IchiPingV1</code>
+    （Conv1D 16/32/64 ch + GAP + Linear(64, 14) + softmax, ~13.7 K params）。
+    損失は cross-entropy 1 本。Augmentation は
+    <a href="../pc/training/augment.py">augment.py</a> の <code>default_train_transform</code>
+    が <a href="../pc/captures/silence_2cond_v1/">silence_2cond_v1</a> の TV ノイズを自動 overlay。
+  </p>
+</div>
+
+<div class="phase-card">
+  <h3><span class="phase-tag C">C</span>PC 推論で検証 — 14 クラス macro-F1 + 混同行列</h3>
+  <div class="when">所要 ~1 分</div>
+  <pre><code>uv run --extra training python -m training.infer \
+    --captures captures/full_32_v2 \
+    --ckpt runs/v1/best.pt \
+    --out reports/v1_eval/</code></pre>
+  <p>出力:
+    <code>report.json</code>（per-bit accuracy / per-class F1 / overall）/
+    <code>confusion.csv</code> / <code>confusion_matrix.png</code></p>
+  <p>
+    <b>判定</b>: macro-F1 ≥ 0.90 なら D に進む。届かなければ:
+  </p>
+  <ul>
+    <li>混同行列で「A1 と A2 を取り違える」→ 窓 a 開閉特徴が弱い → 走査音帯域 / ROI 見直し</li>
+    <li>「B1-B4 内で B2 と B4 を取り違える」→ 扉 AB 開状態の窓 a 検出失敗 → 同上</li>
+    <li>クラス全体で F1 が低い → サンプル数増（v2 へ）or augmentation 強化</li>
+  </ul>
+</div>
+
+<div class="phase-card">
+  <h3><span class="phase-tag C">C′</span>実機ライブ推論で動作確認（任意・推奨）</h3>
+  <div class="when">所要 ~5 分（インタラクティブ）</div>
+  <p>
+    captures データだけでなく、<b>実機 + サーボを動かしながら推論結果を見る</b>
+    検証ステップ。Phase C のオフライン F1 が良くても、ライブで取った
+    フレームに対する挙動を見ておくと「ハマる状態」が早く見つかる。
+  </p>
+  <pre><code># 連続モード — Ctrl-C で停止、サーボを手で動かして予測の変化を観察
+uv run --extra training python live_infer.py live \
+    --port COM3 --ckpt runs/v1/best.pt --pattern chirp_200_6k --interval 1.5
+
+# plan で 32 状態を自動掃引して per-class 精度を出す
+uv run --extra training python live_infer.py verify \
+    --port COM3 --ckpt runs/v1/best.pt \
+    --plan plans/full_32_v2.yaml --pattern chirp_200_6k</code></pre>
+  <p>
+    <a href="../pc/live_infer.py"><code>live_infer.py</code></a> は MCU を Ping →
+    1 フレーム受信 → 学習と同じ features.py で前処理 → モデルで予測 →
+    14 クラスラベル + 確信度を出力。
+    <code>live</code> / <code>single</code> / <code>verify</code> の 3 サブコマンド。
+  </p>
+</div>
+
+<div class="phase-card">
+  <h3><span class="phase-tag D">D</span>ONNX エクスポート + INT8 量子化</h3>
+  <div class="when">所要 2-3 分</div>
+  <pre><code># D-1: PyTorch → ONNX (opset 13, fixed shape)
+uv run --extra training python -m training.export_onnx \
+    --ckpt runs/v1/best.pt --out runs/v1/best.onnx
+
+# D-2: INT8 量子化 (eiq-onnx2tflite, 推奨)
+uv run --extra training python -m training.quantize \
+    --onnx runs/v1/best.onnx --out runs/v1/best_int8.tflite \
+    --captures captures/full_32_v2 --backend eiq</code></pre>
+  <p>
+    <b>判定基準</b>: FP32 比 macro-F1 が -2 pt 以内なら採用。落差が大きい場合は:
+  </p>
+  <ul>
+    <li><code>--per-channel</code> 量子化を有効化（デフォルトで ON）</li>
+    <li>QAT (quantization-aware training) に切替: 学習時に fake-quant 挿入</li>
+    <li>backbone のチャネル幅を増やして冗長性を持たせる</li>
+  </ul>
+  <p>
+    詳細は <a href="nn_review.html">NN 考察 §1.A</a> ONNX→Neutron パイプライン参照。
+  </p>
+</div>
+
+<div class="phase-card">
+  <h3><span class="phase-tag E">E</span>Neutron Converter → MCXN947 用 TFLite</h3>
+  <div class="when">所要 ~2 分（Windows / eIQ Toolkit CLI 環境から）</div>
+  <pre><code>eiq-converter --plugin eiq-converter-neutron \
+              --custom-options "target mcxn94x" \
+              runs/v1/best_int8.tflite \
+              runs/v1/best_neutron.tflite</code></pre>
+  <p>
+    生成 TFLite は <b>NeutronGraph という単一カスタム op に NPU 対応部分が集約</b>される。
+    CPU フォールバックが必要な op（Softmax 等）は元の op として残る。
+  </p>
+</div>
+
+<div class="phase-card">
+  <h3><span class="phase-tag F">F</span>MCU デプロイ — Flash 書き込み</h3>
+  <div class="when">所要 ~5 分</div>
+  <pre><code># C 配列化
+xxd -i runs/v1/best_neutron.tflite > firmware/projects/10_inference/source/model_data.h
+
+# MCUXpresso でリビルド → OpenSDA 書込み
+# あるいは USB CDC 経由で flash 末尾セクタにモデルだけ動的書込み (v1.5 で実装予定)</code></pre>
+  <p>
+    詳細: <a href="mcu_deployment.html">MCU デプロイ手順</a>。
+  </p>
+</div>
+
+<h2>2.5. 並走実験 — 32-class softmax モデル（観測可能性予言の経験的検証）</h2>
+
+<div class="callout">
+  <strong>位置づけ</strong>: 本命は <b>14-class softmax</b>（情報理論的に最適）で確定。
+  32-class variant は <b>科学検証用の 1 回限りの実験</b>であり、本番モデル候補ではない。
+  目的は「観測等価性予言は経験的に成立するか？」を 32×32 confusion matrix で確認すること。
+</div>
+
+<ul>
+  <li><b>モデル</b>: <a href="../pc/training/model_32cls.py"><code>model_32cls.py</code></a> の
+    <code>IchiPingV1_32cls</code> — backbone は v1 と同一、最終ヘッドだけ
+    <code>Linear(64 → 32)</code> + cross-entropy</li>
+  <li><b>学習</b>: <a href="../pc/training/train_32cls.py"><code>train_32cls.py</code></a>
+    （dataset / augment / features は v1 と共有）</li>
+  <li><b>評価指標</b>:
+    <ul>
+      <li>32 クラス test accuracy: 観測可能性予言通りなら ~14/32 = 0.44 で頭打ち</li>
+      <li>32×32 confusion matrix: 等価クラス内で 4×4 ブロック構造が浮かび上がれば予言が経験的に検証される</li>
+    </ul>
+  </li>
+  <li><b>v1 と並走可能</b>: <code>live_infer.py --arch 32cls --ckpt runs/v1_32cls/best.pt</code>
+    で同じツールから推論可能</li>
+</ul>
+
+<h3>32 クラス学習コマンド</h3>
+
+<pre><code>uv run --extra training python -m training.train_32cls \
+    --captures captures/full_32_v2 \
+    --out runs/v1_32cls --epochs 50
+
+# 推論
+uv run --extra training python live_infer.py live \
+    --port COM3 --ckpt runs/v1_32cls/best.pt --arch 32cls \
+    --pattern chirp_200_6k</code></pre>
+
+<h3>判定</h3>
+
+<table>
+  <thead>
+    <tr><th>32 クラス test acc</th><th>解釈</th><th>次の行動</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>≤ 0.44 (≈ 14/32)</td>
+      <td>観測可能性予言通り → 等価クラス内に区別シグナルなし</td>
+      <td>予言を経験的に検証。本番は v1 (14-class softmax) で確定</td>
+    </tr>
+    <tr>
+      <td>0.45 - 0.65</td>
+      <td>予言を多少超える → 弱いが等価クラス内シグナルあり</td>
+      <td>14-class が漏らしている情報源を分析。模型の物理仮定を再検討</td>
+    </tr>
+    <tr>
+      <td>≥ 0.65</td>
+      <td>予言が大きく崩れている → 観測可能性モデルが間違っている可能性</td>
+      <td>模型の物理を全面再検討。漏れ経路の存在を疑う。spec.html §2 観測可能性も見直し</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>3. ゲート基準（次の Phase に進む / 戻す）</h2>
+
+<table class="gate-table">
+  <thead>
+    <tr><th>進む条件</th><th>戻る条件</th><th>戻り先</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>A → B: 全 32 状態 × 30 サンプル取得完了、CRC OK 率 ≥ 99 %</td>
+      <td>CRC エラー多発、外れ値が複数状態に出る</td>
+      <td>計測環境 / 走査音 / 模型の見直し</td>
+    </tr>
+    <tr>
+      <td>B → C: 50 epoch で train loss が plateau に到達</td>
+      <td>loss 発散、val loss が train から乖離</td>
+      <td>learning rate 調整、batch size 増減</td>
+    </tr>
+    <tr>
+      <td>C → D: 14 クラス macro-F1 ≥ 0.90、扉 AB 精度 ≥ 0.95</td>
+      <td>F1 &lt; 0.85、特定クラスが混同行列で集中誤分類</td>
+      <td>サンプル数増 (v2) / augmentation 強化 / ROI 帯域見直し</td>
+    </tr>
+    <tr>
+      <td>D → E: INT8 量子化後 F1 が FP32 比 -2 pt 以内</td>
+      <td>量子化で -5 pt 以上の精度低下</td>
+      <td>QAT 採用 / per-channel 量子化 / backbone 増強</td>
+    </tr>
+    <tr>
+      <td>E → F: Neutron Converter で NPU 化エラーなし、サポート外 op が NeutronGraph 内に残らない</td>
+      <td>op がサポート外でフォールバック</td>
+      <td>モデル定義から該当 op を除外（<a href="nn_review.html">§1.2 op リスト</a>参照）</td>
+    </tr>
+    <tr>
+      <td>F → 完了: MCU 上で推論レイテンシ ≤ 100 ms、メモリ使用 ≤ 96 KB</td>
+      <td>レイテンシ過大、メモリ不足</td>
+      <td>backbone 簡素化 / 入力解像度低下 / 量子化スキーム見直し</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>4. 実装済みファイル — pc/training/</h2>
+
+<table>
+  <thead>
+    <tr><th>ファイル</th><th>役割</th><th>主要 API</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><a href="../pc/training/features.py"><code>features.py</code></a></td>
+      <td>WAV → 整合フィルタで RIR 抽出 → 1024 bin log-magnitude</td>
+      <td><code>samples_to_features()</code></td>
+    </tr>
+    <tr>
+      <td><a href="../pc/training/model.py"><code>model.py</code></a></td>
+      <td>1D CNN + 14-class softmax 単ヘッド（要書き換え: 現状は legacy 6-head）</td>
+      <td><code>IchiPingV1</code></td>
+    </tr>
+    <tr>
+      <td><a href="../pc/training/model_32cls.py"><code>model_32cls.py</code></a></td>
+      <td>1D CNN + 32-class softmax 単一ヘッド (実験用)</td>
+      <td><code>IchiPingV1_32cls</code>, <code>bits_to_idx</code>, <code>idx_to_bits</code></td>
+    </tr>
+    <tr>
+      <td><a href="../pc/training/train_32cls.py"><code>train_32cls.py</code></a></td>
+      <td>32-class モデルの学習スクリプト</td>
+      <td>CLI: <code>python -m training.train_32cls</code></td>
+    </tr>
+    <tr>
+      <td><a href="../pc/training/dataset.py"><code>dataset.py</code></a></td>
+      <td><code>captures/&lt;run_id&gt;/sXXXXX/</code> 形式 + 5-bit 真値抽出</td>
+      <td><code>IchiPingDataset</code>, <code>class_of()</code>, <code>parse_state_label()</code></td>
+    </tr>
+    <tr>
+      <td><a href="../pc/training/augment.py"><code>augment.py</code></a></td>
+      <td>TimeShift / LevelJitter / NoiseOverlay / GaussianHiss</td>
+      <td><code>Compose</code>, <code>default_train_transform()</code></td>
+    </tr>
+    <tr>
+      <td><a href="../pc/training/train.py"><code>train.py</code></a></td>
+      <td>訓練ループ・ベスト保存</td>
+      <td>CLI: <code>python -m training.train</code></td>
+    </tr>
+    <tr>
+      <td><a href="../pc/training/infer.py"><code>infer.py</code></a></td>
+      <td>PC 推論 + 14 クラス F1 + 混同行列 PNG</td>
+      <td>CLI: <code>python -m training.infer</code></td>
+    </tr>
+    <tr>
+      <td><a href="../pc/training/export_onnx.py"><code>export_onnx.py</code></a></td>
+      <td>PyTorch → ONNX (opset 13, fixed shape)</td>
+      <td>CLI: <code>python -m training.export_onnx</code></td>
+    </tr>
+    <tr>
+      <td><a href="../pc/training/quantize.py"><code>quantize.py</code></a></td>
+      <td>INT8 量子化 (eiq-onnx2tflite / onnxruntime PTQ)</td>
+      <td>CLI: <code>python -m training.quantize</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>5. Augmentation 戦略</h2>
+
+<p>
+  <a href="../pc/training/augment.py"><code>augment.py</code></a> の
+  <code>default_train_transform()</code> が学習時に各サンプルに適用する確率的変換:
+</p>
+
+<table>
+  <thead>
+    <tr><th>変換</th><th>確率</th><th>パラメータ</th><th>目的</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>TimeShift</code></td>
+      <td>0.7</td>
+      <td>±10 ms 周期的シフト</td>
+      <td>chirp 開始タイミングのジッタを吸収</td>
+    </tr>
+    <tr>
+      <td><code>LevelJitter</code></td>
+      <td>0.7</td>
+      <td>±2 dB ゲイン変動</td>
+      <td>SPK 音量・マイクゲインのドリフト耐性</td>
+    </tr>
+    <tr>
+      <td><code>NoiseOverlay</code><br>(ambient あり時)</td>
+      <td>0.6</td>
+      <td>SNR 10-30 dB で実環境ノイズを重畳</td>
+      <td>展示会場等の雑踏耐性</td>
+    </tr>
+    <tr>
+      <td><code>GaussianHiss</code><br>(ambient なし時)</td>
+      <td>0.5</td>
+      <td>SNR 15-35 dB の白色雑音</td>
+      <td>ambient が揃う前の代替</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  <b>Phase A 再計測のたびに ambient WAV も追加</b>することで NoiseOverlay の多様性が増し、頑健性が向上する。
+  <a href="near_term_plan.html">当面の実行計画 Step A</a> で取得した silence_quiet / silence_tv が初期 ambient 源として直接使える。
+</p>
+
+<h2>6. v1.5 雑踏適応との接続</h2>
+
+<p>
+  本ループで v1.0 モデルが固まったら、配置先（展示会場等）で雑音 30-60 秒録音 →
+  PC で head fine-tune → MCU flash 書き換え、の運用フローに移る。
+  詳細は <a href="nn_review.html">NN 考察 §7 v1.5</a>。
+</p>
+
+<p>
+  本計画と v1.5 の関係:
+</p>
+
+<ul>
+  <li><b>本計画 (v0.6 - v1.0)</b>: 開発環境で 14 状態を 90 % 以上で当てる学習を完成</li>
+  <li><b>v1.5</b>: 展示会場到着後 10 分で「その会場の雑音」に適応した派生モデルを生成</li>
+  <li>共通: <code>training/quantize.py</code> + Neutron Converter のパイプラインは同じ</li>
+  <li>差分: v1.5 では <b>backbone を freeze</b> し FC ヘッドだけ少サンプル (~30 件) で fine-tune するモードを追加</li>
+</ul>
+
+<h2>7. 実行スケジュール案（走査音方式確定後）</h2>
+
+<table>
+  <thead>
+    <tr><th>日数</th><th>作業</th><th>到達目標</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Day 1 午前</td>
+      <td>plans/gen32.py REPEATS=30 化 + Phase A 計測</td>
+      <td>captures/full_32_v2/ 構築完了 (960 サンプル)</td>
+    </tr>
+    <tr>
+      <td>Day 1 午後</td>
+      <td>Phase B-C 1 周目</td>
+      <td>初版 macro-F1 取得 (期待 0.7-0.8)</td>
+    </tr>
+    <tr>
+      <td>Day 2-3</td>
+      <td>Augmentation 調整 + 再収集 / 再学習を 3-5 周</td>
+      <td>macro-F1 ≥ 0.90 達成</td>
+    </tr>
+    <tr>
+      <td>Day 4 午前</td>
+      <td>Phase D 量子化 + 精度確認</td>
+      <td>INT8 で FP32 比 -2 pt 以内</td>
+    </tr>
+    <tr>
+      <td>Day 4 午後</td>
+      <td>Phase E-F デプロイ + 実機推論レイテンシ計測</td>
+      <td>MCU 上で 100 ms 以内、F1 = PC と一致</td>
+    </tr>
+    <tr>
+      <td>Day 5+</td>
+      <td>v1.0 完成 → v1.5 雑踏適応の詳細設計に移行</td>
+      <td>—</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  <b>走査音方式の確定 = この計画の起点</b>。
+  確定タスクは <a href="near_term_plan.html">当面の実行計画 §2 D-1</a> で進行中。
+</p>
+
+<div class="footer-note">
+  関連:
+  <a href="near_term_plan.html">当面の実行計画</a> ／
+  <a href="probe_sound.html">走査音考察</a> ／
+  <a href="nn_review.html">NN 考察</a> ／
+  <a href="nn_design.html">NN 設計</a> ／
+  <a href="full32_initial_test.html">Full 32 初期計測</a> ／
+  <a href="mcu_deployment.html">MCU デプロイ手順</a> ／
+  <a href="../pc/training/README.html">pc/training/README</a>
+</div>
+
+</main>
+</body>
+</html>

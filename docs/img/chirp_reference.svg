@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 380" font-family="Hiragino Sans, Yu Gothic UI, Segoe UI, sans-serif">
+  <defs>
+    <style>
+      .bg     { fill: #ffffff; stroke: #1a1d23; stroke-width: 1.2; }
+      .grid   { stroke: #cbd5e1; stroke-width: 0.5; }
+      .axis   { stroke: #1a1d23; stroke-width: 1.2; }
+      .chirp  { stroke: #c2185b; stroke-width: 2.6; fill: none; stroke-linecap: round; }
+      .label  { font-size: 11px; fill: #1a1d23; }
+      .label-axis { font-size: 12px; fill: #1a1d23; font-weight: 700; }
+      .title  { font-size: 14px; font-weight: 800; fill: #1a1d23; }
+      .anno   { font-size: 11px; fill: #c2185b; font-weight: 700; }
+    </style>
+  </defs>
+
+  <text class="title" x="400" y="22" text-anchor="middle">
+    リファレンス励振 — Linear chirp 200 Hz → 6000 Hz, 2.0 s
+  </text>
+
+  <!-- Plot area: x = 60..740 (W=680), y = 50..340 (H=290).
+       X axis: time 0..2 s. Y axis: linear frequency 0..7000 Hz. -->
+  <rect class="bg" x="60" y="50" width="680" height="290"/>
+
+  <!-- Horizontal grid lines & y-axis ticks (1000 Hz steps) -->
+  <line class="grid" x1="60" y1="298.6" x2="740" y2="298.6"/>
+  <line class="grid" x1="60" y1="257.1" x2="740" y2="257.1"/>
+  <line class="grid" x1="60" y1="215.7" x2="740" y2="215.7"/>
+  <line class="grid" x1="60" y1="174.3" x2="740" y2="174.3"/>
+  <line class="grid" x1="60" y1="132.9" x2="740" y2="132.9"/>
+  <line class="grid" x1="60" y1="91.4"  x2="740" y2="91.4"/>
+
+  <text class="label" x="56" y="343" text-anchor="end">0</text>
+  <text class="label" x="56" y="302" text-anchor="end">1k</text>
+  <text class="label" x="56" y="260" text-anchor="end">2k</text>
+  <text class="label" x="56" y="219" text-anchor="end">3k</text>
+  <text class="label" x="56" y="178" text-anchor="end">4k</text>
+  <text class="label" x="56" y="136" text-anchor="end">5k</text>
+  <text class="label" x="56" y="95"  text-anchor="end">6k</text>
+  <text class="label" x="56" y="54"  text-anchor="end">7k</text>
+
+  <!-- Vertical grid lines & x-axis ticks (0.5 s steps) -->
+  <line class="grid" x1="230" y1="50" x2="230" y2="340"/>
+  <line class="grid" x1="400" y1="50" x2="400" y2="340"/>
+  <line class="grid" x1="570" y1="50" x2="570" y2="340"/>
+
+  <text class="label" x="60"  y="357" text-anchor="middle">0</text>
+  <text class="label" x="230" y="357" text-anchor="middle">0.5</text>
+  <text class="label" x="400" y="357" text-anchor="middle">1.0</text>
+  <text class="label" x="570" y="357" text-anchor="middle">1.5</text>
+  <text class="label" x="740" y="357" text-anchor="middle">2.0</text>
+
+  <text class="label-axis" x="400" y="375" text-anchor="middle">時間 t (s)</text>
+  <text class="label-axis" x="18"  y="195" text-anchor="middle" transform="rotate(-90 18 195)">周波数 f (Hz)</text>
+
+  <!-- The chirp itself: linear in f vs t.
+       At t=0, f=200  → x=60,  y=340 - 290*200/7000  = 331.7
+       At t=2, f=6000 → x=740, y=340 - 290*6000/7000 =  91.4 -->
+  <line class="chirp" x1="60" y1="331.7" x2="740" y2="91.4"/>
+
+  <!-- Endpoints -->
+  <circle cx="60"  cy="331.7" r="4" fill="#c2185b"/>
+  <circle cx="740" cy="91.4"  r="4" fill="#c2185b"/>
+  <text class="anno" x="68"  y="328">(0 s, 200 Hz)</text>
+  <text class="anno" x="734" y="86" text-anchor="end">(2 s, 6000 Hz)</text>
+
+  <!-- Slope annotation -->
+  <text class="anno" x="400" y="155" text-anchor="middle">
+    df/dt = 2900 Hz/s（線形）
+  </text>
+</svg>
