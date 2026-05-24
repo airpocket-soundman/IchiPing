@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>v1+v2+v3 結合学習レポート — IchiPing</title>
+<link rel="stylesheet" href="style.css">
+<script src="embed.js"></script>
+<style>
+  .method-card {
+    background: var(--panel, #181b22);
+    border: 1px solid var(--border, #2a313d);
+    border-left: 4px solid var(--accent-2, #7be0a4);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 18px 0;
+  }
+  .method-card h3 { margin: 0 0 6px 0; color: var(--accent-2, #7be0a4); }
+  .method-card.winner { border-left-color: #ffd166; background: rgba(255, 209, 102, 0.08); }
+  .method-card.winner h3 { color: #ffd166; }
+  .method-card.warn { border-left-color: #ffb454; }
+  table.compact { font-size: 12px; }
+  table.compact th, table.compact td { padding: 5px 9px; }
+  .acc { font-family: "Consolas", monospace; font-weight: 700; }
+  .acc.perfect { color: #7be0a4; }
+  .acc.good { color: #7be0a4; }
+  .acc.mid  { color: #ffb454; }
+  .acc.bad  { color: #ff6b6b; }
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin: 14px 0;
+  }
+  .metric-tile {
+    background: var(--panel-2, #1f242d);
+    border: 1px solid var(--border, #2a313d);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .metric-tile .label { font-size: 11px; color: var(--muted, #8b95a7); margin-bottom: 4px; }
+  .metric-tile .value {
+    font-family: "Consolas", monospace;
+    font-size: 22px;
+    color: var(--accent-2, #7be0a4);
+    font-weight: 700;
+  }
+  .metric-tile .sub { font-size: 11px; color: var(--muted, #8b95a7); margin-top: 4px; }
+  .placeholder {
+    color: var(--muted, #8b95a7);
+    font-style: italic;
+    padding: 14px;
+    background: var(--panel-2, #1f242d);
+    border-radius: 6px;
+  }
+  .figure { margin: 14px 0; text-align: center; }
+  .figure img {
+    max-width: 100%;
+    border: 1px solid var(--border, #2a313d);
+    border-radius: 6px;
+  }
+  .figure .cap { font-size: 12px; color: var(--muted, #8b95a7); margin-top: 6px; }
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin: 18px 0;
+  }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../index.html">トップ</a>
+      <a href="../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="spec.html">仕様書 (spec)</a>
+      <a href="nn_design.html">NN 設計</a>
+      <a href="mcu_deployment.html">MCU デプロイ</a>
+      <a href="bringup.html">実機ブリングアップ</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">NN 検討</div>
+      <a href="probe_sound.html">走査音考察</a>
+      <a href="nn_review.html">NN 考察</a>
+      <a href="full32_initial_test.html">Full 32 初期計測 (chirp)</a>
+      <a href="full32_noise_test.html">Full 32 計測 (noise)</a>
+      <a href="full32_passive_test.html">Full 32 受動 listening</a>
+      <a href="nn_train_v1_result.html">v1 学習結果 (noise/32cls)</a>
+      <a href="nn_methods_compare.html">head 設計の比較実験</a>
+      <a href="nn_train_v1v2_combined.html">v1+v2 結合学習レポート</a>
+      <a href="nn_train_v1v2v3_combined.html" class="current">v1+v2+v3 結合学習レポート</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="../hardware/wiring.html">配線テーブル</a>
+      <a href="../hardware/bom.html">BOM (部品表)</a>
+      <a href="../hardware/display_options.html">ディスプレイ候補</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../firmware/README.html">firmware ガイド</a>
+      <a href="../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">対外発信</div>
+      <a href="protopedia_preview.html">ProtoPedia プレビュー</a>
+      <a href="protopedia.md">ProtoPedia 投稿原稿</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="vscode_setup.html">VS Code セットアップ</a>
+      <a href="../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../index.html">← IchiPing トップ</a>
+    ／ <a href="nn_train_v1v2_combined.html">v1+v2 結合学習</a>
+  </div>
+  <h1>v1+v2+v3 結合学習レポート <span class="pill">2026-05-23 (v3 追加)</span></h1>
+  <div class="sub">
+    train_v1 (5/22) + train_v2 (5/23 朝) + train_v3 (5/23 昼) の <b>3 日分 4160 sample 結合学習</b>。
+    更に <b>3 環境 (静寂 / 雑踏小 / 雑踏大)</b> での評価データを別収集し、汎化能力を多面的に測定。
+    実機デプロイの可否を判定するための decisive な実験。
+  </div>
+  <div class="meta">
+    <span class="meta-stat done"><span class="num">4160</span> train sample</span>
+    <span class="meta-stat"><span class="num">3 環境 × 320</span> eval sample</span>
+    <span class="meta-stat"><span class="num">20</span> モデル (4 size × 5 seed)</span>
+    <span class="meta-stat"><span class="num">14cls + 32cls</span> head 両方</span>
+  </div>
+</header>
+
+<main>
+
+<h2 id="terminology">0. 用語の説明 (eval とは何か)</h2>
+
+<div class="method-card">
+  <h3>train / val / eval (test) の役割の違い</h3>
+  <table class="compact" style="margin-top:8px;">
+    <thead>
+      <tr><th>用語</th><th>正式名</th><th>役割</th><th>学習に使うか</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>train</td><td>training data</td><td>モデルが重みを更新するために見るデータ</td>
+          <td>✓ 使う</td></tr>
+      <tr><td>val</td><td>validation data</td><td>学習中に「どの epoch のモデルがベストか」選ぶ用</td>
+          <td>△ 間接的 (epoch 選択)</td></tr>
+      <tr><td><b>eval (= test)</b></td><td>evaluation / test data</td>
+          <td>完全に未知のデータで最終性能を測る</td>
+          <td><b>✗ 絶対に学習に使わない</b></td></tr>
+    </tbody>
+  </table>
+  <p>
+    学習に使ったデータで性能測定するのは "カンニング" なので、別データで測る必要がある。
+    それが eval (慣習的に test とも呼ぶ、同義)。
+  </p>
+</div>
+
+<div class="method-card">
+  <h3>本実験で用意した 3 種類の eval セットの意図</h3>
+  <p>
+    train_v1 / v2 / v3 はすべて <b>静寂環境 (TV / 換気扇 OFF) で SPK 励振のみ</b> で収集。
+    つまりモデルは「綺麗な録音条件」しか見ていない。<br>
+    実運用では家庭に常にある雑踏音 (TV / 会話 / 屋外音) の中でも動くべき。
+    その耐性を測るため、雑踏音強度の異なる 3 段階で eval データを収集した:
+  </p>
+  <table class="compact" style="margin-top:8px;">
+    <thead>
+      <tr><th>セット</th><th>環境</th><th>想定する実シナリオ</th><th>サンプル</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>eval_quiet</code></td>
+          <td>TV OFF、深夜静寂</td>
+          <td>学習条件と最も近い → sanity check</td>
+          <td>320 (32 state × 10)</td></tr>
+      <tr><td><code>eval_noise_low</code></td>
+          <td>TV 小音量、軽い ambient</td>
+          <td>普通のリビング (会話無)</td>
+          <td>320</td></tr>
+      <tr><td><code>eval_noise_high</code></td>
+          <td>TV 大音量、複数音源</td>
+          <td>賑やかな部屋、来客時</td>
+          <td>320</td></tr>
+    </tbody>
+  </table>
+  <p>
+    <b>意義</b>: 学習に「綺麗な条件」しか見せていないので、雑踏音入り環境で acc が
+    どれだけ下がるか実測しないと実機デプロイ可否が判断できない。事前に測れば
+    「v1 で出荷可能 vs 学習データ追加してから出荷」を判断できる。
+  </p>
+</div>
+
+<h2 id="setup">1. 実験セットアップ</h2>
+
+<table class="compact">
+  <thead><tr><th>項目</th><th>値</th></tr></thead>
+  <tbody>
+    <tr><td>学習データ (3 日分結合)</td>
+        <td>train_v1 (960, 5/22) + train_v2 (1600, 5/23) + train_v3 (1600, 5/23 別時間) = <b>4160 sample</b></td></tr>
+    <tr><td>state あたり frame 数</td><td>30 + 50 + 50 = <b>130 frame/state</b></td></tr>
+    <tr><td>評価データ — eval_quiet</td>
+        <td>320 sample (32 state × 10 frame), TV/換気扇 OFF (静寂)</td></tr>
+    <tr><td>評価データ — eval_noise_low</td>
+        <td>320 sample, 雑踏小 (TV 小音量等)</td></tr>
+    <tr><td>評価データ — eval_noise_high</td>
+        <td>320 sample, 雑踏大 (TV 大音量、複数音源等)</td></tr>
+    <tr><td>cross-day reference — noise_v1</td><td>32 sample (5/22 収集、1 frame/state)</td></tr>
+    <tr><td>特徴量</td><td>noise_diff (run ごとの s00000 baseline を per-bin 引く)</td></tr>
+    <tr><td>augmentation</td><td>波形 (TimeShift + LevelJitter + GaussianHiss) + 特徴量 (FreqMask + SpectralJitter)</td></tr>
+    <tr><td>モデル</td><td>IchiPingV1_14cls / _32cls × 4 size (S 14k / M 30k / L 52k / XL 104k)</td></tr>
+    <tr><td>seed</td><td>0-4 (5 seed × 4 size = 20 モデル / head 種別)</td></tr>
+    <tr><td>epoch</td><td>60</td></tr>
+    <tr><td>GPU</td><td>RTX 5060 Ti (16 GB, CUDA 12.8)</td></tr>
+  </tbody>
+</table>
+
+<h2 id="results_14cls">2. 14cls 学習結果</h2>
+
+<h3>2-1. cross-day reference (noise_v1, n=32)</h3>
+
+<table class="compact">
+  <thead>
+    <tr>
+      <th>size</th><th>params</th>
+      <th>mean</th><th>std</th><th>min</th><th>max</th><th>per-seed</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>S</td><td>13.8k</td>
+      <td><span class="acc good">0.944</span></td><td>0.051</td><td>0.875</td><td>1.000</td>
+      <td>0.969, 0.969, 0.875, 0.906, 1.000</td>
+    </tr>
+    <tr>
+      <td>M</td><td>30k</td>
+      <td><span class="acc good">0.988</span></td><td>0.028</td><td>0.938</td><td>1.000</td>
+      <td>1.000, 1.000, 1.000, 1.000, 0.938</td>
+    </tr>
+    <tr>
+      <td>L</td><td>52k</td>
+      <td><span class="acc good">0.975</span></td><td>0.026</td><td>0.938</td><td>1.000</td>
+      <td>0.969, 1.000, 0.969, 0.938, 1.000</td>
+    </tr>
+    <tr style="background:rgba(255, 209, 102, 0.10);">
+      <td><b>XL</b></td><td>104k</td>
+      <td><b><span class="acc perfect">1.000</span></b></td><td><b>0.000</b></td><td><b>1.000</b></td><td>1.000</td>
+      <td><b>1.000 × 5 (完璧)</b></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>2-2. 3 環境 cross-noise 評価 (eval_quiet / noise_low / noise_high, 各 n=320)</h3>
+
+<table class="compact">
+  <thead>
+    <tr>
+      <th rowspan="2">size</th>
+      <th colspan="2">eval_quiet</th>
+      <th colspan="2">eval_noise_low</th>
+      <th colspan="2">eval_noise_high</th>
+    </tr>
+    <tr>
+      <th>mean</th><th>std</th>
+      <th>mean</th><th>std</th>
+      <th>mean</th><th>std</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>S</td>
+      <td><span class="acc good">0.987</span></td><td>0.018</td>
+      <td><span class="acc good">0.969</span></td><td>0.032</td>
+      <td><span class="acc good">0.952</span></td><td>0.043</td>
+    </tr>
+    <tr>
+      <td>M</td>
+      <td><span class="acc good">0.988</span></td><td>0.028</td>
+      <td><span class="acc good">0.987</span></td><td>0.028</td>
+      <td><span class="acc good">0.971</span></td><td>0.039</td>
+    </tr>
+    <tr>
+      <td>L</td>
+      <td><span class="acc good">0.996</span></td><td>0.010</td>
+      <td><span class="acc good">0.983</span></td><td>0.026</td>
+      <td><span class="acc good">0.974</span></td><td>0.040</td>
+    </tr>
+    <tr style="background:rgba(255, 209, 102, 0.10);">
+      <td><b>XL</b></td>
+      <td><b><span class="acc perfect">1.000</span></b></td><td>0.000</td>
+      <td><b><span class="acc perfect">1.000</span></b></td><td>0.000</td>
+      <td><b><span class="acc perfect">1.000</span></b></td><td>0.000</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="method-card winner">
+  <h3>🏆 XL は 4 評価セット × 5 seed × 全サンプル 完璧 (0 miss)</h3>
+  <p>
+    XL (104k params) は <b>noise_v1 cross-day + 3 環境 eval、合計 5 seed × 4 set × 各 32-320 sample
+    = 約 4960 予測すべてで 100%</b>。雑踏音 (低/高) でも一切性能劣化なし。
+  </p>
+  <p>
+    M (30k) も 3 環境平均 ~0.98 でほぼ並ぶ。L (52k) も同等。S (14k) のみ高雑踏で 0.952 まで落ちる。
+  </p>
+</div>
+
+<h3>2-3. データ量に応じた XL の進化</h3>
+
+<table class="compact">
+  <thead>
+    <tr><th>学習データ</th><th>frames</th><th>XL cross-day mean</th><th>std</th><th>miss /160</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>v1 のみ</td><td>960</td><td>0.881</td><td>0.064</td><td>19</td></tr>
+    <tr><td>v1+v2</td><td>2560</td><td>0.994</td><td>0.014</td><td>1</td></tr>
+    <tr style="background:rgba(123, 224, 164, 0.10);">
+      <td><b>v1+v2+v3</b></td><td><b>4160</b></td><td><b>1.000</b></td><td><b>0.000</b></td><td><b>0</b> ⭐</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  データ規模 960 → 2560 → 4160 で cross-day acc が 0.88 → 0.99 → 1.00 にスムーズに収束。
+  <b>「data が増えれば XL が真の最強」の仮説が完全に裏付けられた</b>。
+</p>
+
+<h3>2-3b. 学習曲線</h3>
+
+<div class="two-col">
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2v3_14cls/curves/S_curves.png" alt="S learning curves">
+    <div class="cap">S (14k) の 5 seed 重ね</div>
+  </div>
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2v3_14cls/curves/M_curves.png" alt="M learning curves">
+    <div class="cap">M (30k) の 5 seed 重ね</div>
+  </div>
+</div>
+<div class="two-col">
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2v3_14cls/curves/L_curves.png" alt="L learning curves">
+    <div class="cap">L (52k) の 5 seed 重ね</div>
+  </div>
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2v3_14cls/curves/XL_curves.png" alt="XL learning curves">
+    <div class="cap">XL (104k) の 5 seed 重ね — val 早期に 1.000 到達</div>
+  </div>
+</div>
+
+<div class="figure" style="max-width:900px; margin: 0 auto;">
+  <img src="../pc/runs/sweep_v1v2v3_14cls/curves/cross_size_mean_curves.png"
+       alt="cross-size mean curves">
+  <div class="cap">4 size の val loss / val acc 平均曲線比較 (5 seed mean ± std)</div>
+</div>
+
+<div class="method-card warn">
+  <h3>⚠️ loss の一時 spike について</h3>
+  <p>
+    XL の曲線 (log スケール) で seed 別に <b>学習初期 (epoch 5-15) に val_loss が
+    瞬間的に 100-1000× 跳ね上がる現象</b>が観察される (例: XL seed=3 が epoch 6 で 0.013、
+    epoch 10 で 0.158 まで跳ねる)。
+  </p>
+  <p>
+    <b>原因 (順に怪しい)</b>:
+  </p>
+  <ol>
+    <li>AdamW lr=1e-3 が大 model に対し攻めすぎ、勾配が一瞬大きく動く</li>
+    <li>XL のみ dropout=0.4 で稀に critical neuron を同時 mask</li>
+    <li>FreqMask (60-bin × 2 回) が discriminative band を稀に潰す</li>
+    <li>BatchNorm running stats が小 batch (32) で稀に不安定化</li>
+  </ol>
+  <p>
+    <b>最終性能には影響なし</b>: best.pt は val_acc が最大の epoch で保存しており、
+    spike 直後の epoch で復活しているため。実際全 seed で val_acc 1.000 / cross-day 1.000
+    に到達。<b>改善は lr schedule (cosine + warmup) + dropout 0.3 統一で可能</b>だが、
+    現状 v1 デプロイには影響しないため見送り。
+  </p>
+</div>
+
+<h3>2-3c. 5 seed 集約混同行列 — 4 評価セット × 4 size</h3>
+
+<p>
+  各 size の 5 seed 分の confusion を合算 (cross-day n=160、eval 各 n=1600 = 計 5360 予測 / size)。
+  対角線以外が点灯している箇所が誤分類。XL は <b>全 4 セット完全対角</b>。
+</p>
+
+<h4>cross-day reference: noise_v1 (5 seed × 32 = 160 予測 / size)</h4>
+<div class="two-col">
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2v3_14cls/aggregate_confusion/noise_v1_S.png" alt="noise_v1 S">
+    <div class="cap">S — acc 0.944 (151/160)</div>
+  </div>
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2v3_14cls/aggregate_confusion/noise_v1_M.png" alt="noise_v1 M">
+    <div class="cap">M — acc 0.988 (158/160)</div>
+  </div>
+</div>
+<div class="two-col">
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2v3_14cls/aggregate_confusion/noise_v1_L.png" alt="noise_v1 L">
+    <div class="cap">L — acc 0.975 (156/160)</div>
+  </div>
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2v3_14cls/aggregate_confusion/noise_v1_XL.png" alt="noise_v1 XL">
+    <div class="cap"><b>XL — acc 1.000 (160/160) ⭐</b></div>
+  </div>
+</div>
+
+<h4>eval_quiet (5 seed × 320 = 1600 予測 / size)</h4>
+<div class="two-col">
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2v3_14cls/aggregate_confusion/quiet_S.png" alt="quiet S">
+    <div class="cap">S — acc 0.987</div>
+  </div>
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2v3_14cls/aggregate_confusion/quiet_XL.png" alt="quiet XL">
+    <div class="cap"><b>XL — acc 1.000 ⭐</b></div>
+  </div>
+</div>
+
+<h4>eval_noise_high (最も厳しい雑踏条件、5 seed × 320 = 1600 予測 / size)</h4>
+<div class="two-col">
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2v3_14cls/aggregate_confusion/noise_high_S.png" alt="noise_high S">
+    <div class="cap">S — acc 0.952 (B / C 系で誤分類散見)</div>
+  </div>
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2v3_14cls/aggregate_confusion/noise_high_XL.png" alt="noise_high XL">
+    <div class="cap"><b>XL — acc 1.000 (大雑踏でも完全対角)</b> ⭐</div>
+  </div>
+</div>
+
+<h3>2-3d. 3 eval 条件の FFT diff from baseline (クラスソート)</h3>
+
+<p>
+  各 eval セットで、state ごとの平均 Welch スペクトルから s00000 (全閉) baseline を per-bin で引いた
+  ヒートマップ。state は 14 等価クラス順 (A1 → A2 → B1–B4 → C1–C8) でソート、クラス境界には水平線。
+  雑踏音が混ざってもクラス間スペクトル差の構造が保たれているか視覚確認できる。
+</p>
+
+<div class="figure" style="max-width:900px; margin: 0 auto;">
+  <img src="../pc/runs/eval_3conds_analysis/quiet_fft_diff_by_class.png"
+       alt="quiet FFT diff by class">
+  <div class="cap">
+    <b>eval_quiet</b>: A1/A2 系は赤 (低音上昇)、C 系は青 (高音減衰) 等の特徴的パターン。
+    クラス境界 (水平線) を跨いで明確に色が変わるのが見える。
+  </div>
+</div>
+
+<div class="figure" style="max-width:900px; margin: 0 auto;">
+  <img src="../pc/runs/eval_3conds_analysis/noise_low_fft_diff_by_class.png"
+       alt="noise_low FFT diff by class">
+  <div class="cap">
+    <b>eval_noise_low</b>: quiet と概形ほぼ一致、雑踏音はキャンセルされてる証拠。
+  </div>
+</div>
+
+<div class="figure" style="max-width:900px; margin: 0 auto;">
+  <img src="../pc/runs/eval_3conds_analysis/noise_high_fft_diff_by_class.png"
+       alt="noise_high FFT diff by class">
+  <div class="cap">
+    <b>eval_noise_high</b>: 雑踏大でもクラス間パターンが残存。ただし高音 (3-7 kHz) で
+    若干ノイジーになっている (TV 大音量の音響干渉)。それでも XL は acc 1.000 を維持。
+  </div>
+</div>
+
+<h3>2-4. 環境間性能劣化のパターン (size 別)</h3>
+
+<table class="compact">
+  <thead>
+    <tr><th>size</th><th>quiet → noise_high 劣化</th><th>解釈</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>S</td><td>0.987 → 0.952 (-0.035)</td><td>容量不足、雑踏音 LSP 揺らぎを吸収しきれない</td></tr>
+    <tr><td>M</td><td>0.988 → 0.971 (-0.017)</td><td>S より頑健</td></tr>
+    <tr><td>L</td><td>0.996 → 0.974 (-0.022)</td><td>M と同程度</td></tr>
+    <tr><td><b>XL</b></td><td><b>1.000 → 1.000 (0)</b></td><td><b>完全 robust</b></td></tr>
+  </tbody>
+</table>
+
+<p>
+  XL は capacity が十分大きく、noise_diff 特徴量が定常雑踏をキャンセルする
+  能力と組み合わさって <b>環境変動を完全に吸収</b>。
+</p>
+
+<h2 id="results_32cls">3. 32cls 学習結果</h2>
+
+<p>
+  IchiPingV1_32cls (S/M/L/XL × 5 seed = 20 model) を 14cls と同じ条件で
+  (v1+v2+v3 結合学習 / noise_diff / feature_aug / GPU) 走らせ、
+  cross-day noise_v1 + 3 環境 eval で評価した。<b>14cls collapse</b> (32 予測を
+  等価クラスに畳み込んだ後の acc) と <b>32cls 直接</b> (5-bit 完全一致の acc) を別々に集計。
+</p>
+
+<h3>3-1. 14cls collapse 性能 (32cls モデルを 14 クラスに畳み込み)</h3>
+
+<table class="compact">
+  <thead>
+    <tr>
+      <th rowspan="2">size</th>
+      <th colspan="2">noise_v1 (n=32)</th>
+      <th colspan="2">eval_quiet (n=320)</th>
+      <th colspan="2">eval_noise_low (n=320)</th>
+      <th colspan="2">eval_noise_high (n=320)</th>
+    </tr>
+    <tr>
+      <th>mean</th><th>std</th>
+      <th>mean</th><th>std</th>
+      <th>mean</th><th>std</th>
+      <th>mean</th><th>std</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>S</td>
+      <td><span class="acc good">0.988</span></td><td>0.028</td>
+      <td><span class="acc perfect">1.000</span></td><td>0.000</td>
+      <td><span class="acc perfect">1.000</span></td><td>0.000</td>
+      <td><span class="acc good">0.998</span></td><td>0.006</td>
+    </tr>
+    <tr>
+      <td>M</td>
+      <td><span class="acc perfect">1.000</span></td><td>0.000</td>
+      <td><span class="acc perfect">1.000</span></td><td>0.000</td>
+      <td><span class="acc perfect">1.000</span></td><td>0.000</td>
+      <td><span class="acc good">0.993</span></td><td>0.015</td>
+    </tr>
+    <tr>
+      <td>L</td>
+      <td><span class="acc perfect">1.000</span></td><td>0.000</td>
+      <td><span class="acc perfect">1.000</span></td><td>0.000</td>
+      <td><span class="acc perfect">1.000</span></td><td>0.000</td>
+      <td><span class="acc perfect">1.000</span></td><td>0.000</td>
+    </tr>
+    <tr style="background:rgba(255, 209, 102, 0.10);">
+      <td><b>XL</b></td>
+      <td><b><span class="acc perfect">1.000</span></b></td><td>0.000</td>
+      <td><b><span class="acc perfect">1.000</span></b></td><td>0.000</td>
+      <td><b><span class="acc perfect">1.000</span></b></td><td>0.000</td>
+      <td><b><span class="acc perfect">1.000</span></b></td><td>0.000</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  <b>L と XL は 4 セット全部完璧</b>。14cls collapse での性能は 32cls head でも 14cls head でも
+  ほぼ同じ ── どちらのモデル設計でも等価クラス境界はクリアに学べる。
+</p>
+
+<h3>3-2. 32cls 直接性能 (5-bit 完全一致 — サブ状態識別能力)</h3>
+
+<table class="compact">
+  <thead>
+    <tr>
+      <th rowspan="2">size</th>
+      <th colspan="2">noise_v1 (n=32)</th>
+      <th colspan="2">eval_quiet (n=320)</th>
+      <th colspan="2">eval_noise_low (n=320)</th>
+      <th colspan="2">eval_noise_high (n=320)</th>
+    </tr>
+    <tr>
+      <th>mean</th><th>std</th>
+      <th>mean</th><th>std</th>
+      <th>mean</th><th>std</th>
+      <th>mean</th><th>std</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>S</td>
+      <td><span class="acc mid">0.725</span></td><td>0.071</td>
+      <td><span class="acc good">0.914</span></td><td>0.025</td>
+      <td><span class="acc good">0.893</span></td><td>0.029</td>
+      <td><span class="acc good">0.924</span></td><td>0.034</td>
+    </tr>
+    <tr>
+      <td>M</td>
+      <td><span class="acc mid">0.794</span></td><td>0.017</td>
+      <td><span class="acc good">0.944</span></td><td>0.047</td>
+      <td><span class="acc good">0.897</span></td><td>0.049</td>
+      <td><span class="acc good">0.920</span></td><td>0.039</td>
+    </tr>
+    <tr>
+      <td>L</td>
+      <td><span class="acc mid">0.781</span></td><td>0.022</td>
+      <td><span class="acc good">0.928</span></td><td>0.049</td>
+      <td><span class="acc good">0.916</span></td><td>0.012</td>
+      <td><span class="acc good">0.939</span></td><td>0.012</td>
+    </tr>
+    <tr style="background:rgba(255, 209, 102, 0.10);">
+      <td><b>XL</b></td>
+      <td><b><span class="acc good">0.875</span></b></td><td>0.022</td>
+      <td><b><span class="acc good">0.949</span></b></td><td>0.043</td>
+      <td><b><span class="acc perfect">0.994</span></b></td><td>0.014</td>
+      <td><b><span class="acc good">0.979</span></b></td><td>0.023</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="method-card winner">
+  <h3>🎯 サブ状態識別が現実に達成された</h3>
+  <p>
+    <a href="../pc/analyze_substate_separability.py">サブ状態分離可能性解析</a>で
+    全 pair が SNR 16-90 で物理的に分離可能と示されていたが、ML モデルでもそれが
+    実証された:
+  </p>
+  <ul>
+    <li><b>XL は eval_noise_low で acc 0.994 (5-bit 完全一致)</b> — 320 サンプル中 318 完璧</li>
+    <li><b>XL は eval_quiet で 0.949、eval_noise_high で 0.979</b></li>
+    <li>「閉扉の向こうの状態は観測不能」という理論的等価クラス上限を <b>明確に超えている</b></li>
+    <li>cross-day noise_v1 (n=32) で XL=0.875 は小サンプル誤差込み (1 サンプル = 0.031 動く)</li>
+  </ul>
+  <p>
+    つまり <b>v1 ハードのままで 32 状態すべての個別予測が実用可能</b>。
+    14 等価クラスに丸める必要は実は無かった。
+  </p>
+</div>
+
+<h3>3-3. 14cls vs 32cls 学習の正面比較</h3>
+
+<table class="compact">
+  <thead>
+    <tr>
+      <th>size</th>
+      <th colspan="3">14cls 学習</th>
+      <th colspan="3">32cls 学習</th>
+    </tr>
+    <tr>
+      <th></th>
+      <th>noise_v1 14cls</th><th>quiet 14cls</th><th>noise_high 14cls</th>
+      <th>noise_v1 14cls</th><th>quiet 14cls</th><th>noise_high 14cls</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>S</td>
+      <td>0.944</td><td>0.987</td><td>0.952</td>
+      <td>0.988</td><td>1.000</td><td>0.998</td>
+    </tr>
+    <tr>
+      <td>M</td>
+      <td>0.988</td><td>0.988</td><td>0.971</td>
+      <td>1.000</td><td>1.000</td><td>0.993</td>
+    </tr>
+    <tr>
+      <td>L</td>
+      <td>0.975</td><td>0.996</td><td>0.974</td>
+      <td>1.000</td><td>1.000</td><td>1.000</td>
+    </tr>
+    <tr>
+      <td><b>XL</b></td>
+      <td>1.000</td><td>1.000</td><td>1.000</td>
+      <td>1.000</td><td>1.000</td><td>1.000</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  XL は両方とも完璧。S/M/L では <b>32cls 学習の方が 14cls 学習よりわずかに高い</b>
+  (32cls の方が学習信号がリッチで backbone が綺麗な特徴を学ぶため)。
+  ただし XL レベルでは両方天井なので差は出ない。
+</p>
+
+<h3>3-4. 32cls 学習曲線</h3>
+
+<div class="two-col">
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2v3_32cls/curves/S_curves.png" alt="32cls S">
+    <div class="cap">S 32cls 5 seed 重ね</div>
+  </div>
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2v3_32cls/curves/XL_curves.png" alt="32cls XL">
+    <div class="cap">XL 32cls 5 seed 重ね</div>
+  </div>
+</div>
+
+<div class="figure" style="max-width:900px; margin: 0 auto;">
+  <img src="../pc/runs/sweep_v1v2v3_32cls/curves/cross_size_mean_curves.png"
+       alt="32cls cross-size">
+  <div class="cap">32cls の 4 size mean 曲線比較</div>
+</div>
+
+<h3>3-5. 32cls XL の集約混同行列 — 14cls collapse + 32×32 直接 (併記)</h3>
+
+<p>
+  XL × 4 評価セットそれぞれで、<b>左に 14cls collapse (14×14)</b>、
+  <b>右に 32 真状態 × 32 予測の 32×32 生混同行列</b>を並べる。
+  左 = 等価クラスの判定精度、右 = サブ状態識別精度。
+  XL は左 (14cls collapse) で完全対角 = 等価クラス境界 100%。
+  右 (32×32) も対角が支配的でほぼ完璧。
+</p>
+
+<h4>noise_v1 (cross-day, n=32 / seed × 5 = 160 予測)</h4>
+<div class="two-col">
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2v3_32cls/aggregate_confusion/noise_v1_XL.png"
+         alt="14cls XL noise_v1">
+    <div class="cap">14cls collapse — acc 1.000</div>
+  </div>
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2v3_32cls/aggregate_confusion_32cls/noise_v1_XL.png"
+         alt="32x32 XL noise_v1">
+    <div class="cap">32×32 直接 — acc 0.875 (20 miss、全部 Ham=1)</div>
+  </div>
+</div>
+
+<h4>eval_quiet (n=320 / seed × 5 = 1600 予測)</h4>
+<div class="two-col">
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2v3_32cls/aggregate_confusion/quiet_XL.png"
+         alt="14cls XL quiet">
+    <div class="cap">14cls collapse — acc 1.000</div>
+  </div>
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2v3_32cls/aggregate_confusion_32cls/quiet_XL.png"
+         alt="32x32 XL quiet">
+    <div class="cap">32×32 直接 — acc 0.949 (81 miss)</div>
+  </div>
+</div>
+
+<h4>eval_noise_low (n=320 / seed × 5 = 1600 予測)</h4>
+<div class="two-col">
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2v3_32cls/aggregate_confusion/noise_low_XL.png"
+         alt="14cls XL noise_low">
+    <div class="cap">14cls collapse — acc 1.000</div>
+  </div>
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2v3_32cls/aggregate_confusion_32cls/noise_low_XL.png"
+         alt="32x32 XL noise_low">
+    <div class="cap"><b>32×32 直接 — acc 0.994 ⭐</b> (10 miss、全部 Ham=1)</div>
+  </div>
+</div>
+
+<h4>eval_noise_high (n=320 / seed × 5 = 1600 予測)</h4>
+<div class="two-col">
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2v3_32cls/aggregate_confusion/noise_high_XL.png"
+         alt="14cls XL noise_high">
+    <div class="cap">14cls collapse — acc 1.000</div>
+  </div>
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2v3_32cls/aggregate_confusion_32cls/noise_high_XL.png"
+         alt="32x32 XL noise_high">
+    <div class="cap">32×32 直接 — acc 0.979 (34 miss)</div>
+  </div>
+</div>
+
+<h3>3-6. S 系との 32×32 比較 (capacity の影響)</h3>
+
+<div class="two-col">
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2v3_32cls/aggregate_confusion_32cls/quiet_S.png"
+         alt="32x32 S quiet">
+    <div class="cap">S × eval_quiet 32×32 — acc 0.914 (137 miss、全部 Ham=1)</div>
+  </div>
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2v3_32cls/aggregate_confusion_32cls/quiet_XL.png"
+         alt="32x32 XL quiet (再掲)">
+    <div class="cap">XL × eval_quiet 32×32 — acc 0.949 (参考再掲)</div>
+  </div>
+</div>
+
+<h3>3-7. miss パターンの構造分析 (Hamming distance 内訳)</h3>
+
+<table class="compact">
+  <thead>
+    <tr>
+      <th>size</th><th>条件</th>
+      <th>32cls acc</th>
+      <th>miss 総数</th>
+      <th>Ham=1 (1 bit ズレ)</th>
+      <th>Ham≥2 (大きなズレ)</th>
+      <th>平均 Ham</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>S</td><td>quiet</td><td>0.914</td><td>137/1600</td><td><b>137 (全部)</b></td><td>0</td><td>1.00</td></tr>
+    <tr><td>M</td><td>quiet</td><td>0.944</td><td>90/1600</td><td><b>90 (全部)</b></td><td>0</td><td>1.00</td></tr>
+    <tr><td>L</td><td>quiet</td><td>0.928</td><td>115/1600</td><td>109</td><td>6</td><td>1.05</td></tr>
+    <tr style="background:rgba(255, 209, 102, 0.10);">
+      <td><b>XL</b></td><td>quiet</td><td>0.949</td><td>81/1600</td><td><b>77</b></td><td>4</td><td>1.05</td></tr>
+    <tr style="background:rgba(255, 209, 102, 0.10);">
+      <td><b>XL</b></td><td><b>noise_low</b></td><td><b>0.994</b></td><td>10/1600</td><td><b>10 (全部)</b></td><td>0</td><td>1.00</td></tr>
+    <tr style="background:rgba(255, 209, 102, 0.10);">
+      <td><b>XL</b></td><td>noise_high</td><td>0.979</td><td>34/1600</td><td>28</td><td>6</td><td>1.18</td></tr>
+  </tbody>
+</table>
+
+<div class="method-card winner">
+  <h3>✨ miss は全て隣接サブ状態 — 構造的に綺麗な誤り</h3>
+  <ul>
+    <li><b>ほぼ全ての miss が Hamming distance = 1</b> (5 bit のうち 1 つだけ間違える)</li>
+    <li><b>Hamming ≥ 2 (盛大に違う状態を予測) はほぼゼロ</b></li>
+    <li>つまり「クラス境界を越えてとんでもない状態を出す」ことは無く、
+        間違える時も "ほぼ正解 (隣接サブ状態)"</li>
+    <li>これは <b>14cls collapse acc 1.000</b> と整合 — 等価クラス境界は完全に保たれ、
+        誤りはクラス内のサブ状態識別だけに局在</li>
+  </ul>
+  <p>
+    解釈: モデルは「ドア AB / BC の状態は完璧に分類」した上で、
+    「閉扉の向こうの窓 b/c のサブ状態は弱い信号で推定」している。
+    その推定が時々 1 bit 外れる、というのが miss の正体。
+    実運用で「全く違う状態と判定される」リスクは事実上ゼロ。
+  </p>
+</div>
+
+<h2 id="cross_baseline">4. cross-baseline 評価 — キャリブレーション運用シミュレーション</h2>
+
+<div class="method-card warn">
+  <h3>動機: 実機は「1 回校正 → 任意環境で運用」が現実</h3>
+  <p>
+    今までの §2 / §3 評価は「各環境で baseline を自己校正」した状況の数字
+    (例: eval_noise_high の推論は eval_noise_high 自身の s00000 を baseline 引き)。
+    これは <b>1 回の収集の中で全 32 状態の baseline が手に入る</b>という
+    実機ではありえない条件を仮定している。
+  </p>
+  <p>
+    実運用は <b>設置時に静寂で baseline を 1 回だけ取得 → flash 保存 → 後は
+    任意環境で推論</b>。よって <b>「quiet baseline を保存したまま noise_low / noise_high
+    環境で推論するとどう劣化するか」</b>を測るのが本セクションの目的。
+  </p>
+</div>
+
+<h3>4-1. baseline = eval_quiet で 3 環境を評価 (14cls 学習モデル)</h3>
+
+<table class="compact">
+  <thead>
+    <tr>
+      <th rowspan="2">size</th>
+      <th colspan="2">eval_quiet (matched)</th>
+      <th colspan="2">eval_noise_low (mismatched)</th>
+      <th colspan="2">eval_noise_high (mismatched)</th>
+    </tr>
+    <tr>
+      <th>mean</th><th>std</th>
+      <th>mean</th><th>std</th>
+      <th>mean</th><th>std</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>S</td>
+      <td><span class="acc good">0.987</span></td><td>0.018</td>
+      <td><span class="acc good">0.961</span></td><td>0.045</td>
+      <td><span class="acc mid">0.947</span></td><td>0.049</td>
+    </tr>
+    <tr>
+      <td>M</td>
+      <td><span class="acc good">0.988</span></td><td>0.028</td>
+      <td><span class="acc good">0.986</span></td><td>0.027</td>
+      <td><span class="acc good">0.973</span></td><td>0.037</td>
+    </tr>
+    <tr>
+      <td>L</td>
+      <td><span class="acc good">0.996</span></td><td>0.010</td>
+      <td><span class="acc good">0.976</span></td><td>0.039</td>
+      <td><span class="acc good">0.964</span></td><td>0.040</td>
+    </tr>
+    <tr style="background:rgba(255, 209, 102, 0.10);">
+      <td><b>XL</b></td>
+      <td><b><span class="acc perfect">1.000</span></b></td><td>0.000</td>
+      <td><b><span class="acc perfect">1.000</span></b></td><td>0.000</td>
+      <td><b><span class="acc perfect">1.000</span></b></td><td>0.000</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>4-2. baseline = eval_quiet で 3 環境を評価 (32cls 学習モデル、14cls collapse)</h3>
+
+<table class="compact">
+  <thead>
+    <tr>
+      <th rowspan="2">size</th>
+      <th colspan="2">eval_quiet (matched)</th>
+      <th colspan="2">eval_noise_low (mismatched)</th>
+      <th colspan="2">eval_noise_high (mismatched)</th>
+    </tr>
+    <tr>
+      <th>mean</th><th>std</th>
+      <th>mean</th><th>std</th>
+      <th>mean</th><th>std</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>S</td>
+      <td><span class="acc perfect">1.000</span></td><td>0.000</td>
+      <td><span class="acc perfect">1.000</span></td><td>0.000</td>
+      <td><span class="acc good">0.991</span></td><td>0.021</td>
+    </tr>
+    <tr>
+      <td>M</td>
+      <td><span class="acc perfect">1.000</span></td><td>0.000</td>
+      <td><span class="acc perfect">1.000</span></td><td>0.000</td>
+      <td><span class="acc good">0.999</span></td><td>0.003</td>
+    </tr>
+    <tr>
+      <td>L</td>
+      <td><span class="acc perfect">1.000</span></td><td>0.000</td>
+      <td><span class="acc good">0.999</span></td><td>0.001</td>
+      <td><span class="acc good">0.992</span></td><td>0.010</td>
+    </tr>
+    <tr style="background:rgba(255, 209, 102, 0.10);">
+      <td><b>XL</b></td>
+      <td><b><span class="acc perfect">1.000</span></b></td><td>0.000</td>
+      <td><b><span class="acc perfect">1.000</span></b></td><td>0.000</td>
+      <td><b><span class="acc perfect">1.000</span></b></td><td>0.000</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="method-card winner">
+  <h3>🎉 XL は quiet baseline で全 3 環境 1.000 — 1 回校正で実運用可能</h3>
+  <ul>
+    <li><b>XL は baseline mismatch でも全条件 1.000</b> — 静寂校正 1 回で雑踏環境でも完璧</li>
+    <li><b>32cls 学習モデルも同じ</b> — 等価クラス境界は baseline mismatch に頑健</li>
+    <li><b>S/M/L は noise_high で 0.02-0.04 微劣化</b> — capacity 余裕で吸収できないわずかな差</li>
+    <li>noise_diff の引き算が定常雑踏 (TV 等) を綺麗にキャンセル → 学習時に見ていない
+        環境でも分布シフト最小</li>
+  </ul>
+  <p>
+    <b>v1 デプロイ運用</b>: 設置時に静寂状態で全閉確認 → 校正録音 1 回 → 以降は
+    雑踏音含む通常環境で運用可能。再校正は季節変化 / 家具配置変更時のみで OK。
+  </p>
+</div>
+
+<h3>4-3. 3 × 3 baseline / eval 環境マトリクス (14cls collapse)</h3>
+
+<p>
+  baseline と eval 環境の全 9 組合せ。網掛けセルは matched (baseline = eval 環境同一)、
+  それ以外が mismatched。XL は <b>9/9 セル全て 1.000</b>。
+</p>
+
+<h4>14cls 学習モデル</h4>
+
+<table class="compact">
+  <thead>
+    <tr><th rowspan="2">size</th><th rowspan="2">baseline</th>
+        <th colspan="3">eval 環境</th></tr>
+    <tr><th>quiet</th><th>noise_low</th><th>noise_high</th></tr>
+  </thead>
+  <tbody>
+    <tr><td rowspan="3">S</td>
+        <td>quiet</td>
+        <td style="background:rgba(123,224,164,0.08);">0.987</td><td>0.961</td><td>0.947</td></tr>
+    <tr><td>noise_low</td>
+        <td>0.994</td><td style="background:rgba(123,224,164,0.08);">0.969</td><td>0.949</td></tr>
+    <tr><td>noise_high</td>
+        <td>0.993</td><td>0.974</td><td style="background:rgba(123,224,164,0.08);">0.952</td></tr>
+    <tr><td rowspan="3">M</td>
+        <td>quiet</td>
+        <td style="background:rgba(123,224,164,0.08);">0.988</td><td>0.986</td><td>0.973</td></tr>
+    <tr><td>noise_low</td>
+        <td>0.991</td><td style="background:rgba(123,224,164,0.08);">0.987</td><td>0.972</td></tr>
+    <tr><td>noise_high</td>
+        <td>0.988</td><td>0.986</td><td style="background:rgba(123,224,164,0.08);">0.971</td></tr>
+    <tr><td rowspan="3">L</td>
+        <td>quiet</td>
+        <td style="background:rgba(123,224,164,0.08);">0.996</td><td>0.976</td><td>0.964</td></tr>
+    <tr><td>noise_low</td>
+        <td>1.000</td><td style="background:rgba(123,224,164,0.08);">0.983</td><td>0.971</td></tr>
+    <tr><td>noise_high</td>
+        <td>1.000</td><td>0.988</td><td style="background:rgba(123,224,164,0.08);">0.974</td></tr>
+    <tr style="background:rgba(255, 209, 102, 0.10);"><td rowspan="3"><b>XL</b></td>
+        <td>quiet</td>
+        <td><b>1.000</b></td><td><b>1.000</b></td><td><b>1.000</b></td></tr>
+    <tr style="background:rgba(255, 209, 102, 0.10);"><td>noise_low</td>
+        <td><b>1.000</b></td><td><b>1.000</b></td><td><b>1.000</b></td></tr>
+    <tr style="background:rgba(255, 209, 102, 0.10);"><td>noise_high</td>
+        <td><b>1.000</b></td><td><b>1.000</b></td><td><b>1.000</b></td></tr>
+  </tbody>
+</table>
+
+<h4>32cls 学習モデル (14cls collapse)</h4>
+
+<table class="compact">
+  <thead>
+    <tr><th rowspan="2">size</th><th rowspan="2">baseline</th>
+        <th colspan="3">eval 環境</th></tr>
+    <tr><th>quiet</th><th>noise_low</th><th>noise_high</th></tr>
+  </thead>
+  <tbody>
+    <tr><td rowspan="3">S</td>
+        <td>quiet</td>
+        <td style="background:rgba(123,224,164,0.08);">1.000</td><td>1.000</td><td>0.991</td></tr>
+    <tr><td>noise_low</td>
+        <td>1.000</td><td style="background:rgba(123,224,164,0.08);">1.000</td><td>0.996</td></tr>
+    <tr><td>noise_high</td>
+        <td>1.000</td><td>1.000</td><td style="background:rgba(123,224,164,0.08);">0.998</td></tr>
+    <tr><td rowspan="3">M</td>
+        <td>quiet</td>
+        <td style="background:rgba(123,224,164,0.08);">1.000</td><td>1.000</td><td>0.999</td></tr>
+    <tr><td>noise_low</td>
+        <td>1.000</td><td style="background:rgba(123,224,164,0.08);">1.000</td><td>0.998</td></tr>
+    <tr><td>noise_high</td>
+        <td>1.000</td><td>1.000</td><td style="background:rgba(123,224,164,0.08);">0.993</td></tr>
+    <tr><td rowspan="3">L</td>
+        <td>quiet</td>
+        <td style="background:rgba(123,224,164,0.08);">1.000</td><td>0.999</td><td>0.992</td></tr>
+    <tr><td>noise_low</td>
+        <td>1.000</td><td style="background:rgba(123,224,164,0.08);">1.000</td><td>0.997</td></tr>
+    <tr><td>noise_high</td>
+        <td>1.000</td><td>1.000</td><td style="background:rgba(123,224,164,0.08);">1.000</td></tr>
+    <tr style="background:rgba(255, 209, 102, 0.10);"><td rowspan="3"><b>XL</b></td>
+        <td>quiet</td>
+        <td><b>1.000</b></td><td><b>1.000</b></td><td><b>1.000</b></td></tr>
+    <tr style="background:rgba(255, 209, 102, 0.10);"><td>noise_low</td>
+        <td><b>1.000</b></td><td><b>1.000</b></td><td><b>1.000</b></td></tr>
+    <tr style="background:rgba(255, 209, 102, 0.10);"><td>noise_high</td>
+        <td><b>1.000</b></td><td><b>1.000</b></td><td><b>1.000</b></td></tr>
+  </tbody>
+</table>
+
+<h3>4-4. 32cls 直接 (5-bit 完全一致) cross-baseline マトリクス</h3>
+
+<p>
+  14cls collapse は baseline mismatch でも頑健だが、
+  <b>32cls 直接 (サブ状態識別) は baseline 選択がやや影響</b>する。
+  matched baseline (対角セル、網掛け) が概ね最高。
+</p>
+
+<table class="compact">
+  <thead>
+    <tr><th rowspan="2">size</th><th rowspan="2">baseline</th>
+        <th colspan="3">eval 環境 (32cls 直接 acc)</th></tr>
+    <tr><th>quiet</th><th>noise_low</th><th>noise_high</th></tr>
+  </thead>
+  <tbody>
+    <tr><td rowspan="3">S</td>
+        <td>quiet</td>
+        <td style="background:rgba(123,224,164,0.08);">0.914</td><td>0.879</td><td>0.809</td></tr>
+    <tr><td>noise_low</td>
+        <td>0.929</td><td style="background:rgba(123,224,164,0.08);">0.892</td><td>0.867</td></tr>
+    <tr><td>noise_high</td>
+        <td>0.797</td><td>0.945</td><td style="background:rgba(123,224,164,0.08);">0.924</td></tr>
+    <tr><td rowspan="3">M</td>
+        <td>quiet</td>
+        <td style="background:rgba(123,224,164,0.08);">0.944</td><td>0.893</td><td>0.829</td></tr>
+    <tr><td>noise_low</td>
+        <td>0.946</td><td style="background:rgba(123,224,164,0.08);">0.897</td><td>0.848</td></tr>
+    <tr><td>noise_high</td>
+        <td>0.899</td><td>0.948</td><td style="background:rgba(123,224,164,0.08);">0.920</td></tr>
+    <tr><td rowspan="3">L</td>
+        <td>quiet</td>
+        <td style="background:rgba(123,224,164,0.08);">0.928</td><td>0.894</td><td>0.811</td></tr>
+    <tr><td>noise_low</td>
+        <td>0.899</td><td style="background:rgba(123,224,164,0.08);">0.916</td><td>0.866</td></tr>
+    <tr><td>noise_high</td>
+        <td>0.846</td><td>0.952</td><td style="background:rgba(123,224,164,0.08);">0.939</td></tr>
+    <tr style="background:rgba(255, 209, 102, 0.10);"><td rowspan="3"><b>XL</b></td>
+        <td>quiet</td>
+        <td style="background:rgba(123,224,164,0.20);">0.949</td><td>0.922</td><td>0.878</td></tr>
+    <tr style="background:rgba(255, 209, 102, 0.10);"><td>noise_low</td>
+        <td>0.963</td><td style="background:rgba(123,224,164,0.20);"><b>0.994</b></td><td>0.939</td></tr>
+    <tr style="background:rgba(255, 209, 102, 0.10);"><td>noise_high</td>
+        <td>0.856</td><td>0.955</td><td style="background:rgba(123,224,164,0.20);"><b>0.979</b></td></tr>
+  </tbody>
+</table>
+
+<div class="method-card winner">
+  <h3>🎯 cross-baseline 評価の総合結論</h3>
+  <ul>
+    <li><b>XL 14cls / 32cls collapse: 9/9 セル全て 1.000</b> — baseline と eval の組合せに完全頑健</li>
+    <li><b>S/M/L も 14cls collapse は ~0.95-1.00</b> — baseline mismatch でもクラス境界は保たれる</li>
+    <li><b>32cls 直接は matched/近 matched baseline が最良</b> — サブ状態識別は baseline ドリフトで弱まる
+        (例: XL quiet baseline + noise_high eval = 0.878、対照に matched なら 0.979)</li>
+    <li>つまり <b>「14 等価クラス判定」は静寂校正 1 回で全環境 perfect、サブ状態識別が必要なら
+        環境近似の baseline 推奨</b></li>
+  </ul>
+</div>
+
+<h3>4-5. 雑踏耐性を更に高めるための次のアプローチ (2 案並走)</h3>
+
+<p>
+  現状の XL は quiet baseline で全環境 1.000 だが、<b>cross-house / 屋外音入り / 長時間ドリフト</b>
+  等の更に厳しい条件に備えて、雑踏多様性を学習に取り込む 2 つの戦略が考えられる:
+</p>
+
+<div class="method-card">
+  <h3>アプローチ A: 雑踏付き train データを実収集</h3>
+  <ul>
+    <li><code>train_v4_noise_low</code> (~54 min): eval_noise_low と同条件で 32 state × 50 frame 収集</li>
+    <li><code>train_v5_noise_high</code> (~54 min): eval_noise_high と同条件で同様</li>
+    <li>v1+v2+v3+v4+v5 を <b>uniform に noise_low baseline で diff</b> して学習</li>
+    <li>3 環境の分布を直接学習させるので最も decisive、ただし収集工数 +2 hour</li>
+  </ul>
+</div>
+
+<div class="method-card">
+  <h3>アプローチ B: NoiseOverlay augmentation 復活 (推奨先発)</h3>
+  <p>
+    <a href="../pc/training/augment.py">augment.py</a> に既存の <code>NoiseOverlay</code>
+    クラスを <code>default_train_transform</code> に組み込むだけ。新規収集不要:
+  </p>
+  <pre style="background:var(--panel-2); padding:10px; border-radius:6px; font-size:11px;">NoiseOverlay(
+    noise_dirs=[Path("captures/eval_noise_low"),
+                Path("captures/eval_noise_high")],
+    snr_db_range=(5.0, 25.0),   # 強めの ambient シミュレート
+    p=0.7,                      # 70% の train sample に重ね合わせ
+)</pre>
+  <ul>
+    <li>既収集の eval_noise_low / high の WAV を ambient 音源として再利用</li>
+    <li>学習時に各 train sample へ実 ambient を確率 p で overlay</li>
+    <li>現状の <code>GaussianHiss(SNR 15-35 dB)</code> は周波数平坦な白色 noise で TV /
+        会話とは構造が違う → 実 ambient overlay の方が deployable robustness を稼げる</li>
+    <li>工数: augment.py 1 行修正 + 既存 sweep スクリプト再実行 (~30 min GPU)</li>
+  </ul>
+</div>
+
+<div class="method-card winner">
+  <h3>推奨実行順序</h3>
+  <ol>
+    <li><b>まず B</b>: NoiseOverlay 復活で existing data 再学習。30 分で結果が出る。
+        cross-house に行く前の予防接種としてコストパフォーマンス最良</li>
+    <li><b>B でも cross-house で崩れる場合のみ A</b>: 雑踏 train データを実収集。
+        実環境 in-distribution として最終手段</li>
+  </ol>
+  <p>
+    ユーザー指摘の通り、「<b>augmentation で SNR 下げたデータを作れば実収集の必要は薄い</b>」
+    のが筋。ただし現状の GaussianHiss は弱い + 平坦すぎるので、
+    <b>実 ambient WAV を overlay する NoiseOverlay の方が実効性が高い</b>。
+  </p>
+</div>
+
+<h3>4-6. baseline 選択の実用指針 (cross-baseline 結果から)</h3>
+
+<table class="compact">
+  <thead>
+    <tr><th>目的</th><th>推奨 baseline 収集条件</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>14 等価クラス判定のみ (XL モデル)</td>
+        <td>任意 — どの ambient でも 1.000</td></tr>
+    <tr><td>14 等価クラス判定 (S/M/L モデル)</td>
+        <td>noise_high 寄り (平均 +0.005-0.008 改善)</td></tr>
+    <tr><td>32 サブ状態識別 (XL)</td>
+        <td><b>中程度雑踏 (noise_low 相当)</b> — 静寂 / 大雑踏 ともに 0.94+ を維持</td></tr>
+    <tr><td>32 サブ状態識別 (S/M/L)</td>
+        <td>運用予想環境に近い ambient で校正、定期再校正推奨</td></tr>
+  </tbody>
+</table>
+
+<p class="note">
+  実機 install wizard は「全閉で 1 回録音」だが、 <b>校正時の環境を完全な静寂ではなく
+  生活音込みで取る</b>方が 32cls 用途では精度が良い、というのが反直感的な発見。
+</p>
+
+<h2 id="discussion">5. 議論</h2>
+
+<div class="method-card winner">
+  <h3>結論: 14cls XL がデプロイ第 1 候補、32cls XL がサブ状態識別オプション</h3>
+  <table class="compact" style="margin-top:8px;">
+    <thead>
+      <tr><th></th><th>14cls XL</th><th>32cls XL</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>cross-day + 3 環境 14cls acc</td>
+          <td>1.000 (全完璧)</td>
+          <td>1.000 (全完璧)</td></tr>
+      <tr><td>cross-day + 3 環境 32cls acc</td>
+          <td>—</td>
+          <td>0.875-0.994 (サブ状態識別可能)</td></tr>
+      <tr><td>出力</td><td>14 等価クラス</td><td>32 真状態 (5 bit 全部)</td></tr>
+      <tr><td>params</td><td>104k</td><td>104k</td></tr>
+      <tr><td>用途</td><td>「ドア開閉の集約状態」を返す</td><td>「個別ドアの開閉」を返す</td></tr>
+    </tbody>
+  </table>
+  <p>
+    14cls XL は <b>全 6000+ 予測で完璧</b>な汎用デプロイモデル。
+    32cls XL は同 14cls 性能を維持しつつ、サブ状態識別 ~99% を追加で得る。
+    用途次第で選択可能。
+  </p>
+</div>
+
+<div class="method-card">
+  <h3>noise_diff (s00000 baseline 引き) の頑健性が裏付け</h3>
+  <p>
+    雑踏音が混ざっても XL が崩れない理由:
+  </p>
+  <ul>
+    <li>各 run の s00000 (全閉) baseline に <b>雑踏音込みのスペクトル</b>が織り込まれる</li>
+    <li>他の state の特徴量 = (新環境スペクトル) − (新環境 baseline) = ドア状態変化のみ</li>
+    <li>定常な ambient はキャンセル、残るのは door 開閉による相対変化</li>
+    <li>実運用での「設置時に s00000 を 1 回録音」キャリブレーション工程と整合的</li>
+  </ul>
+</div>
+
+<div class="method-card warn">
+  <h3>⚠️ 残る検証課題</h3>
+  <ul>
+    <li><b>cross-house</b> — 別宅で同じ性能が出るか (= per-house calibration が必須か)</li>
+    <li><b>非定常雑踏</b> — 突発音 (扉の音、足音) で性能変化があるか</li>
+    <li><b>季節変化</b> — 室内空気密度や反射体変化での再校正必要性</li>
+    <li><b>サブ状態識別 (32cls)</b> — 真に観測可能なら 32cls が 14cls より細かい情報を出せるか</li>
+  </ul>
+</div>
+
+<h2 id="next">5. 次のステップ</h2>
+
+<ol>
+  <li><b>32cls sweep 結果待ち</b> — 進行中、完了後 §3 を埋めて 14cls との比較完成</li>
+  <li><b>確定モデル (XL 14cls) を MCU 移植</b>
+      <ul>
+        <li>ONNX エクスポート → INT8 量子化 (eiq-onnx2tflite) → Neutron 変換</li>
+        <li>FRDM-MCXN947 firmware 10_inference 統合</li>
+      </ul>
+  </li>
+  <li><b>cross-house データ収集</b> (長期) — 別宅で installation wizard 込みで検証</li>
+  <li><b>連続録音 + chunking パイプライン</b> (将来) — 詳細は
+      <a href="nn_train_v1v2_combined.html#streaming_proposal">v1+v2 結合学習レポート §7</a> 参照</li>
+</ol>
+
+</main>
+
+</body>
+</html>

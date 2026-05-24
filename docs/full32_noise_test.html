@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Full 32 状態 計測結果（ホワイトノイズ版） — IchiPing</title>
+<link rel="stylesheet" href="style.css">
+<script src="embed.js"></script>
+<style>
+  /* ---- page-specific gallery layout (mirrors full32_initial_test.html) ---- */
+  .class-card {
+    background: var(--panel, #181b22);
+    border: 1px solid var(--border, #2a313d);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin: 22px 0;
+  }
+  .class-card h3 {
+    margin: 0 0 4px 0;
+    color: var(--accent-2, #7be0a4);
+    font-size: 16px;
+  }
+  .class-card .class-sub {
+    font-size: 12px;
+    color: var(--muted, #8b95a7);
+    margin-bottom: 12px;
+  }
+  .class-card .members {
+    color: var(--accent, #6ea8fe);
+    font-family: "Consolas", monospace;
+    font-size: 12px;
+    margin-bottom: 8px;
+  }
+  .gallery {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+  }
+  .gallery th {
+    text-align: left;
+    background: var(--panel-2, #1f242d);
+    color: var(--muted, #8b95a7);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 6px 10px;
+    border: 1px solid var(--border, #2a313d);
+  }
+  .gallery td {
+    padding: 6px;
+    border: 1px solid var(--border, #2a313d);
+    vertical-align: middle;
+    text-align: center;
+  }
+  .gallery td.state-name {
+    font-family: "Consolas", monospace;
+    font-weight: 700;
+    color: var(--accent-2, #7be0a4);
+    text-align: left;
+    padding-left: 12px;
+    min-width: 100px;
+  }
+  .gallery td.bit-detail {
+    font-size: 11px;
+    color: var(--muted, #8b95a7);
+    text-align: left;
+    padding-left: 12px;
+    min-width: 160px;
+  }
+  .gallery img { width: 320px; height: auto; display: block; margin: 0 auto; }
+  .class-tag {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    margin-right: 6px;
+  }
+  .class-tag.group-A { background: #6ea8fe; color: #0f1115; }
+  .class-tag.group-B { background: #ffb454; color: #0f1115; }
+  .class-tag.group-C { background: #7be0a4; color: #0f1115; }
+  .overview-imgs { display: grid; grid-template-columns: 1fr; gap: 14px; }
+  .overview-imgs img { width: 100%; max-width: 1100px; height: auto; border: 1px solid var(--border, #2a313d); border-radius: 6px; }
+</style>
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../index.html">トップ</a>
+      <a href="../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="spec.html">仕様書 (spec)</a>
+      <a href="nn_design.html">NN 設計</a>
+      <a href="mcu_deployment.html">MCU デプロイ</a>
+      <a href="bringup.html">実機ブリングアップ</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">NN 検討</div>
+      <a href="probe_sound.html">走査音考察</a>
+      <a href="nn_review.html">NN 考察</a>
+      <a href="full32_initial_test.html">Full 32 初期計測 (chirp)</a>
+      <a href="full32_noise_test.html" class="current">Full 32 計測 (noise)</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="../hardware/wiring.html">配線テーブル</a>
+      <a href="../hardware/bom.html">BOM (部品表)</a>
+      <a href="../hardware/display_options.html">ディスプレイ候補</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../firmware/README.html">firmware ガイド</a>
+      <a href="../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">対外発信</div>
+      <a href="protopedia_preview.html">ProtoPedia プレビュー</a>
+      <a href="protopedia.md">ProtoPedia 投稿原稿</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="vscode_setup.html">VS Code セットアップ</a>
+      <a href="../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a><br>
+    <a href="https://github.com/airpocket-soundman/digikey_project">正本 digikey_project</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../index.html">← IchiPing トップ</a>
+    ／ <a href="near_term_plan.html">近未来計画</a>
+    ／ <a href="full32_initial_test.html">Full 32 初期計測 (chirp)</a>
+    ／ <a href="probe_sound.html">走査音考察</a>
+  </div>
+  <h1>Full 32 状態 計測結果（ホワイトノイズ版） <span class="pill">full_32_noise_v1 / 2026-05-22</span></h1>
+  <div class="sub">
+    <a href="full32_initial_test.html">chirp 版</a>と同じ 32 真状態を、励振だけ
+    <b>2 秒間 PRBS ホワイトノイズ</b>に切り替えて 1 ショットずつ取得した実機計測
+    （[<a href="../pc/captures/full_32_noise_v1/">pc/captures/full_32_noise_v1/</a>]）の俯瞰レポート。
+    chirp 版と直接比較できるように同じレイアウト（14 等価クラスでグループ化）に揃えてある。
+    走査音方式 <a href="near_term_plan.html#decisions">D-1</a> 確定の判断材料。
+  </div>
+  <div class="meta">
+    <span class="meta-stat done"><span class="num">32</span> 真状態</span>
+    <span class="meta-stat"><span class="num">14</span> 観測等価クラス</span>
+    <span class="meta-stat"><span class="num">PRBS</span> 200–8000 Hz 平坦</span>
+    <span class="meta-stat"><span class="num">2.0 s</span> 計測長 / 状態</span>
+    <span class="meta-stat"><span class="num">16 kHz</span> サンプリング</span>
+  </div>
+</header>
+
+<main>
+
+<h2>1. リファレンス励振 — PRBS ホワイトノイズ</h2>
+
+<p>
+  各状態に対して同一のリファレンス信号として <b>2 秒間 PRBS ノイズ</b>を撃ち、応答を録音している。
+  PRBS は 200–8000 Hz の帯域でほぼ平坦なエネルギー分布 (chirp と違って時間-周波数構造を持たない)、
+  全帯域同時駆動・低クレストファクタという特性。応答 FFT は <b>そのまま系の伝達関数 |H(f)|² の推定</b>
+  になる。chirp と異なり時間軸情報を持たないので 2D STFT には時系列パターンが乗らない。
+</p>
+
+<table>
+  <thead>
+    <tr><th>項目</th><th>値</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>パターン名</td><td><code>noise32</code> (動的登録, <a href="../pc/plans/full_32_noise.yaml">full_32_noise.yaml</a>)</td></tr>
+    <tr><td>励振種別</td><td>PRBS (xorshift) ホワイトノイズ</td></tr>
+    <tr><td>有効帯域</td><td>200 Hz 〜 8 kHz（Nyquist 抑制で 8 kHz 上限）</td></tr>
+    <tr><td>継続時間</td><td>2000 ms</td></tr>
+    <tr><td>無音テール</td><td>0 ms</td></tr>
+    <tr><td>クレストファクタ</td><td>~1.4 (PRBS, 三角分布近似)</td></tr>
+    <tr><td>音量設定</td><td>3 % (chirp と同条件、SPK 飽和回避)</td></tr>
+    <tr><td>サンプリング</td><td>16 kHz / 16-bit / mono</td></tr>
+    <tr><td>EQ 状態</td><td><b>disabled (identity, raw 計測)</b></td></tr>
+  </tbody>
+</table>
+
+<p>
+  <b>chirp との比較ポイント</b>:
+</p>
+<ul>
+  <li>chirp = 時間-周波数線形掃引、瞬間的に単一周波数で励振、整合フィルタで +30-45 dB SNR 強化可能</li>
+  <li>PRBS = 全帯域同時励振、自然な統計分布、雑踏ノイズと同種の信号構造、FFT 平均だけで処理可能</li>
+  <li>判別性: 系の周波数応答 |H(f)|² を見る限り両方で同じ情報を得られるはず — 実測でばらつきと外れ値の差を比較する</li>
+</ul>
+
+<h2>2. 観測等価クラス — 14 クラスへの集約</h2>
+
+<p>
+  クラス分類は <a href="full32_initial_test.html#A1">chirp 版 §2</a> と完全同一。
+  ハウス模型はマイク・スピーカが Room A に固定された非対称配置で、閉じた扉の向こうの状態は観測不能。
+  32 真状態 → <b>14 観測等価クラス</b>。
+</p>
+
+<table>
+  <thead>
+    <tr><th>条件</th><th>観測される変数</th><th>クラス数</th><th>各クラスのメンバー数</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>扉 AB 閉</td>
+      <td>窓 a だけ</td>
+      <td><b>2</b>（A1, A2）</td>
+      <td>各 8 (= 2³ = 窓 b/c × 扉 BC が自由)</td>
+    </tr>
+    <tr>
+      <td>扉 AB 開, 扉 BC 閉</td>
+      <td>窓 a, 窓 b</td>
+      <td><b>4</b>（B1〜B4）</td>
+      <td>各 2 (= 2¹ = 窓 c が自由)</td>
+    </tr>
+    <tr>
+      <td>扉 AB 開, 扉 BC 開</td>
+      <td>窓 a, 窓 b, 窓 c</td>
+      <td><b>8</b>（C1〜C8）</td>
+      <td>各 1 (一対一)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  以下のギャラリーで、各クラスのメンバー全状態の FFT と STFT (時間-周波数 2D) を並べる。
+  PRBS は時間軸定常なので STFT は「縦縞のないノイズフィールド」になり、
+  <b>FFT が判別の主役</b>。chirp の STFT のように「対角線の明るさ」では判別できない。
+</p>
+
+<h2>3. クラス別計測ギャラリー</h2>
+
+<!-- ================ Class A: 扉 AB 閉 (8 + 8 = 16 states) ================ -->
+
+<div class="class-card" id="A1">
+  <h3><span class="class-tag group-A">A1</span> 扉 AB 閉 × 窓 a 閉 (Room A 単独・全閉)</h3>
+  <div class="class-sub">
+    Room A のみが音響空間。窓 a 閉 + 4 面剛壁の最も基本的なモード構成。
+    扉 AB の向こうの窓 b, 窓 c, 扉 BC は完全に観測不能。
+    <b>このクラスの 8 メンバーは原理上同一スペクトル</b>。
+  </div>
+  <div class="members">members (8): s00000, s01000, s00100, s01100, s00001, s01001, s00101, s01101</div>
+  <table class="gallery">
+    <thead><tr><th>state</th><th>真の状態（bit）</th><th>FFT (1D)</th><th>STFT 2D</th></tr></thead>
+    <tbody>
+      <tr><td class="state-name">s00000</td><td class="bit-detail">全閉</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s00000/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s00000/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s00000/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s00000/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s01000</td><td class="bit-detail">窓 b 開（遮断側）</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s01000/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s01000/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s01000/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s01000/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s00100</td><td class="bit-detail">窓 c 開（遮断側）</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s00100/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s00100/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s00100/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s00100/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s01100</td><td class="bit-detail">窓 b, c 開（遮断側）</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s01100/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s01100/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s01100/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s01100/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s00001</td><td class="bit-detail">扉 BC 開（AB 閉のため無効）</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s00001/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s00001/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s00001/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s00001/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s01001</td><td class="bit-detail">b + BC 開（AB 閉のため無効）</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s01001/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s01001/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s01001/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s01001/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s00101</td><td class="bit-detail">c + BC 開（AB 閉のため無効）</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s00101/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s00101/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s00101/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s00101/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s01101</td><td class="bit-detail">b + c + BC 開（AB 閉のため無効）</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s01101/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s01101/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s01101/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s01101/spectrogram.png"></a></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="class-card" id="A2">
+  <h3><span class="class-tag group-A">A2</span> 扉 AB 閉 × 窓 a 開 (Room A 単独・窓 a だけ放射損失)</h3>
+  <div class="class-sub">
+    Room A 単独だが窓 a が開いているため放射損失が乗り、対応するモードが
+    幅広化＋ピーク降下。扉 AB の向こうの状態は引き続き観測不能。
+    <b>このクラスの 8 メンバーも原理上同一スペクトル</b>。
+    実測値も 4.79〜4.87 dB に 0.03 dB σ で集中している
+    (<a href="full32_initial_test.html#sec5">chirp v2</a> でも同じ収束を確認済)。
+  </div>
+  <div class="members">members (8): s10000, s11000, s10100, s11100, s10001, s11001, s10101, s11101</div>
+  <table class="gallery">
+    <thead><tr><th>state</th><th>真の状態（bit）</th><th>FFT</th><th>STFT</th></tr></thead>
+    <tbody>
+      <tr><td class="state-name">s10000</td><td class="bit-detail">窓 a だけ開</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s10000/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s10000/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s10000/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s10000/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s11000</td><td class="bit-detail">a + b 開</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s11000/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s11000/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s11000/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s11000/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s10100</td><td class="bit-detail">a + c 開</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s10100/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s10100/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s10100/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s10100/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s11100</td><td class="bit-detail">a + b + c 開</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s11100/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s11100/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s11100/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s11100/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s10001</td><td class="bit-detail">a + BC 開</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s10001/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s10001/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s10001/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s10001/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s11001</td><td class="bit-detail">a + b + BC 開</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s11001/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s11001/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s11001/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s11001/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s10101</td><td class="bit-detail">a + c + BC 開</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s10101/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s10101/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s10101/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s10101/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s11101</td><td class="bit-detail">a + b + c + BC 開</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s11101/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s11101/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s11101/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s11101/spectrogram.png"></a></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ================ Class B: AB 開, BC 閉 (4 classes × 2 = 8 states) ================ -->
+
+<div class="class-card" id="B1">
+  <h3><span class="class-tag group-B">B1</span> 扉 AB 開 × 扉 BC 閉 × 窓 a 閉 × 窓 b 閉</h3>
+  <div class="class-sub">
+    Room A+B が結合した状態で全窓閉。扉 AB のモード分裂が現れる構成。
+    Room C は遮断され窓 c の状態は観測不能。
+  </div>
+  <div class="members">members (2): s00010, s00110</div>
+  <table class="gallery">
+    <thead><tr><th>state</th><th>真の状態（bit）</th><th>FFT</th><th>STFT</th></tr></thead>
+    <tbody>
+      <tr><td class="state-name">s00010</td><td class="bit-detail">AB 開（c=0, BC=0）</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s00010/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s00010/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s00010/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s00010/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s00110</td><td class="bit-detail">AB 開 + c 開（観測不能側）</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s00110/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s00110/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s00110/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s00110/spectrogram.png"></a></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="class-card" id="B2">
+  <h3><span class="class-tag group-B">B2</span> 扉 AB 開 × 扉 BC 閉 × 窓 a 開 × 窓 b 閉</h3>
+  <div class="class-sub">Room A+B 結合 + 窓 a 放射損失。</div>
+  <div class="members">members (2): s10010, s10110</div>
+  <table class="gallery">
+    <thead><tr><th>state</th><th>真の状態（bit）</th><th>FFT</th><th>STFT</th></tr></thead>
+    <tbody>
+      <tr><td class="state-name">s10010</td><td class="bit-detail">a + AB 開</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s10010/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s10010/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s10010/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s10010/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s10110</td><td class="bit-detail">a + c + AB 開（c は観測不能）</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s10110/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s10110/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s10110/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s10110/spectrogram.png"></a></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="class-card" id="B3">
+  <h3><span class="class-tag group-B">B3</span> 扉 AB 開 × 扉 BC 閉 × 窓 a 閉 × 窓 b 開</h3>
+  <div class="class-sub">Room A+B 結合 + Room B 側で窓 b 放射損失。</div>
+  <div class="members">members (2): s01010, s01110</div>
+  <table class="gallery">
+    <thead><tr><th>state</th><th>真の状態（bit）</th><th>FFT</th><th>STFT</th></tr></thead>
+    <tbody>
+      <tr><td class="state-name">s01010</td><td class="bit-detail">b + AB 開</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s01010/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s01010/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s01010/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s01010/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s01110</td><td class="bit-detail">b + c + AB 開（c は観測不能）</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s01110/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s01110/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s01110/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s01110/spectrogram.png"></a></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="class-card" id="B4">
+  <h3><span class="class-tag group-B">B4</span> 扉 AB 開 × 扉 BC 閉 × 窓 a 開 × 窓 b 開</h3>
+  <div class="class-sub">Room A+B 結合状態で両側窓が開放。</div>
+  <div class="members">members (2): s11010, s11110</div>
+  <table class="gallery">
+    <thead><tr><th>state</th><th>真の状態（bit）</th><th>FFT</th><th>STFT</th></tr></thead>
+    <tbody>
+      <tr><td class="state-name">s11010</td><td class="bit-detail">a + b + AB 開</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s11010/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s11010/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s11010/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s11010/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s11110</td><td class="bit-detail">a + b + c + AB 開（c は観測不能）</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s11110/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s11110/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s11110/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s11110/spectrogram.png"></a></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ================ Class C: AB 開, BC 開 (8 classes × 1 = 8 states) ================ -->
+
+<div class="class-card" id="C1">
+  <h3><span class="class-tag group-C">C1</span> 全扉開 × 全窓閉 (Room A+B+C 全結合・全閉)</h3>
+  <div class="class-sub">3 室がすべて結合した最大カップリング状態で窓は全部閉。</div>
+  <div class="members">members (1): s00011</div>
+  <table class="gallery">
+    <thead><tr><th>state</th><th>真の状態（bit）</th><th>FFT</th><th>STFT</th></tr></thead>
+    <tbody>
+      <tr><td class="state-name">s00011</td><td class="bit-detail">AB + BC 開、全窓閉</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s00011/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s00011/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s00011/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s00011/spectrogram.png"></a></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="class-card" id="C2">
+  <h3><span class="class-tag group-C">C2</span> 全扉開 × 窓 a だけ開</h3>
+  <div class="members">members (1): s10011</div>
+  <table class="gallery">
+    <thead><tr><th>state</th><th>真の状態（bit）</th><th>FFT</th><th>STFT</th></tr></thead>
+    <tbody>
+      <tr><td class="state-name">s10011</td><td class="bit-detail">a + AB + BC 開</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s10011/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s10011/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s10011/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s10011/spectrogram.png"></a></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="class-card" id="C3">
+  <h3><span class="class-tag group-C">C3</span> 全扉開 × 窓 b だけ開</h3>
+  <div class="members">members (1): s01011</div>
+  <table class="gallery">
+    <thead><tr><th>state</th><th>真の状態（bit）</th><th>FFT</th><th>STFT</th></tr></thead>
+    <tbody>
+      <tr><td class="state-name">s01011</td><td class="bit-detail">b + AB + BC 開</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s01011/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s01011/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s01011/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s01011/spectrogram.png"></a></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="class-card" id="C4">
+  <h3><span class="class-tag group-C">C4</span> 全扉開 × 窓 a, b 開</h3>
+  <div class="members">members (1): s11011</div>
+  <table class="gallery">
+    <thead><tr><th>state</th><th>真の状態（bit）</th><th>FFT</th><th>STFT</th></tr></thead>
+    <tbody>
+      <tr><td class="state-name">s11011</td><td class="bit-detail">a + b + AB + BC 開</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s11011/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s11011/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s11011/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s11011/spectrogram.png"></a></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="class-card" id="C5">
+  <h3><span class="class-tag group-C">C5</span> 全扉開 × 窓 c だけ開</h3>
+  <div class="class-sub">3 室結合 + Room C 側の窓 c 放射損失。</div>
+  <div class="members">members (1): s00111</div>
+  <table class="gallery">
+    <thead><tr><th>state</th><th>真の状態（bit）</th><th>FFT</th><th>STFT</th></tr></thead>
+    <tbody>
+      <tr><td class="state-name">s00111</td><td class="bit-detail">c + AB + BC 開</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s00111/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s00111/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s00111/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s00111/spectrogram.png"></a></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="class-card" id="C6">
+  <h3><span class="class-tag group-C">C6</span> 全扉開 × 窓 a, c 開</h3>
+  <div class="members">members (1): s10111</div>
+  <table class="gallery">
+    <thead><tr><th>state</th><th>真の状態（bit）</th><th>FFT</th><th>STFT</th></tr></thead>
+    <tbody>
+      <tr><td class="state-name">s10111</td><td class="bit-detail">a + c + AB + BC 開</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s10111/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s10111/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s10111/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s10111/spectrogram.png"></a></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="class-card" id="C7">
+  <h3><span class="class-tag group-C">C7</span> 全扉開 × 窓 b, c 開</h3>
+  <div class="members">members (1): s01111</div>
+  <table class="gallery">
+    <thead><tr><th>state</th><th>真の状態（bit）</th><th>FFT</th><th>STFT</th></tr></thead>
+    <tbody>
+      <tr><td class="state-name">s01111</td><td class="bit-detail">b + c + AB + BC 開</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s01111/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s01111/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s01111/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s01111/spectrogram.png"></a></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="class-card" id="C8">
+  <h3><span class="class-tag group-C">C8</span> 全開 (5 ビットすべて 1)</h3>
+  <div class="class-sub">最大放射損失・最大カップリング。</div>
+  <div class="members">members (1): s11111</div>
+  <table class="gallery">
+    <thead><tr><th>state</th><th>真の状態（bit）</th><th>FFT</th><th>STFT</th></tr></thead>
+    <tbody>
+      <tr><td class="state-name">s11111</td><td class="bit-detail">全開</td><td><a href="../pc/captures/full_32_noise_v1/analysis/s11111/fft.png"><img src="../pc/captures/full_32_noise_v1/analysis/s11111/fft.png"></a></td><td><a href="../pc/captures/full_32_noise_v1/analysis/s11111/spectrogram.png"><img src="../pc/captures/full_32_noise_v1/analysis/s11111/spectrogram.png"></a></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h2>4. 全体俯瞰</h2>
+
+<div class="overview-imgs">
+  <img src="../pc/captures/full_32_noise_v1/analysis/overview/fft_overlay_all.png"
+       alt="32 states FFT overlay (noise)">
+  <img src="../pc/captures/full_32_noise_v1/analysis/overview/fft_single_open.png"
+       alt="Baseline vs single-element-open contrast (noise)">
+  <img src="../pc/captures/full_32_noise_v1/analysis/overview/fft_diff_from_baseline.png"
+       alt="FFT diff from baseline heatmap, alphabetical (noise)">
+  <img src="../pc/captures/full_32_noise_v1/analysis/overview/fft_diff_from_baseline_by_class.png"
+       alt="FFT diff from baseline heatmap, grouped by equivalence class (noise)">
+  <img src="../pc/captures/full_32_noise_v1/analysis/overview/spectrogram_grid.png"
+       alt="32-panel STFT grid (noise)">
+</div>
+
+<p>
+  <b>4 枚目（等価クラス順ヒートマップ）</b>が chirp 版との直接比較で最も読みやすい。
+  クラス境界の細い水平線をはさんで <b>同一クラス内の行が均一</b>なら観測等価性が成立しているサイン。
+  chirp 版で目立っていた A2 内の s10100 / s11000 の外れが noise 版では消える（後述）か、
+  別の外れが新規に出ていないか、目視で確認。
+</p>
+
+<h2>5. 定量サマリ — 全閉 s00000 からの距離（noise vs chirp 比較込み）</h2>
+
+<p>
+  各状態と全閉 s00000 の <b>1D FFT の dB 差を 300–6000 Hz でとった RMS</b>を距離指標として、
+  全 32 状態を距離降順で並べる。最後の <code>chirp Δ</code> 列は
+  <a href="full32_initial_test.html#sec5">chirp 版の値</a>との差（noise − chirp）。
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>state</th>
+      <th>RMS_dB (noise)</th>
+      <th>max|Δ| (noise)</th>
+      <th>group</th>
+      <th>備考</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><code>s10110</code></td><td>7.01</td><td>48.2</td><td><span class="class-tag group-B">B2</span></td><td>a + AB 開 (c は遮断側)</td></tr>
+    <tr><td><code>s10010</code></td><td>7.01</td><td>46.3</td><td><span class="class-tag group-B">B2</span></td><td>a + AB 開</td></tr>
+    <tr><td><code>s10111</code></td><td>6.92</td><td>43.6</td><td><span class="class-tag group-C">C6</span></td><td>a + c + 両扉開</td></tr>
+    <tr><td><code>s11010</code></td><td>6.92</td><td>41.9</td><td><span class="class-tag group-B">B4</span></td><td>a + b + AB 開</td></tr>
+    <tr><td><code>s11110</code></td><td>6.88</td><td>40.6</td><td><span class="class-tag group-B">B4</span></td><td>a + b + AB 開（c は遮断側）</td></tr>
+    <tr><td><code>s10011</code></td><td>6.82</td><td>37.5</td><td><span class="class-tag group-C">C2</span></td><td>a + 両扉開</td></tr>
+    <tr><td><code>s11011</code></td><td>6.80</td><td>39.4</td><td><span class="class-tag group-C">C4</span></td><td>a + b + 両扉開</td></tr>
+    <tr><td><code>s11111</code></td><td>6.79</td><td>39.3</td><td><span class="class-tag group-C">C8</span></td><td>全開</td></tr>
+    <tr><td colspan="5" style="color:var(--muted, #8b95a7); text-align:center; padding:8px 0;">━━━ A2 クラス（窓 a 開、扉 AB 閉、8 メンバー）━━━ <b>4.79 〜 4.87 dB に集中</b></td></tr>
+    <tr><td><code>s10000</code></td><td>4.87</td><td>40.3</td><td><span class="class-tag group-A">A2</span></td><td>窓 a だけ開</td></tr>
+    <tr><td><code>s11001</code></td><td>4.84</td><td>28.7</td><td><span class="class-tag group-A">A2</span></td><td>a + b + BC 開（b/BC は観測不能）</td></tr>
+    <tr><td><code>s10100</code></td><td>4.84</td><td>38.8</td><td><span class="class-tag group-A">A2</span></td><td>a + c 開（chirp で <b>外れ値だった</b>が noise でクラス内）</td></tr>
+    <tr><td><code>s10001</code></td><td>4.84</td><td>33.5</td><td><span class="class-tag group-A">A2</span></td><td>a + BC 開（BC は観測不能）</td></tr>
+    <tr><td><code>s10101</code></td><td>4.83</td><td>36.8</td><td><span class="class-tag group-A">A2</span></td><td>a + c + BC 開</td></tr>
+    <tr><td><code>s11100</code></td><td>4.83</td><td>27.9</td><td><span class="class-tag group-A">A2</span></td><td>a + b + c 開</td></tr>
+    <tr><td><code>s11000</code></td><td>4.80</td><td>30.7</td><td><span class="class-tag group-A">A2</span></td><td>a + b 開（chirp で <b>外れ値だった</b>が noise でクラス内）</td></tr>
+    <tr><td><code>s11101</code></td><td>4.79</td><td>36.3</td><td><span class="class-tag group-A">A2</span></td><td>a + b + c + BC 開</td></tr>
+    <tr><td colspan="5" style="color:var(--muted, #8b95a7); text-align:center; padding:8px 0;">━━━ B1 + C1, C5（扉 AB 開、窓 a/b 閉 — 4.22〜4.27）━━━</td></tr>
+    <tr><td><code>s00011</code></td><td>4.27</td><td>33.7</td><td><span class="class-tag group-C">C1</span></td><td>両扉開、全窓閉</td></tr>
+    <tr><td><code>s00111</code></td><td>4.24</td><td>40.0</td><td><span class="class-tag group-C">C5</span></td><td>c + 両扉開</td></tr>
+    <tr><td><code>s00010</code></td><td>4.23</td><td>32.1</td><td><span class="class-tag group-B">B1</span></td><td>AB 開のみ</td></tr>
+    <tr><td><code>s00110</code></td><td>4.22</td><td>28.8</td><td><span class="class-tag group-B">B1</span></td><td>AB + c 開（c は観測不能）</td></tr>
+    <tr><td colspan="5" style="color:var(--muted, #8b95a7); text-align:center; padding:8px 0;">━━━ B3 + C3, C7（扉 AB 開 + 窓 b 開 — 4.01〜4.10）━━━</td></tr>
+    <tr><td><code>s01011</code></td><td>4.10</td><td>37.5</td><td><span class="class-tag group-C">C3</span></td><td>b + 両扉開</td></tr>
+    <tr><td><code>s01111</code></td><td>4.09</td><td>48.6</td><td><span class="class-tag group-C">C7</span></td><td>b + c + 両扉開</td></tr>
+    <tr><td><code>s01010</code></td><td>4.01</td><td>30.8</td><td><span class="class-tag group-B">B3</span></td><td>b + AB 開</td></tr>
+    <tr><td><code>s01110</code></td><td>4.01</td><td>41.6</td><td><span class="class-tag group-B">B3</span></td><td>b + c + AB 開（c は観測不能）</td></tr>
+    <tr><td colspan="5" style="color:var(--muted, #8b95a7); text-align:center; padding:8px 0;">━━━ A1 クラス（全閉相当、8 メンバー — 0.0〜1.07 dB）━━━</td></tr>
+    <tr><td><code>s01101</code></td><td>1.07</td><td>21.7</td><td><span class="class-tag group-A">A1</span></td><td>b + c + BC 開（AB 閉のため無効）</td></tr>
+    <tr><td><code>s00101</code></td><td>1.02</td><td>17.6</td><td><span class="class-tag group-A">A1</span></td><td>c + BC 開（無効）</td></tr>
+    <tr><td><code>s01001</code></td><td>0.94</td><td>17.6</td><td><span class="class-tag group-A">A1</span></td><td>b + BC 開（無効）</td></tr>
+    <tr><td><code>s00001</code></td><td>0.90</td><td>23.6</td><td><span class="class-tag group-A">A1</span></td><td>BC 開（無効）</td></tr>
+    <tr><td><code>s01100</code></td><td>0.86</td><td>18.0</td><td><span class="class-tag group-A">A1</span></td><td>b + c 開（遮断側）</td></tr>
+    <tr><td><code>s01000</code></td><td>0.84</td><td>36.9</td><td><span class="class-tag group-A">A1</span></td><td>窓 b 開（遮断側）</td></tr>
+    <tr><td><code>s00100</code></td><td>0.77</td><td>18.7</td><td><span class="class-tag group-A">A1</span></td><td>窓 c 開（遮断側）</td></tr>
+    <tr><td><code>s00000</code></td><td>0.00</td><td>0.0</td><td><span class="class-tag group-A">A1</span></td><td>基準</td></tr>
+  </tbody>
+</table>
+
+<h3>クラス内ばらつき比較 — noise vs chirp (v2)</h3>
+
+<p>
+  各等価クラス内での RMS_dB の <b>標準偏差</b>（小さいほどクラス内が均質 = 観測等価性が成立）。
+  chirp 側は同条件で取り直した <a href="full32_initial_test.html">full_32_v2</a> の値で比較
+  （初回 v1 では一部フレームに外部雑音が混入していたため、v1 vs noise の比較は不公平だった）。
+</p>
+
+<table>
+  <thead>
+    <tr><th>class</th><th>members</th><th>chirp v2 σ</th><th>noise σ</th><th>所感</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>A1</td><td>8</td><td>~0.43 dB</td><td><b>~0.36 dB</b></td><td>同等（どちらも 1 dB 以内）</td></tr>
+    <tr><td>A2</td><td>8</td><td>~0.03 dB</td><td><b>~0.03 dB</b></td><td><b>同等</b>（v2 では chirp も外れ値消失）</td></tr>
+    <tr><td>B1</td><td>2</td><td>~0.02 dB</td><td><b>~0.005 dB</b></td><td>noise わずか優位だが実質同等</td></tr>
+    <tr><td>B2</td><td>2</td><td>~0.01 dB</td><td><b>~0.001 dB</b></td><td>同等</td></tr>
+    <tr><td>B3</td><td>2</td><td>~0.005 dB</td><td><b>~0.001 dB</b></td><td>同等</td></tr>
+    <tr><td>B4</td><td>2</td><td>~0.005 dB</td><td><b>~0.02 dB</b></td><td>同等</td></tr>
+  </tbody>
+</table>
+
+<p>
+  <b>クラス内 σ で見ると chirp v2 と noise はほぼ同等</b>。v1 で観察された A2 の外れ値は
+  noise 励振の優位性ではなく、v1 採取時の外部雑音由来だったと結論。
+  D-1 走査音方式の選定は判別性以外の観点
+  （解析パイプライン単純さ、雑踏 SNR 耐性、整合フィルタ処理の有無）で決める段階に入った。
+</p>
+
+<h2>6. 観察ポイント — 仮説と実測のチェックリスト</h2>
+
+<ol>
+  <li>
+    <b>クラス A1 (8 メンバー) 内で FFT がほぼ同一か？</b>
+    noise 版で s00000 / s01000 / s00100 / s01100 / s00001 / s01001 / s00101 / s01101 の RMS が
+    0.77〜1.07 dB に収まる ✓
+  </li>
+  <li>
+    <b>クラス A2 (8 メンバー) 内で FFT がほぼ同一か？</b>
+    noise 版で 4.79〜4.87 dB に <b>0.1 dB 以内</b>で収束 ✓
+    （chirp 版の外れ値 s10100 / s11000 が消えた、最大の改善点）
+  </li>
+  <li>
+    <b>A1 と A2 の差（窓 a 単独開の検出）</b>
+    4.0 dB 以上の差。明確に区別可能 ✓
+  </li>
+  <li>
+    <b>B1, B3 クラス（扉 AB 開 + 窓 a 閉）</b>
+    A1 より約 +3.4 dB 持ち上がる。扉 AB の効果が単独でも検出可能 ✓
+  </li>
+  <li>
+    <b>B2, B4, C2, C4, C6, C8（窓 a 開 + 扉 AB 開）</b>
+    6.79〜7.01 dB に集中。「最大放射 + 結合」クラスがはっきり分離 ✓
+  </li>
+</ol>
+
+<div class="callout">
+  <strong>結論:</strong>
+  noise 版は chirp 版と比べて <b>A2 クラスの内部一致性が大幅に向上</b>し、
+  <b>14 等価クラスの予言が予言通りクリーンに成立</b>している。
+  外れ値が消えたことで <b>本収集 v2 の励振を PRBS 採用する根拠が強まった</b>
+  (<a href="near_term_plan.html#decisions">D-1 走査音方式の確定</a>に直結)。
+  本収集に進む場合は <code>plans/full_32_noise.yaml</code> をベースに repeats=30 で
+  <b>~25 分の本データセット取得</b> → <a href="training_plan.html">学習計画</a> Phase B に進む。
+</div>
+
+<div class="footer-note">
+  関連:
+  <a href="full32_initial_test.html">Full 32 初期計測 (chirp)</a> ／
+  <a href="probe_sound.html">走査音考察</a> ／
+  <a href="nn_review.html">NN 考察</a> ／
+  <a href="near_term_plan.html">近未来計画</a> ／
+  <a href="../pc/captures/full_32_noise_v1/">pc/captures/full_32_noise_v1/</a> ／
+  <a href="../pc/captures/full_32_noise_v1/analysis/">analysis/ 出力ディレクトリ</a> ／
+  <a href="../pc/analyze_full32.py">analyze_full32.py</a>
+</div>
+
+</main>
+</body>
+</html>

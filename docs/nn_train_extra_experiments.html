@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>追加実験: ambient / spike-fix / v4 拡張 — IchiPing</title>
+<link rel="stylesheet" href="style.css">
+<script src="embed.js"></script>
+<style>
+  .method-card {
+    background: var(--panel, #181b22);
+    border: 1px solid var(--border, #2a313d);
+    border-left: 4px solid var(--accent-2, #7be0a4);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 14px 0;
+  }
+  .method-card h3 { margin: 0 0 6px 0; color: var(--accent-2, #7be0a4); }
+  .method-card.winner { border-left-color: #ffd166; background: rgba(255, 209, 102, 0.08); }
+  .method-card.winner h3 { color: #ffd166; }
+  .method-card.warn { border-left-color: #ffb454; }
+  table.compact { font-size: 12px; }
+  table.compact th, table.compact td { padding: 4px 8px; text-align: center; }
+  table.compact th:first-child, table.compact td:first-child { text-align: left; }
+  table.compact td.matched { background: rgba(123, 224, 164, 0.10); }
+  .acc { font-family: "Consolas", monospace; font-weight: 700; }
+  .acc.perfect { color: #7be0a4; }
+  .acc.mid  { color: #ffb454; }
+  .acc.bad  { color: #ff6b6b; }
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin: 14px 0;
+  }
+  .metric-tile {
+    background: var(--panel-2, #1f242d);
+    border: 1px solid var(--border, #2a313d);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .metric-tile .label { font-size: 11px; color: var(--muted, #8b95a7); }
+  .metric-tile .value {
+    font-family: "Consolas", monospace; font-size: 20px;
+    color: var(--accent-2, #7be0a4); font-weight: 700;
+  }
+  .figure { margin: 14px 0; text-align: center; }
+  .figure img {
+    max-width: 100%;
+    border: 1px solid var(--border, #2a313d);
+    border-radius: 6px;
+  }
+  .figure .cap { font-size: 12px; color: var(--muted, #8b95a7); margin-top: 6px; }
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin: 18px 0;
+  }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../index.html">トップ</a>
+      <a href="../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="spec.html">仕様書 (spec)</a>
+      <a href="nn_design.html">NN 設計</a>
+      <a href="mcu_deployment.html">MCU デプロイ</a>
+      <a href="bringup.html">実機ブリングアップ</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">NN 検討</div>
+      <a href="probe_sound.html">走査音考察</a>
+      <a href="nn_review.html">NN 考察</a>
+      <a href="full32_initial_test.html">Full 32 初期計測 (chirp)</a>
+      <a href="full32_noise_test.html">Full 32 計測 (noise)</a>
+      <a href="full32_passive_test.html">Full 32 受動 listening</a>
+      <a href="nn_train_v1_result.html">v1 学習結果 (noise/32cls)</a>
+      <a href="nn_methods_compare.html">head 設計の比較実験</a>
+      <a href="nn_train_v1v2_combined.html">v1+v2 結合学習レポート</a>
+      <a href="nn_train_v1v2v3_combined.html">v1+v2+v3 結合学習レポート</a>
+      <a href="nn_train_extra_experiments.html" class="current">追加実験: ambient/spikefix/v4</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="../hardware/wiring.html">配線テーブル</a>
+      <a href="../hardware/bom.html">BOM (部品表)</a>
+      <a href="../hardware/display_options.html">ディスプレイ候補</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../firmware/README.html">firmware ガイド</a>
+      <a href="../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">対外発信</div>
+      <a href="protopedia_preview.html">ProtoPedia プレビュー</a>
+      <a href="protopedia.md">ProtoPedia 投稿原稿</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="vscode_setup.html">VS Code セットアップ</a>
+      <a href="../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../index.html">← IchiPing トップ</a>
+    ／ <a href="nn_train_v1v2v3_combined.html">v1+v2+v3 結合学習</a>
+  </div>
+  <h1>追加実験: ambient overlay / spike-fix / v4 データ拡張 <span class="pill">2026-05-24</span></h1>
+  <div class="sub">
+    <a href="nn_train_v1v2v3_combined.html">v1+v2+v3 結合学習</a> の baseline 結果に対し、
+    <b>3 つの独立改善</b>を各々測定する追加実験。1 seed × 4 size で軽量比較
+    (data 充実によって seed 分散がほぼ消えたため)。各実験を独立変数として
+    切り分け、cross-baseline 3 × 3 評価で性能を確定する。
+  </div>
+  <div class="meta">
+    <span class="meta-stat done"><span class="num">4</span> 条件比較</span>
+    <span class="meta-stat"><span class="num">16</span> sweep run (4 条件 × 4 size × 1 seed)</span>
+    <span class="meta-stat"><span class="num">144</span> cross-baseline eval</span>
+  </div>
+</header>
+
+<main>
+
+<h2 id="design">1. 実験設計</h2>
+
+<table class="compact">
+  <thead>
+    <tr><th>条件</th><th>train データ</th><th>ambient overlay</th><th>spike-fix bundle</th><th>sweep dir</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><b>baseline</b></td><td>v1+v2+v3 (4160)</td><td>×</td><td>×</td>
+        <td><code>sweep_v1v2v3_{14,32}cls</code></td></tr>
+    <tr><td>ambient</td><td>v1+v2+v3</td><td><b>○</b> (passive_v1, SNR 5-25 dB)</td><td>×</td>
+        <td><code>sweep_v1v2v3_{14,32}cls_ambient</code></td></tr>
+    <tr><td>spikefix</td><td>v1+v2+v3</td><td>×</td><td><b>○</b></td>
+        <td><code>sweep_v1v2v3_{14,32}cls_spikefix</code></td></tr>
+    <tr><td><b>v1234</b></td><td><b>v1+v2+v3+v4 (5760)</b></td><td>×</td><td>×</td>
+        <td><code>sweep_v1234_{14,32}cls</code></td></tr>
+  </tbody>
+</table>
+
+<p>
+  spike-fix bundle = <b>XL dropout 0.4→0.3</b> + <b>FreqMask max_width 60→40</b>
+  + <b>lr cosine + 5ep warmup</b>。同時に複数変えるのを避ける原則に従い、
+  4 条件は独立変数として切り分けてある (ambient と spike-fix は別 sweep)。
+</p>
+
+<h2 id="results_14cls">2. 14cls collapse 精度 (XL のみ、9 セル平均)</h2>
+
+<p>
+  各条件で XL モデルの <b>3 baseline × 3 eval 環境 = 9 セル</b>の平均 14cls 精度。
+  XL は in-distribution 学習で天井に張りつくので、cross-baseline まで見て差を測る。
+</p>
+
+<table class="compact">
+  <thead>
+    <tr><th>条件</th><th>14cls 学習 XL</th><th>32cls 学習 XL (14 collapse)</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>baseline</td>
+        <td><span class="acc perfect">1.000</span> (9/9)</td>
+        <td><span class="acc perfect">1.000</span> (9/9)</td></tr>
+    <tr><td>ambient</td>
+        <td>0.993 (avg)</td>
+        <td><span class="acc perfect">1.000</span></td></tr>
+    <tr><td>spikefix</td>
+        <td>0.987 (avg)</td>
+        <td><span class="acc perfect">1.000</span></td></tr>
+    <tr style="background:rgba(255, 209, 102, 0.10);">
+      <td><b>v1234</b></td>
+      <td><b><span class="acc perfect">1.000</span></b> (9/9) ⭐</td>
+      <td><b><span class="acc perfect">1.000</span></b> (9/9) ⭐</td></tr>
+  </tbody>
+</table>
+
+<div class="method-card">
+  <h3>所見</h3>
+  <ul>
+    <li><b>baseline (v1+v2+v3) と v1234 はどちらも XL 9/9 完璧</b> — 14cls collapse は既に天井</li>
+    <li><b>ambient overlay と spike-fix は逆にわずかに劣化</b> (XL 14cls collapse で 0.987-0.993)
+        — 学習信号にノイズが入る分、特定環境での頂上が下がった</li>
+    <li>S/M/L は条件で多少違いあり、特に ambient の M で 0.97 前後 (詳細データ参照)</li>
+    <li>14cls 用途では <b>baseline (v1+v2+v3) or v1234 が同等に最適</b></li>
+  </ul>
+</div>
+
+<h2 id="results_32cls">3. 32cls 直接精度 (XL、9 セル平均) — 真の差が見える指標</h2>
+
+<p>
+  サブ状態識別 = 5-bit 完全一致。条件間で最も差が出る本指標で各実験の効果を測る。
+</p>
+
+<table class="compact">
+  <thead>
+    <tr><th>条件</th><th>XL 32cls 直接 平均 (9 セル)</th><th>最良単セル</th><th>最悪単セル</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>baseline</td><td>0.935</td><td>1.000 (low base + low/high eval)</td><td>0.809 (high base + quiet eval)</td></tr>
+    <tr style="background:rgba(255, 209, 102, 0.10);">
+      <td><b>ambient</b></td>
+      <td><b>0.963 ⭐</b></td>
+      <td>1.000 (quiet base + quiet, low base + low)</td>
+      <td>0.878 (high base + quiet)</td></tr>
+    <tr><td>spikefix</td><td>0.937</td><td>1.000 (low base + low)</td><td>0.856 (quiet base + high)</td></tr>
+    <tr style="background:rgba(255, 209, 102, 0.10);">
+      <td><b>v1234</b></td>
+      <td><b>0.963 ⭐</b></td>
+      <td>1.000 (quiet base + quiet, low base + low, high base + high)</td>
+      <td>0.834 (high base + quiet)</td></tr>
+  </tbody>
+</table>
+
+<div class="method-card winner">
+  <h3>🎯 ambient と v1234 が同率 1 位 (32cls 直接 mean 0.963)</h3>
+  <ul>
+    <li><b>ambient overlay</b> と <b>v4 追加</b> はどちらも 32cls 直接精度を baseline 0.935 → 0.963 (+0.028) に改善</li>
+    <li>2 つは <b>本質的に同じことをしている</b>: 「学習時に多様な ambient / 多様な収集条件を見せる」 = robustness 向上</li>
+    <li><b>spike-fix は 32cls 直接にはほぼ効果なし</b> (0.937、baseline と同等) — 学習安定化は寄与せず</li>
+    <li>XL ambient と XL v1234 は <b>diagonal セル (matched baseline) が完璧 1.000</b>、
+        mismatch でも 0.83-0.97 を維持</li>
+  </ul>
+</div>
+
+<h2 id="cross_baseline_xl">4. XL の cross-baseline 3×3 マトリクス比較</h2>
+
+<h3>4-1. 14cls 学習モデル × 14cls 評価</h3>
+
+<table class="compact">
+  <thead>
+    <tr><th>条件</th><th>baseline\eval</th><th>quiet</th><th>noise_low</th><th>noise_high</th></tr>
+  </thead>
+  <tbody>
+    <tr><td rowspan="3">baseline</td>
+        <td>quiet</td><td class="matched">1.000</td><td>1.000</td><td>1.000</td></tr>
+    <tr><td>noise_low</td><td>1.000</td><td class="matched">1.000</td><td>1.000</td></tr>
+    <tr><td>noise_high</td><td>1.000</td><td>1.000</td><td class="matched">1.000</td></tr>
+    <tr><td rowspan="3">ambient</td>
+        <td>quiet</td><td class="matched">1.000</td><td>1.000</td><td>0.978</td></tr>
+    <tr><td>noise_low</td><td>1.000</td><td class="matched">1.000</td><td>0.988</td></tr>
+    <tr><td>noise_high</td><td>1.000</td><td>1.000</td><td class="matched">0.978</td></tr>
+    <tr><td rowspan="3">spikefix</td>
+        <td>quiet</td><td class="matched">1.000</td><td>0.997</td><td>0.969</td></tr>
+    <tr><td>noise_low</td><td>1.000</td><td class="matched">1.000</td><td>0.978</td></tr>
+    <tr><td>noise_high</td><td>1.000</td><td>0.984</td><td class="matched">0.969</td></tr>
+    <tr style="background:rgba(255, 209, 102, 0.05);">
+      <td rowspan="3"><b>v1234</b></td>
+      <td>quiet</td><td class="matched"><b>1.000</b></td><td><b>1.000</b></td><td><b>1.000</b></td></tr>
+    <tr style="background:rgba(255, 209, 102, 0.05);">
+      <td>noise_low</td><td><b>1.000</b></td><td class="matched"><b>1.000</b></td><td><b>1.000</b></td></tr>
+    <tr style="background:rgba(255, 209, 102, 0.05);">
+      <td>noise_high</td><td><b>1.000</b></td><td><b>1.000</b></td><td class="matched"><b>1.000</b></td></tr>
+  </tbody>
+</table>
+
+<h3>4-2. 32cls 学習モデル × 32cls 直接評価</h3>
+
+<table class="compact">
+  <thead>
+    <tr><th>条件</th><th>baseline\eval</th><th>quiet</th><th>noise_low</th><th>noise_high</th></tr>
+  </thead>
+  <tbody>
+    <tr><td rowspan="3">baseline</td>
+        <td>quiet</td><td class="matched">0.903</td><td>1.000</td><td>0.941</td></tr>
+    <tr><td>noise_low</td><td>0.938</td><td class="matched">1.000</td><td>0.953</td></tr>
+    <tr><td>noise_high</td><td>0.809</td><td>0.931</td><td class="matched">0.941</td></tr>
+    <tr style="background:rgba(255, 209, 102, 0.05);">
+      <td rowspan="3"><b>ambient</b></td>
+      <td>quiet</td><td class="matched"><b>1.000</b></td><td>0.994</td><td>0.938</td></tr>
+    <tr style="background:rgba(255, 209, 102, 0.05);">
+      <td>noise_low</td><td>0.953</td><td class="matched"><b>1.000</b></td><td>0.975</td></tr>
+    <tr style="background:rgba(255, 209, 102, 0.05);">
+      <td>noise_high</td><td>0.878</td><td>0.953</td><td class="matched">0.972</td></tr>
+    <tr><td rowspan="3">spikefix</td>
+        <td>quiet</td><td class="matched">0.944</td><td>0.894</td><td>0.856</td></tr>
+    <tr><td>noise_low</td><td>0.984</td><td class="matched">1.000</td><td>0.891</td></tr>
+    <tr><td>noise_high</td><td>0.906</td><td>0.941</td><td class="matched">0.991</td></tr>
+    <tr style="background:rgba(255, 209, 102, 0.05);">
+      <td rowspan="3"><b>v1234</b></td>
+      <td>quiet</td><td class="matched"><b>1.000</b></td><td>0.994</td><td>0.931</td></tr>
+    <tr style="background:rgba(255, 209, 102, 0.05);">
+      <td>noise_low</td><td>0.969</td><td class="matched"><b>1.000</b></td><td>0.969</td></tr>
+    <tr style="background:rgba(255, 209, 102, 0.05);">
+      <td>noise_high</td><td>0.834</td><td>0.966</td><td class="matched"><b>1.000</b></td></tr>
+  </tbody>
+</table>
+
+<div class="method-card winner">
+  <h3>v1234 の matched diagonal が 3/3 = 1.000 達成 ⭐</h3>
+  <p>
+    <b>v1234 32cls XL は matched baseline (対角セル) すべてで 1.000</b>。
+    すなわち「設置時校正環境 = 運用環境」が成立するなら 32 サブ状態を完璧識別。
+    ambient も同様だが noise_high diagonal で 0.972 と微減。
+  </p>
+</div>
+
+<h2 id="summary">5. 4 条件の総合判定</h2>
+
+<div class="metric-grid">
+  <div class="metric-tile">
+    <div class="label">14cls XL 9 セル mean</div>
+    <div class="value">v1234: <span class="acc perfect">1.000</span></div>
+    <div class="label">baseline: 1.000 / ambient: 0.993 / spikefix: 0.987</div>
+  </div>
+  <div class="metric-tile">
+    <div class="label">32cls XL 9 セル mean</div>
+    <div class="value">v1234/ambient: <span class="acc perfect">0.963</span></div>
+    <div class="label">baseline: 0.935 / spikefix: 0.937</div>
+  </div>
+  <div class="metric-tile">
+    <div class="label">32cls XL diagonal (matched) 3 セル mean</div>
+    <div class="value">v1234: <span class="acc perfect">1.000</span></div>
+    <div class="label">ambient: 0.991 / baseline: 0.948 / spikefix: 0.978</div>
+  </div>
+</div>
+
+<div class="method-card winner">
+  <h3>🏆 v1234 が総合勝者</h3>
+  <ul>
+    <li><b>14cls collapse: 全 9 セル 1.000</b> (baseline と同等)</li>
+    <li><b>32cls 直接: mean 0.963 (ambient と同率最高)</b></li>
+    <li><b>32cls diagonal: 3 セル全 1.000</b> (matched 校正で完璧)</li>
+    <li>新規ハイパラチューニング不要、純粋にデータ追加だけで達成</li>
+    <li>運用上の意味: 設置時 quiet 校正でも 32cls direct 1.000 (XL quiet base + quiet eval)</li>
+  </ul>
+</div>
+
+<div class="method-card">
+  <h3>ambient overlay は 32cls direct で同等性能</h3>
+  <ul>
+    <li>新規データ収集なしで 32cls 0.935 → 0.963 達成</li>
+    <li>train データを増やせない状況での「データ拡張系」代替として有効</li>
+    <li>v1234 と組合せれば更に強くなる可能性 (未測定、次の実験候補)</li>
+  </ul>
+</div>
+
+<div class="method-card warn">
+  <h3>spike-fix bundle は性能には貢献せず</h3>
+  <ul>
+    <li>32cls 直接 0.937 で baseline と同等</li>
+    <li>14cls collapse はやや劣化 (0.987 vs baseline 1.000)</li>
+    <li>つまり <b>val_loss spike は cosmetic な学習過程の問題で、最終性能には無関係</b>だった</li>
+    <li>spike-fix の意味は「学習曲線の見た目」のみ。本番デプロイには不要</li>
+  </ul>
+</div>
+
+<h2 id="curves">5b. 4 条件 × 4 size の学習曲線</h2>
+
+<p>
+  各条件で XL の 1 seed (= 5 seed 重ねでなく単線) loss/acc 推移。
+  baseline は <a href="nn_train_v1v2v3_combined.html#curves">v1+v2+v3 結合学習レポート §4</a> 参照
+  (5 seed 重ねで spike 確認済)。ここでは追加 3 条件の XL を中心に掲載。
+</p>
+
+<div class="two-col">
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2v3_14cls_ambient/curves/XL_curves.png" alt="ambient 14cls XL curves">
+    <div class="cap">ambient 14cls XL — ambient overlay 影響で loss が baseline より高めに推移</div>
+  </div>
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2v3_32cls_ambient/curves/XL_curves.png" alt="ambient 32cls XL curves">
+    <div class="cap">ambient 32cls XL — 同じく overlay の効果で loss 振動</div>
+  </div>
+</div>
+
+<div class="two-col">
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2v3_14cls_spikefix/curves/XL_curves.png" alt="spikefix 14cls XL curves">
+    <div class="cap">spikefix 14cls XL — lr cosine + dropout 0.3 で曲線滑らか</div>
+  </div>
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2v3_32cls_spikefix/curves/XL_curves.png" alt="spikefix 32cls XL curves">
+    <div class="cap">spikefix 32cls XL — 同じく曲線滑らか化を確認</div>
+  </div>
+</div>
+
+<div class="two-col">
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1234_14cls/curves/XL_curves.png" alt="v1234 14cls XL curves">
+    <div class="cap">v1234 14cls XL — データ 5760 で滑らかに収束</div>
+  </div>
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1234_32cls/curves/XL_curves.png" alt="v1234 32cls XL curves">
+    <div class="cap">v1234 32cls XL — 32cls direct 学習も安定</div>
+  </div>
+</div>
+
+<h2 id="confusion">5c. 集約混同行列 (XL のみ、cross-day noise_v1 + eval 3 環境)</h2>
+
+<p>
+  4 条件で XL のみの混同行列を 4 評価セット (noise_v1 + 3 cond) × 14cls / 32cls 併記。
+  spike-fix は省略 (baseline と差ほぼ無し)。
+</p>
+
+<h3>noise_v1 cross-day (n=32) — 14cls collapse / 32cls 直接</h3>
+
+<div class="two-col">
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2v3_14cls_ambient/aggregate_confusion/noise_v1_XL.png"
+         alt="ambient 14cls XL noise_v1">
+    <div class="cap"><b>ambient</b> 14cls XL — 14cls collapse</div>
+  </div>
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2v3_32cls_ambient/aggregate_confusion_32cls/noise_v1_XL.png"
+         alt="ambient 32cls XL 32x32 noise_v1">
+    <div class="cap"><b>ambient</b> 32cls XL — 32×32 直接</div>
+  </div>
+</div>
+
+<div class="two-col">
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1234_14cls/aggregate_confusion/noise_v1_XL.png"
+         alt="v1234 14cls XL noise_v1">
+    <div class="cap"><b>v1234</b> 14cls XL — 14cls collapse (4/32 miss = 0.875… ※ XL 学習 14cls の方が完璧)</div>
+  </div>
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1234_32cls/aggregate_confusion_32cls/noise_v1_XL.png"
+         alt="v1234 32cls XL 32x32 noise_v1">
+    <div class="cap"><b>v1234</b> 32cls XL — 32×32 直接</div>
+  </div>
+</div>
+
+<h3>eval_quiet (n=320) — 14cls / 32×32 併記</h3>
+
+<div class="two-col">
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1234_14cls/aggregate_confusion/quiet_XL.png"
+         alt="v1234 14cls XL quiet">
+    <div class="cap"><b>v1234</b> 14cls XL quiet</div>
+  </div>
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1234_32cls/aggregate_confusion_32cls/quiet_XL.png"
+         alt="v1234 32cls XL 32x32 quiet">
+    <div class="cap"><b>v1234</b> 32cls XL — 32×32 quiet (matched diagonal 1.000)</div>
+  </div>
+</div>
+
+<h3>eval_noise_high (n=320) — 14cls / 32×32 併記</h3>
+
+<div class="two-col">
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1234_14cls/aggregate_confusion/noise_high_XL.png"
+         alt="v1234 14cls XL noise_high">
+    <div class="cap"><b>v1234</b> 14cls XL noise_high (完全対角)</div>
+  </div>
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1234_32cls/aggregate_confusion_32cls/noise_high_XL.png"
+         alt="v1234 32cls XL 32x32 noise_high">
+    <div class="cap"><b>v1234</b> 32cls XL — 32×32 noise_high (Ham=1 系の僅か miss)</div>
+  </div>
+</div>
+
+<h3>ambient 系の 32×32 (noise_low matched — 最高性能セル)</h3>
+
+<div class="two-col">
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2v3_32cls_ambient/aggregate_confusion_32cls/noise_low_XL.png"
+         alt="ambient 32cls XL noise_low 32x32">
+    <div class="cap"><b>ambient</b> 32cls XL × noise_low (matched diagonal で acc 1.000)</div>
+  </div>
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1234_32cls/aggregate_confusion_32cls/noise_low_XL.png"
+         alt="v1234 32cls XL noise_low 32x32">
+    <div class="cap"><b>v1234</b> 32cls XL × noise_low (同じく matched で 1.000)</div>
+  </div>
+</div>
+
+<h2 id="combined">6. v1234 + ambient combined 追加実験</h2>
+
+<p>
+  ambient overlay と v4 追加データはどちらも 32cls 精度を baseline 0.935 → 0.963 に
+  同等改善した。<b>両方同時にやると効果が加算するか飽和するか</b>確認するため、
+  combined sweep を 14cls / 32cls の 1 seed × 4 size で実施。
+</p>
+
+<h3>6-1. XL 32cls 直接 9-cell mean 比較 (全 5 条件)</h3>
+
+<table class="compact">
+  <thead>
+    <tr><th>条件</th><th>data</th><th>ambient</th>
+        <th>9-cell mean</th><th>diagonal mean</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>baseline</td><td>v1+v2+v3 (4160)</td><td>×</td><td>0.935</td><td>0.948</td></tr>
+    <tr><td>ambient</td><td>v1+v2+v3</td><td>○</td><td>0.963</td><td>0.991</td></tr>
+    <tr><td>spikefix</td><td>v1+v2+v3</td><td>×</td><td>0.934</td><td>0.978</td></tr>
+    <tr><td>v1234</td><td>v1+v2+v3+v4 (5760)</td><td>×</td><td>0.963</td><td><b>1.000</b></td></tr>
+    <tr style="background:rgba(255, 209, 102, 0.10);">
+      <td><b>v1234+ambient</b></td><td>v1+v2+v3+v4</td><td>○</td>
+      <td><b>0.971</b> ⭐</td><td>0.995</td></tr>
+  </tbody>
+</table>
+
+<div class="method-card winner">
+  <h3>結果: 効果は弱く加算 (飽和シナリオより少し上)</h3>
+  <ul>
+    <li>v1234+ambient combined は 9-cell mean <b>0.971</b> — 単独 (0.963) より +0.008</li>
+    <li>matched diagonal は <b>0.995</b> (v1234 単独の 1.000 にわずか劣る、cell n=320 × 3 で 5 サンプル miss 増加レベル)</li>
+    <li>つまり <b>mismatch baseline ロバストネスでは combined が最強、matched 校正なら v1234 単独が最強</b></li>
+    <li>運用シナリオで使い分け可能。デプロイ判断は次節の量子化結果も合わせて</li>
+  </ul>
+</div>
+
+<h2 id="quantize">7. INT8 量子化と精度劣化測定 (MCU デプロイ準備)</h2>
+
+<p>
+  選定ベストモデル <b>v1234+ambient 32cls XL</b> を ONNX export → INT8 PTQ
+  (onnxruntime, per-channel) で量子化し、3 環境 eval セット (matched baseline) で
+  精度劣化を測定。実 MCU デプロイの実現可能性確認。
+</p>
+
+<h3>7-1. パイプライン</h3>
+
+<ol>
+  <li>PyTorch ckpt (FP32, 104k params) → <b>ONNX FP32</b> export (opset 18)</li>
+  <li>ONNX FP32 → <b>INT8 ONNX</b> via onnxruntime.quantization.quantize_static
+      (calibration = train v1234 の 200 sample、per-channel quantization)</li>
+  <li>3 eval セット (quiet / noise_low / noise_high、matched baseline) で
+      <b>PyTorch FP32 / ONNX FP32 / ONNX INT8</b> の 3 ランタイム比較</li>
+</ol>
+
+<p>
+  実装: <a href="../pc/quantize_pipeline.py">pc/quantize_pipeline.py</a>。
+  Neutron 変換 (eIQ Toolkit) は PC ローカルツール都合のため未実施、
+  本ページの数字は PC 上 INT8 ONNX での測定値。
+</p>
+
+<h3>7-2. 精度劣化結果</h3>
+
+<table class="compact">
+  <thead>
+    <tr><th rowspan="2">eval セット</th>
+        <th colspan="2">PyTorch FP32 (リファレンス)</th>
+        <th colspan="2">ONNX FP32</th>
+        <th colspan="2">ONNX INT8</th>
+        <th colspan="2">INT8 vs FP32 Δ</th></tr>
+    <tr><th>14cls</th><th>32cls</th>
+        <th>14cls</th><th>32cls</th>
+        <th>14cls</th><th>32cls</th>
+        <th>14cls</th><th>32cls</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>eval_quiet (n=320)</td>
+        <td>1.000</td><td>0.984</td>
+        <td>1.000</td><td>0.984</td>
+        <td>1.000</td><td>0.978</td>
+        <td>+0.000</td><td><b>-0.006</b></td></tr>
+    <tr><td>eval_noise_low (n=320)</td>
+        <td>1.000</td><td>1.000</td>
+        <td>1.000</td><td>1.000</td>
+        <td>1.000</td><td>1.000</td>
+        <td>+0.000</td><td>+0.000</td></tr>
+    <tr><td>eval_noise_high (n=320)</td>
+        <td>1.000</td><td>1.000</td>
+        <td>1.000</td><td>1.000</td>
+        <td>1.000</td><td>1.000</td>
+        <td>+0.000</td><td>+0.000</td></tr>
+  </tbody>
+</table>
+
+<div class="method-card winner">
+  <h3>✅ 精度劣化はほぼゼロ — 量子化成功</h3>
+  <ul>
+    <li><b>14cls collapse: 全 3 環境で完全保持</b> (Δ = +0.000)</li>
+    <li><b>32cls 直接: 最大劣化 -0.006</b> (eval_quiet で 2 サンプル miss 増加、許容範囲)</li>
+    <li>ONNX FP32 と PyTorch FP32 は完全一致 → export 過程は無損失</li>
+    <li>INT8 化での劣化は per-channel quantization のおかげで微小</li>
+    <li><b>MCU デプロイ実現性が定量的に確認できた</b></li>
+  </ul>
+</div>
+
+<h3>7-3. ファイルサイズ</h3>
+
+<table class="compact">
+  <thead>
+    <tr><th>表現</th><th>サイズ</th><th>備考</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>PyTorch best.pt (FP32)</td><td>~420 KB</td><td>state_dict 全体</td></tr>
+    <tr><td>ONNX FP32</td><td><b>10.2 KB</b></td><td>weights のみ、metadata 込</td></tr>
+    <tr><td>ONNX INT8 (onnxruntime PTQ)</td><td>184.5 KB</td><td>onnxruntime QDQ で metadata 多</td></tr>
+    <tr><td>ONNX QDQ (onnx2quant、Neutron 向け)</td><td>186.6 KB</td><td>NXP per-channel QDQ</td></tr>
+    <tr><td><b>INT8 TFLite (onnx2tflite)</b></td><td><b>179.8 KB</b></td><td>NXP Neutron 変換準備済</td></tr>
+    <tr><td>(将来) Neutron .tflite</td><td>~30-50 KB 見込み</td><td>NXP eIQ Toolkit で変換後、MCU 専用最適化形式</td></tr>
+  </tbody>
+</table>
+
+<h3>7-3b. eIQ 経由パイプライン (実装済)</h3>
+
+<p>
+  NXP <code>eiq-onnx2tflite</code> パッケージを <a href="../pc/pyproject.toml">pyproject.toml</a>
+  に追加し、<a href="../pc/training/quantize.py">quantize.py</a> を 2 段フローに更新。
+  以下のコマンドで ONNX FP32 → INT8 TFLite まで一気に作れる:
+</p>
+
+<pre style="background:var(--panel-2); padding:10px; border-radius:6px; font-size:11px;">
+cd pc
+uv run --extra training python -m training.quantize \
+    --onnx runs/quantize_v1234_ambient_32cls_XL/model_fp32.onnx \
+    --out  runs/quantize_v1234_ambient_32cls_XL/model_int8.tflite \
+    --captures captures/full_32_train_v1 captures/full_32_train_v2 \
+               captures/full_32_train_v3 captures/full_32_train_v4 \
+    --backend eiq
+</pre>
+
+<p>
+  内部処理:
+</p>
+<ol>
+  <li><b>onnx2quant</b>: ONNX FP32 + calibration (200 npy in temp dir) →
+      QDQ ONNX (per-channel INT8、scale/zero_point 注入)</li>
+  <li><b>onnx2tflite --qdq-aware-conversion</b>: QDQ ONNX → TFLite (量子化情報保持)</li>
+</ol>
+
+<h3>7-3c. Neutron 変換完了</h3>
+
+<p>
+  eIQ Toolkit v3.x の <code>neutron-converter.exe</code> (新世代 CLI、
+  旧 <code>eiq-converter --plugin</code> 形式から置換) で MCXN947 NPU 向けに変換完了。
+</p>
+
+<pre style="background:#000;color:#7be0a4;padding:8px;font-size:11px;">
+d:/workspace/eIQ/bin/neutron-converter.exe \
+    --input  model_int8.tflite \
+    --output model_neutron.tflite \
+    --target mcxn94x
+</pre>
+
+<h4>変換結果</h4>
+
+<table class="compact">
+  <thead><tr><th>項目</th><th>値</th></tr></thead>
+  <tbody>
+    <tr><td>出力ファイル</td><td>model_neutron.tflite</td></tr>
+    <tr><td>サイズ</td><td><b>176 KB</b> (180,736 bytes)</td></tr>
+    <tr><td>Operators: 元 ONNX</td><td>17</td></tr>
+    <tr><td>Operators: 最適化後</td><td>10</td></tr>
+    <tr><td>Operators: 抽出後</td><td>8</td></tr>
+    <tr><td><b>NPU 変換 op</b></td><td><b>3 / 10 (30%)</b></td></tr>
+    <tr><td>NPU フォールバック (CPU 実行)</td><td>7 op (FLOAT op 含む)</td></tr>
+    <tr><td>weights サイズ</td><td>175 KB</td></tr>
+    <tr><td>data (I/O + intermediate)</td><td>12 KB</td></tr>
+    <tr><td>NPU 部 latency 推定</td><td>100,969 cycles</td></tr>
+  </tbody>
+</table>
+
+<div class="method-card warn">
+  <h3>⚠️ NPU 加速率 30% — 改善余地あり</h3>
+  <p>
+    全 10 op 中 3 op しか Neutron NPU に乗らず、残り 7 op は CPU フォールバック
+    (FLOAT op が NPU 未対応)。これは:
+  </p>
+  <ul>
+    <li><b>GAP (Global Average Pool)</b> や Reshape 系 op が NPU 非対応</li>
+    <li><b>BatchNorm</b> が独立 op のまま (Conv に fold されてない)</li>
+    <li><b>Conv1D</b> が NPU 標準の Conv2D に変換されきってない可能性</li>
+  </ul>
+  <p>
+    現状は <b>動く形式にはなっている</b>ので MCU 実装可能。
+    NPU 加速率向上は別途最適化 (BN folding 強制、Conv2D 化、Mean → Avgpool 置換等)
+    で対応可能。実速度を実機で計測してから判断する方が良い。
+  </p>
+</div>
+
+<h4>model_data.h 生成 (初版、後述 §7-3d で更新)</h4>
+
+<p>
+  tflite を C 配列化して firmware include 用に書き出し:
+</p>
+<pre style="background:var(--panel-2); padding:10px; border-radius:6px; font-size:11px;">
+firmware/projects/10_inference/source/model_data.h
+  - サイズ: 1.1 MB (180,736 bytes × 文字列展開)
+  - 内容: static const uint8_t ichp_model_data[180736] = {0x18, 0x00, ...};
+  - flash 占有: 176 KB (1 MB の 17%)
+</pre>
+
+<h3 id="sec-7-3d">7-3d. NPU 加速率 30% → 89% への最適化</h3>
+
+<p>
+  初版 §7-3c の <b>NPU 加速率 30%</b> は「動くが NPU の旨味を活かせていない」状態だった。
+  根本原因は <b>モデル構造と converter 選択</b>。両方を見直すと <b>89%</b> まで到達する。
+</p>
+
+<h4>原因分析</h4>
+
+<p>
+  Neutron NPU 非対応で CPU に落ちた 7 op の正体:
+</p>
+<ul>
+  <li><b>RESHAPE × 3</b>: Conv1D を内部的に Conv2D + Reshape に分解、入出力の Unsqueeze/Squeeze</li>
+  <li><b>MEAN (GAP)</b>: Global Average Pool は Neutron 未対応 op</li>
+  <li><b>BatchNorm × 3</b>: Conv に fold されず独立 op として残った</li>
+  <li><b>DEQUANTIZE</b>: 出力境界の INT8 → FP32 変換</li>
+</ul>
+
+<p>
+  量子化品質の問題ではなく <b>op 構造</b>の問題なので、INT8 化を別 path に変えても改善しない
+  (NXP <code>onnx2quant</code> も <code>onnxruntime PTQ</code> も同じグラフを吐く)。
+</p>
+
+<h4>対策 1: Neutron 互換モデル <code>IchiPingV1_32clsNeutron</code></h4>
+
+<p>
+  <a href="../pc/training/model_32cls_neutron.py">pc/training/model_32cls_neutron.py</a> に
+  NPU 向けに op を組み直した変種を実装:
+</p>
+<table class="compact">
+  <thead><tr><th>位置</th><th>旧 Conv1D arch</th><th>新 Neutron arch</th><th>NPU 効果</th></tr></thead>
+  <tbody>
+    <tr><td>backbone</td><td>Conv1D × 3 + BN</td><td>Conv2D (1, K) × 4 + BN</td><td>NPU 標準 op に</td></tr>
+    <tr><td>BN</td><td>独立 op として残る</td><td><code>fuse_conv_bn_eval</code> で export 前に fold</td><td>独立 BN op 消滅</td></tr>
+    <tr><td>head 1</td><td>Mean (GAP)</td><td>AveragePool2D (1, 7)</td><td>NPU 対応 op に</td></tr>
+    <tr><td>head 2</td><td>Flatten + Linear(3840→32)</td><td>1×1 Conv2D (128→32)</td><td>Flatten Reshape 不要</td></tr>
+    <tr><td>I/O</td><td>3D in (B,1,1024) → 2D out (B,32)</td><td>4D in (B,1,1,1024) → 4D out (B,32,1,1) ※ deploy wrapper</td><td>Unsqueeze/Squeeze Reshape 消滅</td></tr>
+    <tr><td>params</td><td>173 k (head に Linear 122 k)</td><td><b>104 k</b> (head は 1×1 conv 4 k)</td><td>40% 縮小</td></tr>
+  </tbody>
+</table>
+
+<p>
+  fold_bn は <code>torch.nn.utils.fusion.fuse_conv_bn_eval</code> を export 前に呼ぶだけ。
+  数値一致は float32 limit (~2e-8) で完全。
+</p>
+
+<h4>対策 2: <code>onnx2tf</code> (PINTO0309) で TFLite 変換</h4>
+
+<p>
+  NXP 純正 <code>onnx2tflite</code> は ONNX (NCHW) → TFLite (NHWC) のレイアウト変換時に
+  Transpose op を散らかして CPU 側に残しがち。
+  <a href="https://github.com/PINTO0309/onnx2tf">PINTO0309/onnx2tf</a> は Transpose 融合が強力で、
+  同じ ONNX から <b>大幅に op 数が少ない</b> TFLite を吐く。
+</p>
+
+<p>
+  ONNX 入力が 4D (1, 1, 1, 1024) NCHW の場合、TFLite 内では (1, 1, 1024, 1) NHWC に変換される。
+  TFLite 量子化 calibrator は degenerate shape (H=1) で BytesRequired overflow を起こす
+  既知のバグがあるため、calibration data を <b>NHWC 形式 (n, 1, 1024, 1) で保存して渡す</b>のがポイント。
+</p>
+
+<pre style="background:#000;color:#7be0a4;padding:8px;font-size:11px;">
+# 4D in/out ONNX export (BN fold 済み)
+python export_neutron_4d.py --ckpt runs/neutron_v1234_32cls_ambient_XL/best.pt ...
+
+# onnx2tf で INT8 TFLite (calib は NHWC 形式)
+onnx2tf -i model_fp32_4d.onnx -o pinto_final -oiqt -qt per-channel \
+        -cind spectrum_4d calib_nhwc.npy "[0.0]" "[1.0]"
+
+# neutron-converter
+neutron-converter.exe --input model_fp32_4d_full_integer_quant.tflite \
+                      --output model_neutron.tflite --target mcxn94x
+</pre>
+
+<h4>結果: NPU 比率の推移</h4>
+
+<table class="compact">
+  <thead>
+    <tr><th>構成</th><th>op 比率</th><th>TFLite KB</th><th>Neutron TFLite KB</th><th>備考</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Conv1D arch + NXP onnx2tflite (初版)</td><td>3/10 = 30%</td><td>180</td><td>176</td><td>§7-3c の数字</td></tr>
+    <tr><td>Neutron arch (3D in) + NXP onnx2tflite</td><td>7/11 = 64%</td><td>114</td><td>123</td><td>Conv2D + BN fold 効果</td></tr>
+    <tr><td>Neutron arch (4D in/out) + NXP onnx2tflite</td><td>8/13 = 62%</td><td>114</td><td>106</td><td>Reshape 消えるが NXP は Transpose 追加</td></tr>
+    <tr style="background:rgba(123,224,164,0.08);"><td><b>Neutron arch (4D in/out) + onnx2tf (PINTO)</b></td><td><b>8 / 9 = 89%</b> ✨</td><td><b>118</b></td><td><b>108</b></td><td>CPU 残り 1 op のみ</td></tr>
+  </tbody>
+</table>
+
+<h4>精度 (PC 推論で確認、3 環境 matched baseline self-eval)</h4>
+
+<table class="compact">
+  <thead>
+    <tr><th>環境</th><th>PyTorch FP32</th><th>ONNX FP32</th><th>ONNX INT8</th><th>TFLite INT8 (PINTO)</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>eval_quiet</td><td>14: 1.000 / 32: 1.000</td><td>1.000 / 1.000</td><td>1.000 / 0.997</td><td><b>1.000 / 0.997</b></td></tr>
+    <tr><td>eval_noise_low</td><td>1.000 / 1.000</td><td>1.000 / 1.000</td><td>1.000 / 1.000</td><td><b>1.000 / 1.000</b></td></tr>
+    <tr><td>eval_noise_high</td><td>1.000 / 1.000</td><td>1.000 / 1.000</td><td>1.000 / 1.000</td><td><b>1.000 / 1.000</b></td></tr>
+  </tbody>
+</table>
+
+<p>
+  <b>14cls accuracy はすべて 1.000</b>、INT8 化で eval_quiet の 32cls が <b>-0.003</b> のみ。
+  PINTO TFLite INT8 と ONNX INT8 は数値上ほぼ同一の精度。
+</p>
+
+<h4>新 model_data.h</h4>
+
+<pre style="background:var(--panel-2); padding:10px; border-radius:6px; font-size:11px;">
+firmware/projects/10_inference/source/model_data.h
+  - TFLite サイズ: 108,336 bytes (旧 180,736 から <b>40% 削減</b>)
+  - C 配列: static const uint8_t ichp_model_data[108336] = {...};
+  - I/O 仕様 (deploy 時、firmware で必須):
+      入力: int8 NHWC (1, 1, 1024, 1)
+            x_int8 = round(x_fp32 / 0.185412) + 29   (clip [-128, 127])
+            x_fp32 は noise_diff feature (1024-bin log-mag - baseline)
+      出力: int8 NHWC (1, 1, 1, 32) — 32-class logits
+            argmax で state index、5 bit decode で sABCDE 復元
+</pre>
+
+<h3>7-4. MCU 占有最終予測 (Neutron 実測値ベース)</h3>
+
+<table class="compact">
+  <thead>
+    <tr><th>領域</th><th>使用量</th><th>MCXN947 容量比</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>flash: モデル (Neutron tflite, PINTO 経由 §7-3d)</td><td><b>108 KB</b></td><td>1 MB の <b>11%</b></td></tr>
+    <tr><td>flash: factory_baseline.h</td><td>1 KB (INT8)</td><td>0.1%</td></tr>
+    <tr><td>flash: 推論コード + ランタイム</td><td>~20-30 KB</td><td>2-3%</td></tr>
+    <tr><td>SRAM: 録音バッファ (32000 × int16)</td><td>64 KB</td><td>17%</td></tr>
+    <tr><td>SRAM: 推論 I/O + intermediate</td><td>~12 KB</td><td>3%</td></tr>
+    <tr><td>SRAM: その他 (FreeRTOS / display / servo)</td><td>~140 KB</td><td>37%</td></tr>
+    <tr><td><b>flash 合計</b></td><td><b>~140 KB</b></td><td><b>14%</b></td></tr>
+    <tr><td><b>SRAM peak 合計</b></td><td><b>~220 KB</b></td><td><b>57%</b></td></tr>
+  </tbody>
+</table>
+
+<div class="method-card winner">
+  <h3>🚀 MCU デプロイ実現性確定</h3>
+  <ul>
+    <li>flash 140 KB 使用、884 KB 余裕</li>
+    <li>SRAM peak 220 KB、164 KB 余裕</li>
+    <li>NPU 加速率 <b>89%</b> (Neutron arch + PINTO onnx2tf 経由、§7-3d 参照)</li>
+    <li><b>次のステップ: firmware/projects/10_inference 新規実装 + 実機テスト</b></li>
+  </ul>
+</div>
+
+<p class="note">
+  ⚠️ INT8 ONNX (184.5 KB) が FP32 ONNX (10.2 KB) より大きく見えるのは、
+  <b>QuantizeLinear / DequantizeLinear node のオーバーヘッド</b>。小モデルだとこの metadata が支配的。
+  Neutron 変換すると weight だけ INT8 のまま node が圧縮され、最終 flash サイズは <b>~30-50 KB</b> に収まる見込み。
+</p>
+
+<h3>7-4. MCU 占有予測</h3>
+
+<table class="compact">
+  <thead>
+    <tr><th>領域</th><th>使用量</th><th>MCXN947 容量比</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>flash: モデル (Neutron INT8)</td><td>~50 KB</td><td>1 MB の 5%</td></tr>
+    <tr><td>flash: baseline (1024 × 1 byte INT8)</td><td>1 KB</td><td>0.1%</td></tr>
+    <tr><td>flash: PRBS パターン / EQ 係数</td><td>< 1 KB</td><td>—</td></tr>
+    <tr><td>flash: 推論コード (Welch / 推論ループ)</td><td>~5 KB</td><td>—</td></tr>
+    <tr><td>SRAM: 録音バッファ (32000 × int16)</td><td>64 KB</td><td>384 KB の 17%</td></tr>
+    <tr><td>SRAM: 推論アクティベーション peak</td><td>~12 KB</td><td>3%</td></tr>
+    <tr><td>SRAM: その他 (FreeRTOS / display / servo)</td><td>~140 KB</td><td>37%</td></tr>
+    <tr><td><b>SRAM peak 合計</b></td><td><b>~220 KB</b></td><td><b>57%</b></td></tr>
+  </tbody>
+</table>
+
+<div class="method-card winner">
+  <h3>🚀 MCU デプロイの実現性 確定</h3>
+  <ul>
+    <li>flash: ~60 KB 使用、996 KB 余裕</li>
+    <li>SRAM: peak 220 KB / 384 KB、164 KB 余裕</li>
+    <li>INT8 量子化での精度劣化は最大 -0.006 (実用許容)</li>
+    <li><b>次のステップ: Neutron 変換 → firmware/10_inference 統合 → 実機テスト</b></li>
+  </ul>
+</div>
+
+<h3>7-5. ハイブリッド baseline 運用設計 (factory + user)</h3>
+
+<p>
+  cross-baseline 評価で <b>noise_low 固定 baseline は 14cls 全環境 1.000、32cls XL 0.97-0.98</b>、
+  <b>現地取得 baseline (matched) は 32cls 0.99-1.00</b>と分かった。
+  両方を選択式で使えるハイブリッド構成にすれば、出荷時即動作 (factory) +
+  高精度オプション (user calibration) の両立が可能。
+</p>
+
+<table class="compact">
+  <thead>
+    <tr><th>戦略</th><th>14cls 全環境</th><th>32cls 9-cell mean</th><th>出荷即動作</th><th>季節変動対応</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>factory <b>noise_low</b> 固定</td><td>1.000</td><td>~0.97</td><td>○</td><td>×</td></tr>
+    <tr><td>現地取得 (user)</td><td>1.000</td><td>~0.99</td><td>× (校正必須)</td><td>○ (再校正で対応)</td></tr>
+    <tr style="background:rgba(255, 209, 102, 0.10);">
+      <td><b>hybrid (推奨)</b></td><td>1.000</td><td>0.97-0.99 (選択次第)</td><td>○ (factory fallback)</td><td>○ (user calibration)</td></tr>
+  </tbody>
+</table>
+
+<h4>flash 配置</h4>
+
+<pre style="background:var(--panel-2); padding:10px; border-radius:6px; font-size:11px;">
+[factory_baseline_noise_low]  1024 × 1 byte INT8 = 1 KB  // hardcoded、変更不可
+[user_baseline]              1024 × 1 byte INT8 = 1 KB  // 未校正時は無効フラグ
+[active_source]              1 byte                     // 0=factory, 1=user
+</pre>
+
+<h4>動作仕様</h4>
+
+<ul>
+  <li><b>起動時</b>: active_source を読み、user 選択なら user_baseline 有効性チェック →
+      無効なら factory に強制 + TFT に警告表示</li>
+  <li><b>推論時</b>: 選択された baseline (INT8 → fp32 dequant) を per-bin で引いて NN 入力</li>
+  <li><b>キャリブレーション</b>: 全閉確認ボタン → 2 s 録音 → Welch → user_baseline 保存 →
+      active_source = 1 に更新</li>
+  <li><b>UI</b>: TFT 設定画面で baseline source を選択 / 再校正 / リセット (factory に戻す)</li>
+</ul>
+
+<h4>factory baseline 生成</h4>
+
+<p>
+  実装: <a href="../pc/generate_factory_baseline.py">pc/generate_factory_baseline.py</a>
+  が <code>captures/eval_noise_low/s00000/</code> の 10 frame を Welch 平均 → INT8 量子化
+  → C ヘッダ <a href="../firmware/projects/10_inference/source/factory_baseline.h">
+  firmware/projects/10_inference/source/factory_baseline.h</a> として書き出す。
+</p>
+
+<table class="compact" style="margin-top:8px;">
+  <thead><tr><th>項目</th><th>値</th></tr></thead>
+  <tbody>
+    <tr><td>source</td><td>captures/eval_noise_low/s00000 (10 frames)</td></tr>
+    <tr><td>fp32 範囲</td><td>[-80.00, -28.33] dB (mean -53.23)</td></tr>
+    <tr><td>INT8 scale</td><td>0.2034</td></tr>
+    <tr><td>INT8 offset</td><td>-54.17 dB</td></tr>
+    <tr><td>復元式 (firmware 側)</td><td><code>x_fp32 = q_int8 * SCALE + OFFSET</code></td></tr>
+    <tr><td>最大復元誤差</td><td>0.10 dB (実用許容)</td></tr>
+    <tr><td>flash 占有</td><td>1 KB (1024 INT8) + 8 byte 定数</td></tr>
+  </tbody>
+</table>
+
+<h4>firmware 統合スケッチ</h4>
+
+<pre style="background:var(--panel-2); padding:10px; border-radius:6px; font-size:11px;">
+#include "factory_baseline.h"     // ichp_factory_baseline[1024], SCALE, OFFSET
+
+// 起動時
+const int8_t *active_baseline =
+    user_calibrated ? user_baseline : ichp_factory_baseline;
+
+// 推論時 (each bin)
+for (int i = 0; i &lt; 1024; i++) {
+    float baseline_db = active_baseline[i] * ICHP_FACTORY_BASELINE_SCALE
+                       + ICHP_FACTORY_BASELINE_OFFSET;
+    nn_input[i] = welch_log_mag[i] - baseline_db;
+}
+
+// NPU 推論
+neutron_invoke(model_data, nn_input, nn_output);
+</pre>
+
+<div class="method-card winner">
+  <h3>ハイブリッド設計のメリット</h3>
+  <ul>
+    <li><b>箱から出して即動作</b> — factory baseline で 14cls 完璧 + 32cls 0.97</li>
+    <li><b>高精度狙うユーザーは校正</b> — install wizard で +0.02 上乗せ</li>
+    <li><b>季節 / 配置変更</b> → user 再校正 → factory にリセットも可能</li>
+    <li><b>キャリブ失敗時の安全網</b> — user_baseline 無効なら自動 factory fallback</li>
+  </ul>
+</div>
+
+<h2 id="next">8. 次のステップ</h2>
+
+<ol>
+  <li><b>✅ 確定: v1234+ambient 32cls XL を v1 デプロイモデルとして採用</b>
+      <ul>
+        <li>9-cell mean 0.971、matched diagonal 0.995、量子化劣化最大 -0.006</li>
+        <li>104k params (INT8 ONNX 184 KB → Neutron ~50 KB 見込み)</li>
+      </ul>
+  </li>
+  <li><b>MCU 側準備</b>
+      <ul>
+        <li>NXP eIQ Toolkit インストール → Neutron 変換</li>
+        <li>firmware/10_inference 実装 (Welch FFT + baseline 引き + INT8 推論)</li>
+        <li>キャリブレーション工程 UI (TFT + ボタン、設置時 s00000 取得)</li>
+      </ul>
+  </li>
+  <li><b>cross-house データ収集 (将来)</b> — 別宅で同条件 → 真の cross-environment 評価</li>
+  <li><b>14cls vs 32cls の運用判断</b> — 14cls collapse でも実用十分なら deploy 簡単、
+      サブ状態識別を活用するなら 32cls XL を選択</li>
+</ol>
+
+</main>
+
+</body>
+</html>

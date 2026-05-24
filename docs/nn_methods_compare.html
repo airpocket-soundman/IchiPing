@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>head 設計の比較実験 — IchiPing</title>
+<link rel="stylesheet" href="style.css">
+<script src="embed.js"></script>
+<style>
+  .method-card {
+    background: var(--panel, #181b22);
+    border: 1px solid var(--border, #2a313d);
+    border-left: 4px solid var(--accent-2, #7be0a4);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 18px 0;
+  }
+  .method-card h3 { margin: 0 0 4px 0; font-size: 16px; color: var(--accent-2, #7be0a4); }
+  .method-card .meta-line { font-size: 11px; color: var(--muted, #8b95a7); margin-bottom: 10px; }
+  .winner { border-left-color: #ffd166; background: rgba(255, 209, 102, 0.08); }
+  .winner h3 { color: #ffd166; }
+  table.compact { font-size: 12px; }
+  table.compact th, table.compact td { padding: 5px 9px; }
+  .acc { font-family: "Consolas", monospace; font-weight: 700; }
+  .acc.good { color: #7be0a4; }
+  .acc.mid  { color: #ffb454; }
+  .acc.bad  { color: #ff6b6b; }
+  .figure { margin: 14px 0; text-align: center; }
+  .figure img { max-width: 100%; border: 1px solid var(--border, #2a313d); border-radius: 6px; }
+  .figure .cap { font-size: 12px; color: var(--muted, #8b95a7); margin-top: 6px; }
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin: 18px 0;
+  }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../index.html">トップ</a>
+      <a href="../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="spec.html">仕様書 (spec)</a>
+      <a href="nn_design.html">NN 設計</a>
+      <a href="mcu_deployment.html">MCU デプロイ</a>
+      <a href="bringup.html">実機ブリングアップ</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">NN 検討</div>
+      <a href="probe_sound.html">走査音考察</a>
+      <a href="nn_review.html">NN 考察</a>
+      <a href="full32_initial_test.html">Full 32 初期計測 (chirp)</a>
+      <a href="full32_noise_test.html">Full 32 計測 (noise)</a>
+      <a href="full32_passive_test.html">Full 32 受動 listening</a>
+      <a href="nn_train_v1_result.html">v1 学習結果 (noise/32cls)</a>
+      <a href="nn_methods_compare.html" class="current">head 設計の比較実験</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="../hardware/wiring.html">配線テーブル</a>
+      <a href="../hardware/bom.html">BOM (部品表)</a>
+      <a href="../hardware/display_options.html">ディスプレイ候補</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../firmware/README.html">firmware ガイド</a>
+      <a href="../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">対外発信</div>
+      <a href="protopedia_preview.html">ProtoPedia プレビュー</a>
+      <a href="protopedia.md">ProtoPedia 投稿原稿</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="vscode_setup.html">VS Code セットアップ</a>
+      <a href="../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../index.html">← IchiPing トップ</a>
+    ／ <a href="nn_train_v1_result.html">v1 学習結果</a>
+    ／ <a href="nn_design.html">NN 設計</a>
+  </div>
+  <h1>head 設計の比較実験 <span class="pill">2026-05-23</span></h1>
+  <div class="sub">
+    <a href="nn_train_v1_result.html">v1 学習結果ページ §11</a> で確定した
+    <b>14cls + noise_diff + feature_aug</b> を基準に、共有 backbone を変えずに
+    出力 head / loss だけ差し替えた 4 案を同条件で比較した実験記録。
+    背景は <a href="#bg">§1</a>、結果サマリは <a href="#summary">§2</a>。
+    全実装は <a href="../pc/training/">pc/training/</a> 配下。
+  </div>
+</header>
+
+<main>
+
+<h2 id="bg">1. 背景 — なぜ head 設計を比較したか</h2>
+
+<p>
+  <a href="nn_train_v1_result.html">v1 学習結果</a> §11 で 14cls (Linear 64→14) softmax 単ヘッド
+  + noise_diff + feature_aug の組合せで cross-day 1.000 を達成。
+  ただしその裏側で、別途実施した
+  <a href="../pc/analyze_substate_separability.py">サブ状態分離可能性解析</a>
+  では:
+</p>
+
+<ul>
+  <li><b>等価クラス内サブ状態 (例: A1 内 8 サブ状態) はすべて SNR 16-90 で分離可能</b></li>
+  <li>これは「閉扉が完全遮音」という理想化が崩れている (実扉は -20〜-30 dB 減衰程度) ためで、
+      <b>真の情報量は log₂14 = 3.81 bit ではなく log₂32 = 5 bit に近い</b></li>
+  <li>14cls はこの "観測可能な情報" を 14 クラスに畳み込んで <b>捨てている可能性</b></li>
+</ul>
+
+<p>
+  そこで本実験では「14cls 以外の head 設計で同じ backbone を使ったら、どれが
+  cross-day で勝つか / サブ状態識別を引き出せるか」を 4 案で比較する。
+</p>
+
+<h2 id="summary">2. 結果サマリ</h2>
+
+<table class="compact">
+  <thead>
+    <tr>
+      <th>head 設計</th>
+      <th>head 出力</th>
+      <th>train test (n=144)</th>
+      <th><b>noise_v1 (n=32)<br>cross-day</b></th>
+      <th>passive_v1 (n=32)<br>励振無</th>
+      <th>params</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr style="background:rgba(123, 224, 164, 0.08);">
+      <td><b>baseline: 14cls softmax</b> (v1.3)</td>
+      <td>14-way softmax</td>
+      <td><span class="acc good">1.000</span></td>
+      <td><span class="acc good">1.000</span></td>
+      <td><span class="acc bad">0.250</span></td>
+      <td>13,790</td>
+    </tr>
+    <tr>
+      <td>案 1: 5-bit binary heads</td>
+      <td>5 × sigmoid</td>
+      <td><span class="acc good">0.993</span></td>
+      <td><span class="acc mid">0.906</span></td>
+      <td><span class="acc bad">0.250</span></td>
+      <td>~13.5k</td>
+    </tr>
+    <tr>
+      <td>案 2: 階層 cascade</td>
+      <td>3-way L1 + 3 L2 heads</td>
+      <td><span class="acc good">1.000</span></td>
+      <td><span class="acc mid">0.812</span></td>
+      <td><span class="acc bad">0.250</span></td>
+      <td>~14.5k</td>
+    </tr>
+    <tr>
+      <td>案 3: Hamming soft-label 32cls</td>
+      <td>32-way softmax + Hamming weighted CE</td>
+      <td><span class="acc good">1.000</span></td>
+      <td><span class="acc mid">0.906</span></td>
+      <td><span class="acc bad">0.250</span></td>
+      <td>14,960</td>
+    </tr>
+    <tr>
+      <td>案 4a: embed + プロトタイプ (train 由来)</td>
+      <td>64-d unit-norm + k-NN</td>
+      <td><span class="acc good">1.000</span></td>
+      <td><span class="acc bad">0.688</span></td>
+      <td><span class="acc bad">0.250</span></td>
+      <td>~17.9k</td>
+    </tr>
+    <tr style="background:rgba(255, 209, 102, 0.10);">
+      <td><b>案 4b: embed + プロトタイプ (per-run 再校正)</b></td>
+      <td>64-d + k-NN + 32 state recalibration</td>
+      <td><span class="acc good">1.000</span></td>
+      <td><span class="acc good">1.000</span></td>
+      <td><span class="acc bad">0.250</span></td>
+      <td>~17.9k + 32×64 proto</td>
+    </tr>
+  </tbody>
+</table>
+
+<p class="note" style="margin-top:8px;">
+  これは noise_diff + feature_aug 条件での同一比較。passive_v1 は励振信号が無いため
+  どれも実質ランダム (~0.25)。
+</p>
+
+<h2 id="case1">3. 案 1: 5-bit binary heads</h2>
+
+<div class="method-card">
+  <h3>構成</h3>
+  <p class="meta-line">backbone 共有 + Linear(64, 1) × 5 head (a, b, c, AB, BC)</p>
+  <p>
+    各 bit を独立に sigmoid で予測。loss = 5 × BCE 合算。
+    実装: <a href="../pc/training/model_bits.py">model_bits.py</a> +
+    <a href="../pc/training/train_bits.py">train_bits.py</a>。
+  </p>
+</div>
+
+<h3>3-1. 結果</h3>
+
+<table class="compact">
+  <thead><tr><th>データ</th><th>14cls acc</th><th>32cls acc</th><th>macro-F1</th></tr></thead>
+  <tbody>
+    <tr><td>train_v1 (全 960)</td><td>0.982</td><td>0.482</td><td>0.956</td></tr>
+    <tr><td><b>noise_v1 cross-day</b></td><td><b>0.906</b></td><td>0.375</td><td>0.810</td></tr>
+    <tr><td>passive_v1</td><td>0.250</td><td>—</td><td>0.029</td></tr>
+  </tbody>
+</table>
+
+<h3>3-2. bit ごとの正解率</h3>
+
+<table class="compact">
+  <thead><tr><th>bit</th><th>train_v1</th><th>noise_v1</th><th>物理対応</th></tr></thead>
+  <tbody>
+    <tr><td><b>a</b></td><td>1.000</td><td>1.000</td><td>窓 a (Room A 直接観測)</td></tr>
+    <tr><td><b>AB</b></td><td>1.000</td><td>1.000</td><td>扉 AB (4 dB マージン)</td></tr>
+    <tr><td>BC</td><td>0.873</td><td>0.750</td><td>扉 BC (Room B 経由)</td></tr>
+    <tr><td>b</td><td>0.807</td><td>0.750</td><td>窓 b (Room B、AB 開時のみ強い信号)</td></tr>
+    <tr><td><b>c</b></td><td><b>0.646</b></td><td><b>0.594</b></td><td>窓 c (Room C、BC 開時のみ強い信号)</td></tr>
+  </tbody>
+</table>
+
+<p>
+  <b>解釈</b>: a / AB は完全分離 (大マージン)。<b>c bit が最も難しい</b> (BC 閉時の遮断越し)、
+  次に b, BC。BCE は bit 独立性を仮定するが、実際は a→b→c が階層依存
+  (扉が手前で閉じてると奥の窓は観測不能) なので、bit 独立は構造的に不利。
+</p>
+
+<h2 id="case2">4. 案 2: 階層 cascade</h2>
+
+<div class="method-card">
+  <h3>構成</h3>
+  <p class="meta-line">L1: 3-way (A/B/C) + L2_A (2-way) + L2_B (4-way) + L2_C (8-way)</p>
+  <p>
+    扉開閉の物理的階層 (AB → BC → 窓) に対応する head 構造。
+    実装: <a href="../pc/training/model_cascade.py">model_cascade.py</a>。
+  </p>
+</div>
+
+<h3>4-1. 結果</h3>
+
+<table class="compact">
+  <thead><tr><th>データ</th><th>14cls acc</th><th>macro-F1</th></tr></thead>
+  <tbody>
+    <tr><td>train_v1 (全 960)</td><td>1.000</td><td>1.000</td></tr>
+    <tr><td><b>noise_v1 cross-day</b></td><td><b>0.812</b></td><td>0.707</td></tr>
+    <tr><td>passive_v1</td><td>0.250</td><td>0.029</td></tr>
+  </tbody>
+</table>
+
+<p>
+  <b>解釈</b>: train 内は完璧、しかし <b>cross-day は flat 14cls (1.000) より大幅悪化 (0.812)</b>。
+  原因は L1 (A/B/C) で 1 件でも誤判定すると L2 が無意味になる cascade error。
+  cross-day では L1 自体が cross-day drift で揺れて B↔C で外す → L2 修復不可。
+</p>
+
+<h2 id="case3">5. 案 3: Hamming soft-label 32cls</h2>
+
+<div class="method-card">
+  <h3>構成</h3>
+  <p class="meta-line">32-way softmax + Hamming-distance weighted soft-label CE</p>
+  <p>
+    32-class head のままだが、loss を hard label CE から
+    <code>softmax(-α·hamming) で正規化した soft label</code> 用 CE に変更。
+    近い state への誤分類が小 penalty、遠い state への誤分類が大 penalty。
+    実装: <a href="../pc/training/train_32cls.py">train_32cls.py</a> に
+    <code>--loss-mode=hamming --hamming-alpha 2.0</code> を追加。
+  </p>
+</div>
+
+<h3>5-1. 結果</h3>
+
+<table class="compact">
+  <thead><tr><th>データ</th><th>14cls acc</th><th>32cls acc</th><th>macro-F1</th></tr></thead>
+  <tbody>
+    <tr><td>train_v1 (test split)</td><td>1.000</td><td>1.000</td><td>1.000</td></tr>
+    <tr><td>train_v1 (全 960)</td><td>1.000</td><td>0.998</td><td>1.000</td></tr>
+    <tr><td><b>noise_v1 cross-day</b></td><td><b>0.906</b></td><td>0.469</td><td>0.845</td></tr>
+    <tr><td>passive_v1</td><td>0.250</td><td>0.062</td><td>0.029</td></tr>
+  </tbody>
+</table>
+
+<p>
+  <b>解釈</b>: cross-day 性能が plain 32cls (前ページ §13 で 0.906) と <b>完全同一</b>。
+  Hamming weighting は train 内では soft 化で gradient signal を集約するが、
+  cross-day の B→C 境界 drift には効かない。head 構造 (32-way) が
+  bottleneck なので loss だけ変えても上限は変わらない。
+</p>
+
+<h2 id="case4">6. 案 4: embedding + プロトタイプ</h2>
+
+<div class="method-card">
+  <h3>構成</h3>
+  <p class="meta-line">64-d unit-norm embedding + supervised contrastive loss + 32 プロトタイプ k-NN</p>
+  <p>
+    backbone → Linear(64, 64) → L2-normalize で単位球面上に embedding。
+    SupCon loss (temperature=0.1) で同 state 同士を近く、別 state 同士を遠く配置。
+    推論は 32 state プロトタイプ (= 同 state の embedding 平均) との
+    cosine 類似度で argmax。実装:
+    <a href="../pc/training/model_embed.py">model_embed.py</a> +
+    <a href="../pc/training/train_embed.py">train_embed.py</a>。
+  </p>
+</div>
+
+<h3>6-1. 結果 — プロトタイプの取り方で大幅に変わる</h3>
+
+<table class="compact">
+  <thead>
+    <tr>
+      <th>プロトタイプ取得元</th><th>train_v1</th>
+      <th>noise_v1 cross-day</th><th>passive_v1</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>ckpt 同梱 (train_v1 由来)</td>
+      <td>1.000</td>
+      <td><span style="color:#ff6b6b;">0.688</span></td>
+      <td>0.250</td>
+    </tr>
+    <tr style="background:rgba(255, 209, 102, 0.12);">
+      <td><b>per-run 再計算 (noise_v1 の s00000..s11111 から)</b></td>
+      <td>1.000</td>
+      <td><span style="color:#7be0a4;"><b>1.000</b></span></td>
+      <td>0.250</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>6-2. 解釈 — 「キャリブレーション運用」と相性が良い</h3>
+
+<div class="method-card winner">
+  <h3>per-deployment calibration が embedding 路線の必須前提</h3>
+  <p>
+    train 時の embedding 空間は SPK 特性・部屋特性に依存する。新環境 (= cross-day や
+    別宅) では embedding 自体が回転 / シフトするため、train 時に取った
+    プロトタイプを当てると誤分類する (0.688)。しかし新環境で <b>32 全 state を
+    1 周だけ動作させてプロトタイプを取り直せば 1.000</b>。
+  </p>
+  <p>
+    IchiPing 運用では <b>「設置時に各扉/窓を 1 回ずつ動かしてキャリブレーション
+    する」</b>という工程と非常に相性が良い:
+  </p>
+  <ul>
+    <li>初期キャリブレーション工程: 32 state ×録音 → 32 プロトタイプ計算 → flash 保存</li>
+    <li>flash 占有: 32 × 64 × 1B (INT8) = <b>2 KB</b></li>
+    <li>季節変化や家具配置変更後は再キャリブレーション</li>
+    <li>baseline 14cls の noise_diff (s00000 のみ) より重い校正工程だが、
+        cross-day で確実に 1.000 を返す</li>
+  </ul>
+</div>
+
+<h2 id="all_confusion">7. 4 案 + baseline の cross-day 混同行列</h2>
+
+<div class="two-col">
+  <div class="figure">
+    <img src="../pc/runs/v1_train_14cls_diff_aug/eval_xrun_noise_v1/confusion_14cls.png"
+         alt="14cls v1.3 cross-day confusion (baseline)">
+    <div class="cap"><b>baseline 14cls v1.3</b> — 32/32 完璧</div>
+  </div>
+  <div class="figure">
+    <img src="../pc/runs/v1_train_bits/eval_noise_v1/confusion_14cls.png"
+         alt="bits cross-day confusion">
+    <div class="cap"><b>案 1 bits</b> — 0.906 (3 件 B→C 流出)</div>
+  </div>
+</div>
+<div class="two-col">
+  <div class="figure">
+    <img src="../pc/runs/v1_train_cascade/eval_noise_v1/confusion_14cls.png"
+         alt="cascade cross-day confusion">
+    <div class="cap"><b>案 2 cascade</b> — 0.812 (L1 cascade error)</div>
+  </div>
+  <div class="figure">
+    <img src="../pc/runs/v1_train_hamming/eval_xrun_noise_v1/confusion_14cls.png"
+         alt="hamming cross-day confusion">
+    <div class="cap"><b>案 3 Hamming</b> — 0.906 (plain 32cls と同じ)</div>
+  </div>
+</div>
+<div class="two-col">
+  <div class="figure">
+    <img src="../pc/runs/v1_train_embed/eval_noise_v1/confusion_14cls.png"
+         alt="embed (train proto) cross-day confusion">
+    <div class="cap"><b>案 4a embed (train proto)</b> — 0.688 (環境 mismatch)</div>
+  </div>
+  <div class="figure">
+    <img src="../pc/runs/v1_train_embed/eval_noise_v1_recalib/confusion_14cls.png"
+         alt="embed (recalibrated) cross-day confusion">
+    <div class="cap"><b>案 4b embed (per-run proto)</b> — 1.000 ⭐</div>
+  </div>
+</div>
+
+<h2 id="discussion">8. 議論と結論</h2>
+
+<div class="method-card">
+  <h3>winner = 2 つ存在する (運用シナリオが違う)</h3>
+  <table class="compact" style="margin-top:8px;">
+    <thead>
+      <tr><th></th><th>baseline 14cls v1.3</th><th>案 4b embed + recalib</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>cross-day acc</td><td>1.000</td><td>1.000</td></tr>
+      <tr><td>校正工程</td><td><b>s00000 を 1 回録音</b> (35 sec)</td><td><b>32 state を 1 周録音</b> (~5 min)</td></tr>
+      <tr><td>flash 占有</td><td>1024 × 1B baseline = 1 KB</td><td>32 × 64 × 1B proto = 2 KB</td></tr>
+      <tr><td>params</td><td>13,790</td><td>~17.9k</td></tr>
+      <tr><td>サブ状態識別性</td><td>14cls までしか出さない</td><td>32 cls native (将来拡張余地)</td></tr>
+      <tr><td>v1 推奨</td><td><b>★ シンプル運用</b></td><td>サブ状態活用したいなら</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="method-card">
+  <h3>baseline (14cls v1.3) を v1 採用とする理由</h3>
+  <ul>
+    <li>cross-day 1.000 を s00000 たった 1 回の校正で達成</li>
+    <li>flash / params 最小、MCU デプロイのオーバーヘッド最少</li>
+    <li>運用シーンが「v1 ハードで 14 等価クラス推定」なので、サブ状態を取りに行く案 4 は overspec</li>
+  </ul>
+</div>
+
+<div class="method-card">
+  <h3>失敗した 3 案からの学び</h3>
+  <ul>
+    <li><b>案 1 (5-bit binary)</b>: 物理階層 (扉 AB → BC → 窓) を bit 独立として
+        モデル化したが、実際は <code>BC bit の検出が AB に依存</code> 等の
+        条件付き構造。BCE 5 個では cross-day で c/b/BC bit が個別に揺らぐ。</li>
+    <li><b>案 2 (cascade)</b>: 階層化で L2 head ごとの capacity 集中を狙ったが、
+        L1 (A/B/C) で 1 件外すと L2 が全て無意味になる cascade error が
+        cross-day で実害になった。</li>
+    <li><b>案 3 (Hamming soft-label)</b>: 32cls の "不可能な目標" を soft 化して
+        勾配信号を集約しようとしたが、cross-day での B→C 境界 drift には効かない
+        (head 構造のままで loss だけ柔らかくしても境界が動かないため)。</li>
+    <li><b>案 4a (embed without recalib)</b>: 学んだ embedding 空間が
+        環境依存で、train プロトタイプを別環境に持ち込むと最も大きく崩れた
+        (0.688)。逆に <b>per-deployment 校正なら最強 (1.000)</b> の二面性。</li>
+  </ul>
+</div>
+
+<div class="method-card">
+  <h3>v2 以降への含意</h3>
+  <ul>
+    <li><b>マルチハウス展開</b>するなら案 4b 路線。設置時に 32 state ×
+        プロトタイプ取得を install wizard 化。</li>
+    <li><b>サブ状態識別を真面目に取りに行く</b>場合、
+        <a href="../pc/analyze_substate_separability.py">SNR 解析</a>
+        で全ペア STRONG が確認できているので、case 4b を 32cls eval で評価し直す価値あり。</li>
+    <li><b>環境ノイズへの頑健性</b>追求は案 4b の SupCon を ambient overlay 付きで
+        再学習するのが筋。</li>
+  </ul>
+</div>
+
+<h2 id="size_compare">9. モデルサイズ比較 (capacity scaling 実験)</h2>
+
+<p>
+  baseline 14cls v1.3 の backbone を 4 段階に変えて capacity と cross-day 性能の関係を測定。
+  実装は <a href="../pc/training/model_14cls.py">model_14cls.py</a> に
+  <code>SIZE_PRESETS</code> を追加、<code>--size S/M/L/XL</code> で切替。
+  S 以外は backbone を変えただけで loss / 特徴量 / aug は全て同一 (noise_diff + feature_aug)。
+</p>
+
+<h3>9-1. 構成</h3>
+
+<table class="compact">
+  <thead>
+    <tr><th>size</th><th>channels</th><th>追加層</th><th>head</th><th>params</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>S (現行)</td><td>16 → 32 → 64</td><td>—</td><td>GAP → Linear(64,14)</td><td>13,790</td></tr>
+    <tr><td>M (深さ+1)</td><td>16 → 32 → 64 → 64</td><td>Conv 64→64, s=2</td><td>GAP → Linear(64,14)</td><td>30,366</td></tr>
+    <tr><td>L (幅2倍)</td><td>32 → 64 → 128</td><td>—</td><td>GAP → Linear(128,14)</td><td>52,142</td></tr>
+    <tr><td>XL (幅2倍+Flatten)</td><td>32 → 64 → 128</td><td>—</td><td>Flatten(128×30=3840) → Linear(3840,14)</td><td>104,110</td></tr>
+  </tbody>
+</table>
+
+<h3>9-2. 結果 — マルチシード (5 seed) 集計</h3>
+
+<p>
+  初回 (seed=0 のみ) の数字は seed 依存ノイズが大きすぎたので、
+  各 size を <b>seed 0–4 の 5 回ずつ</b>回し直して mean ± std を取った。
+  sweep 実装は <a href="../pc/sweep_size_seed.py">pc/sweep_size_seed.py</a>。
+</p>
+
+<table class="compact">
+  <thead>
+    <tr>
+      <th rowspan="2">size</th>
+      <th rowspan="2">params</th>
+      <th rowspan="2">train_v1<br>mean</th>
+      <th colspan="4"><b>noise_v1 cross-day (n=32)</b></th>
+    </tr>
+    <tr>
+      <th>mean</th><th>std</th><th>min</th><th>max</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>S</b></td><td>13,790</td>
+      <td><span class="acc good">1.000</span></td>
+      <td><span class="acc mid">0.844</span></td>
+      <td>0.080</td>
+      <td><span class="acc bad">0.719</span></td>
+      <td>0.906</td>
+    </tr>
+    <tr>
+      <td>M</td><td>30,366</td>
+      <td><span class="acc good">1.000</span></td>
+      <td><span class="acc mid">0.875</span></td>
+      <td>0.049</td>
+      <td>0.813</td>
+      <td>0.938</td>
+    </tr>
+    <tr>
+      <td>L</td><td>52,142</td>
+      <td><span class="acc good">0.999</span></td>
+      <td><span class="acc mid">0.869</span></td>
+      <td><b>0.026</b></td>
+      <td>0.844</td>
+      <td>0.906</td>
+    </tr>
+    <tr>
+      <td><b>XL</b></td><td>104,110</td>
+      <td>0.999</td>
+      <td><b><span class="acc mid">0.881</span></b></td>
+      <td>0.064</td>
+      <td>0.781</td>
+      <td>0.938</td>
+    </tr>
+  </tbody>
+</table>
+
+<table class="compact" style="margin-top:14px;">
+  <thead>
+    <tr><th>size</th><th colspan="5">per-seed cross-day acc (seed 0–4)</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><b>S</b></td>
+      <td>0.719</td><td>0.906</td><td>0.813</td><td>0.875</td><td>0.906</td>
+    </tr>
+    <tr><td>M</td>
+      <td>0.844</td><td>0.813</td><td>0.875</td><td>0.938</td><td>0.906</td>
+    </tr>
+    <tr><td>L</td>
+      <td>0.844</td><td>0.906</td><td>0.875</td><td>0.844</td><td>0.875</td>
+    </tr>
+    <tr><td>XL</td>
+      <td>0.938</td><td>0.875</td><td>0.938</td><td>0.875</td><td>0.781</td>
+    </tr>
+  </tbody>
+</table>
+
+<p class="note">
+  壁時間は CPU 学習で 60 epoch 通すと size に依らず ~110 s (computation より
+  I/O が支配的)。capacity を 7.5× にしても学習コストは実質ゼロ増。
+</p>
+
+<h3>9-3. 解釈 — seed=0 の単発結果は "まぐれ" だった</h3>
+
+<div class="method-card winner">
+  <h3>判明した事 1: S の cross-day 1.000 は seed=0 の偶然</h3>
+  <p>
+    最初に観測した S=1.000 は、5 seed 平均では <b>0.844 ± 0.080</b>。
+    実は S が 4 size の中で <b>最も seed 分散が大きい (不安定)</b> モデルで、
+    最悪 seed では 0.719 (23/32 = 9 サンプル miss) まで落ちる。
+    「S が一番強い」という前回の結論は完全な早合点だった。
+  </p>
+</div>
+
+<div class="method-card winner">
+  <h3>判明した事 2: 「params 増で劣化」も嘘だった</h3>
+  <p>
+    5 seed mean を素直に並べると <b>capacity と cross-day acc には明確な関係なし</b>:
+  </p>
+  <table class="compact" style="margin-top:8px;">
+    <thead><tr><th>size</th><th>params</th><th>mean ± std</th><th>順位</th></tr></thead>
+    <tbody>
+      <tr><td>S</td>  <td>13.8k</td><td>0.844 ± 0.080</td><td>4 (最悪)</td></tr>
+      <tr><td>M</td>  <td>30k</td>  <td>0.875 ± 0.049</td><td>2</td></tr>
+      <tr><td>L</td>  <td>52k</td>  <td>0.869 ± <b>0.026</b></td><td>3 (最高 stability)</td></tr>
+      <tr><td>XL</td> <td>104k</td> <td><b>0.881 ± 0.064</b></td><td><b>1 (最高 mean)</b></td></tr>
+    </tbody>
+  </table>
+  <p>
+    最終結果は <b>XL が最高 mean (0.881)</b>、<b>L が最高 stability (std 0.026)</b>、
+    <b>S が最悪 (mean 最低 + std 最大)</b>。capacity と性能には弱い正の相関 (S→M→L→XL でも単調ではないが)、
+    安定性 (std) は size に対して U 字 (L で底)。
+    Modern DL の "overparameterization は generalization に有利" 説と
+    緩く整合的だが、それも n=32 × 5 seed という限定的サンプルでの暫定値。
+  </p>
+</div>
+
+<div class="method-card">
+  <h3>本当に言える事 (確定)</h3>
+  <ul>
+    <li><b>現データでは cross-day mean は size に関わらず 0.84–0.88 のレンジ</b> —
+        capacity 選択だけで cross-day 性能の天井は破れない</li>
+    <li><b>S は最も seed ガチャに弱い</b> — 不運な init で 0.719 まで落ちる
+        (3 サンプル悪化 = 大きい)</li>
+    <li><b>L が最も再現性高い</b> (std 0.026)、実運用での安心感はある</li>
+    <li><b>XL が最高 mean</b> (0.881) だが std も 0.064 と中程度、最悪 seed で 0.781</li>
+    <li><b>train_v1 内では全 size 1.000</b> — capacity は補間能力の指標としては
+        どれも十分</li>
+    <li><b>本質的なボトルネックはサンプル数</b> — head 比較 §3–§8 でも noise_diff +
+        feature_aug + 14cls で 1.000 が出たが、それも n=32 単発の表面値。
+        cross-day v2 (REPEATS=30) を取らないと本当の上限は不明</li>
+  </ul>
+</div>
+
+<div class="method-card">
+  <h3>残る検証課題</h3>
+  <ol>
+    <li><b>cross-day v2 (REPEATS=30) を撮る</b> — n=32 → n=960 で 1 サンプル分解能 0.001。
+        binomial 95% CI が ±0.02 まで縮まり、現状見えない size 間 0.01 の差も検出可能。
+        明日 35 min の録音 + 既存学習モデルで eval</li>
+    <li><b>train_v2 / train_v3 を別日収集</b> — 学習データを 960 → 2880 にして
+        L/XL の本領発揮 (data/capacity 比改善) を測る</li>
+    <li><b>XL の最悪 seed 0.781 の原因調査</b> — XL は mean 最高だが std 0.064 で
+        seed ガチャ依存。Dropout 0.4 → 0.5 や weight decay 強化で seed 安定性を上げられるかも</li>
+  </ol>
+</div>
+
+<h3>9-4. cross-day 混同行列 (5 seed 集計、size 別)</h3>
+
+<p>
+  各 size の seed 0–4 の cross-day 予測を <b>合算</b>した集約混同行列 (1 size あたり
+  32 サンプル × 5 seed = 160 予測)。seed 単発の混同行列より誤分類傾向の構造が
+  ノイズ少なく見える。XL は集計中 (現在 3 seed)。
+</p>
+
+<div class="two-col">
+  <div class="figure">
+    <img src="../pc/runs/sweep_size_seed/aggregate_confusion/aggregated_S.png"
+         alt="S size aggregate cross-day confusion">
+    <div class="cap"><b>S (14k)</b> 5 seed 合算 — acc 0.844</div>
+  </div>
+  <div class="figure">
+    <img src="../pc/runs/sweep_size_seed/aggregate_confusion/aggregated_M.png"
+         alt="M size aggregate cross-day confusion">
+    <div class="cap"><b>M (30k)</b> 5 seed 合算 — acc 0.875</div>
+  </div>
+</div>
+<div class="two-col">
+  <div class="figure">
+    <img src="../pc/runs/sweep_size_seed/aggregate_confusion/aggregated_L.png"
+         alt="L size aggregate cross-day confusion">
+    <div class="cap"><b>L (52k)</b> 5 seed 合算 — acc 0.869</div>
+  </div>
+  <div class="figure">
+    <img src="../pc/runs/sweep_size_seed/aggregate_confusion/aggregated_XL.png"
+         alt="XL size aggregate cross-day confusion">
+    <div class="cap"><b>XL (104k)</b> 5 seed 合算 — acc 0.881 (最高)</div>
+  </div>
+</div>
+
+<p class="note">
+  どの size も誤分類は概ね同じ位置 (B → C 系流出、A1/A2 内のサブ状態取り違え) に集中、
+  size 間で構造的な違いは見えない。残る差は <b>誤分類の総数 (160 中 19-25)</b> が
+  size により多少違うだけで、確率的なノイズで説明できる範囲。
+</p>
+
+<h3>9-5. v1 推奨 (5 seed 集計後の最終評価)</h3>
+
+<table class="compact">
+  <thead><tr><th>size</th><th>mean</th><th>std</th><th>min</th><th>最終ランク</th></tr></thead>
+  <tbody>
+    <tr><td>S (14k)</td><td>0.844</td><td>0.080</td><td>0.719</td><td>❌ 最悪 (mean 最低、std 最大)</td></tr>
+    <tr><td>M (30k)</td><td>0.875</td><td>0.049</td><td>0.813</td><td>○ バランス良 (XL に次ぐ mean、安定中)</td></tr>
+    <tr><td>L (52k)</td><td>0.869</td><td><b>0.026</b></td><td>0.844</td><td>★ <b>安定性 1 位 (最高 stability)</b></td></tr>
+    <tr><td>XL (104k)</td><td><b>0.881</b></td><td>0.064</td><td>0.781</td><td>★ <b>mean 1 位 (最高性能)</b></td></tr>
+  </tbody>
+</table>
+
+<ul>
+  <li><b>v1 デプロイ候補は L または XL</b>
+      <ul>
+        <li><b>L 推奨</b>: 安定性最優先なら std 0.026 の L。最悪 seed でも 0.844 確保</li>
+        <li><b>XL 推奨</b>: 期待値最優先なら mean 0.881 の XL。ただし最悪 seed 0.781 のリスクあり</li>
+      </ul>
+  </li>
+  <li><b>「S 採用」を撤回</b> — seed=0 で 1.000 が出ただけで、平均 0.844 は 4 size 中最低。
+      mean / std どちらの基準でも S は劣後する。</li>
+  <li><b>cross-day mean 0.84–0.88 の天井は data 不足が原因</b> — head 設計、
+      モデルサイズをいくら変えても 0.88 前後で頭打ち。
+      <b>抜本的な性能向上はサンプル増し以外にない</b>。明日の cross-day v2 と
+      train_v2/v3 で実証する。</li>
+  <li>計算時間は size 不変 (~110 s / 60ep / CPU) なので、性能優先なら XL、安定性優先なら L。
+      MCU 容量は XL でも flash 1 MB の 10% で全く問題なし。</li>
+</ul>
+
+<p class="note" style="margin-top:14px;">
+  ※ ここまでが train_v1 のみで学習したモデル群の比較。実機収集 train_v2 を学習側に
+  投入した <b>v1+v2 結合学習版</b>は別ページ
+  <a href="nn_train_v1v2_combined.html">「v1+v2 結合学習レポート」</a>
+  にまとめてあるので、そちらを参照。
+</p>
+
+</main>
+
+</body>
+</html>

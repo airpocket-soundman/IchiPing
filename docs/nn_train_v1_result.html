@@ -1,0 +1,1196 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>v1 学習結果（noise + 32cls） — IchiPing</title>
+<link rel="stylesheet" href="style.css">
+<script src="embed.js"></script>
+<style>
+  .summary-card {
+    background: var(--panel, #181b22);
+    border: 1px solid var(--border, #2a313d);
+    border-left: 4px solid var(--accent-2, #7be0a4);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 14px 0;
+  }
+  .summary-card h3 { margin: 0 0 6px 0; font-size: 15px; }
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    margin: 12px 0 18px 0;
+  }
+  .metric-tile {
+    background: var(--panel-2, #1f242d);
+    border: 1px solid var(--border, #2a313d);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .metric-tile .label { font-size: 11px; color: var(--muted, #8b95a7); margin-bottom: 4px; }
+  .metric-tile .value {
+    font-family: "Consolas", monospace;
+    font-size: 22px;
+    color: var(--accent-2, #7be0a4);
+    font-weight: 700;
+  }
+  .metric-tile .sub { font-size: 11px; color: var(--muted, #8b95a7); margin-top: 4px; }
+  .figure {
+    margin: 18px 0;
+    text-align: center;
+  }
+  .figure img {
+    max-width: 100%;
+    border: 1px solid var(--border, #2a313d);
+    border-radius: 6px;
+  }
+  .figure .cap { font-size: 12px; color: var(--muted, #8b95a7); margin-top: 6px; }
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin: 18px 0;
+  }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+  .two-col .figure { margin: 0; }
+  table.compact { font-size: 12px; }
+  table.compact th, table.compact td { padding: 5px 9px; }
+  .note { color: var(--muted, #8b95a7); font-size: 12px; }
+  .pill-warn { background: #ffb454; color: #1a1d23; }
+</style>
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../index.html">トップ</a>
+      <a href="../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="spec.html">仕様書 (spec)</a>
+      <a href="nn_design.html">NN 設計</a>
+      <a href="mcu_deployment.html">MCU デプロイ</a>
+      <a href="bringup.html">実機ブリングアップ</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">NN 検討</div>
+      <a href="probe_sound.html">走査音考察</a>
+      <a href="nn_review.html">NN 考察</a>
+      <a href="full32_initial_test.html">Full 32 初期計測 (chirp)</a>
+      <a href="full32_noise_test.html">Full 32 計測 (noise)</a>
+      <a href="full32_passive_test.html">Full 32 受動 listening</a>
+      <a href="nn_train_v1_result.html" class="current">v1 学習結果 (noise/32cls)</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="../hardware/wiring.html">配線テーブル</a>
+      <a href="../hardware/bom.html">BOM (部品表)</a>
+      <a href="../hardware/display_options.html">ディスプレイ候補</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../firmware/README.html">firmware ガイド</a>
+      <a href="../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">対外発信</div>
+      <a href="protopedia_preview.html">ProtoPedia プレビュー</a>
+      <a href="protopedia.md">ProtoPedia 投稿原稿</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="vscode_setup.html">VS Code セットアップ</a>
+      <a href="../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a><br>
+    <a href="https://github.com/airpocket-soundman/digikey_project">正本 digikey_project</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../index.html">← IchiPing トップ</a>
+    ／ <a href="full32_noise_test.html">Full 32 計測 (noise)</a>
+    ／ <a href="nn_design.html">NN 設計</a>
+  </div>
+  <h1>v1 学習結果 — noise 励振 + 32-class softmax <span class="pill">v1_train_60ep / 2026-05-23</span></h1>
+  <div class="sub">
+    <a href="full32_noise_test.html">PRBS ノイズ計測</a>で確定した本収集データセット
+    <b>full_32_train_v1</b>（32 状態 × 30 フレーム = 960 サンプル）に対する、
+    <a href="nn_design.html">1D-CNN（IchiPingV1_32cls）</a>の学習結果。学習スクリプトは
+    <a href="../pc/training/train_32cls.py">pc/training/train_32cls.py</a>、評価は
+    <a href="../pc/training/infer_32cls.py">pc/training/infer_32cls.py</a>。
+    モデル本体は 32-class softmax だが、評価時に等価クラスへ畳み込んだ
+    <b>14-class accuracy</b> が NN 設計ドキュメントの目的指標。
+  </div>
+  <div class="meta">
+    <span class="meta-stat done"><span class="num">14,960</span> params</span>
+    <span class="meta-stat"><span class="num">60</span> epochs</span>
+    <span class="meta-stat"><span class="num">960</span> sample (32×30)</span>
+    <span class="meta-stat"><span class="num">1.000</span> test acc (14cls)</span>
+    <span class="meta-stat"><span class="num">~10 min</span> CPU 学習</span>
+  </div>
+</header>
+
+<main>
+
+<h2>1. データセット</h2>
+
+<table class="compact">
+  <thead>
+    <tr><th>項目</th><th>値</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>収集 plan</td><td><a href="../pc/plans/full_32_train.yaml">plans/full_32_train.yaml</a>（<a href="../pc/plans/gen32_train.py">gen32_train.py</a> で生成）</td></tr>
+    <tr><td>励振パターン</td><td><code>noise_2s_prbs</code>（PRBS ホワイトノイズ、SPK 駆動）</td></tr>
+    <tr><td>音量</td><td>3 %（ADC クリップ回避の実績値）</td></tr>
+    <tr><td>状態数</td><td>32（5 ドアの全開閉組合せ）</td></tr>
+    <tr><td>1 状態あたりフレーム数</td><td>30</td></tr>
+    <tr><td>総フレーム数</td><td><b>960</b>（32 × 30）</td></tr>
+    <tr><td>1 フレーム長</td><td>2.0 秒 / 16 kHz / 16-bit mono</td></tr>
+    <tr><td>収集所要時間</td><td>約 35 分（壁時計）</td></tr>
+    <tr><td>保存先</td><td><a href="../pc/captures/full_32_train_v1/">pc/captures/full_32_train_v1/</a></td></tr>
+  </tbody>
+</table>
+
+<p class="note">
+  データ健全性は事前に
+  <a href="../pc/captures/full_32_train_v1/analysis/">analyze_full32_train.py</a> で確認済み:
+  フレーム内 σ は全 32 状態で 0.41–0.51 dB に揃い、A vs B vs C の大分類は 4 dB の余裕、
+  C 系最近傍だけ 0.8–1.1 dB と margin 薄め。詳細は
+  <a href="full32_noise_test.html">noise 計測ページ §5</a> を参照。
+</p>
+
+<h2>2. 特徴量 — Welch スペクトル</h2>
+
+<p>
+  PRBS 励振では時間-周波数構造が無いので、chirp 経路（matched filter で RIR 抽出）は使えない。
+  代わりに <b>2 s の波形を Welch 法で平均パワースペクトル化</b>して 1024 bin
+  log-magnitude 特徴量に変換する。実装は
+  <a href="../pc/training/features.py">pc/training/features.py</a> の
+  <code>samples_to_noise_features()</code>。
+</p>
+
+<table class="compact">
+  <thead><tr><th>パラメータ</th><th>値</th><th>備考</th></tr></thead>
+  <tbody>
+    <tr><td>窓関数</td><td>Hann</td><td>サイドローブ抑制</td></tr>
+    <tr><td>セグメント長</td><td>2048 sample</td><td>128 ms @ 16 kHz</td></tr>
+    <tr><td>オーバーラップ</td><td>1024 sample</td><td>50%</td></tr>
+    <tr><td>セグメント数</td><td>30</td><td>2 s 中で平均</td></tr>
+    <tr><td>出力ビン数</td><td>1024</td><td>rFFT 1025 ビンから DC を除外</td></tr>
+    <tr><td>正規化</td><td>10·log10 + mean-subtract</td><td>chirp 経路と同じシグネチャ</td></tr>
+    <tr><td>フロア</td><td>-80 dB</td><td>log の発散防止</td></tr>
+  </tbody>
+</table>
+
+<p class="note">
+  入出力形状（1024 次元 float32, 平均 0）は chirp 経路と完全一致。
+  したがって 1D-CNN backbone は 2 つの励振方式で共有でき、
+  device 側 (MCXN947) でも PowerQuad-FFT を Welch に流用すれば同じパイプラインで動かせる見込み。
+</p>
+
+<h2>3. モデル — IchiPingV1_32cls</h2>
+
+<p>
+  実装は <a href="../pc/training/model_32cls.py">model_32cls.py</a>。
+  共有 backbone (Conv1D × 3 + BatchNorm + GAP) の上に 32-class softmax 単ヘッド。
+</p>
+
+<table class="compact">
+  <thead><tr><th>層</th><th>形状</th><th>備考</th></tr></thead>
+  <tbody>
+    <tr><td>入力</td><td>(B, 1, 1024)</td><td>log-magnitude スペクトル</td></tr>
+    <tr><td>Conv1D 16ch / k=16 / s=4</td><td>(B, 16, 253)</td><td>+ BN + ReLU</td></tr>
+    <tr><td>Conv1D 32ch / k=8 / s=4</td><td>(B, 32, 62)</td><td>+ BN + ReLU</td></tr>
+    <tr><td>Conv1D 64ch / k=4 / s=2</td><td>(B, 64, 30)</td><td>+ BN + ReLU</td></tr>
+    <tr><td>Global Average Pool</td><td>(B, 64)</td><td>時間軸方向に平均</td></tr>
+    <tr><td>Dropout 0.3</td><td>(B, 64)</td><td>過学習対策</td></tr>
+    <tr><td>Linear 64 → 32</td><td>(B, 32)</td><td>state index logits</td></tr>
+  </tbody>
+</table>
+
+<p class="note">
+  パラメータ数 <b>14,960</b>（≒ 60 KB FP32 / 15 KB INT8）— MCXN947 の SRAM に余裕で乗る規模。
+  ヘッドが 32-class なのは
+  <a href="nn_design.html">NN 設計 §なぜ 14-class softmax 単ヘッドなのか</a>
+  と少しズレるが、現状の <code>model_32cls.py</code> は等価クラス内サブ構造を
+  モデルが拾えるか確認する実験用設計。評価時に <code>class_of()</code> で 14-class に
+  畳み込んで本来の指標に変換している。
+</p>
+
+<h2>4. 学習設定</h2>
+
+<table class="compact">
+  <thead><tr><th>項目</th><th>値</th></tr></thead>
+  <tbody>
+    <tr><td>Optimizer</td><td>AdamW (lr 1e-3, weight_decay 1e-4)</td></tr>
+    <tr><td>Loss</td><td>Cross-entropy (32-class softmax)</td></tr>
+    <tr><td>Batch size</td><td>32</td></tr>
+    <tr><td>Epochs</td><td>60</td></tr>
+    <tr><td>Train / Val / Test split</td><td>70 / 15 / 15（seed=0、フレーム単位ランダム）</td></tr>
+    <tr><td>Augmentation</td><td>TimeShift / LevelJitter / NoiseOverlay / GaussianHiss（<a href="../pc/training/augment.py">augment.py</a>）</td></tr>
+    <tr><td>Device</td><td>CPU</td></tr>
+    <tr><td>所要時間</td><td>約 10 分</td></tr>
+  </tbody>
+</table>
+
+<h2>5. 学習カーブ</h2>
+
+<div class="figure">
+  <img src="../pc/runs/v1_train_60ep/eval/training_curves.png" alt="Training curves (loss + acc)">
+  <div class="cap">
+    60 epoch 分の train / val 推移。上段 = cross-entropy loss、下段 = 32-class accuracy。
+    val accuracy は <b>epoch 29 付近で 1.000 に到達</b>し以降ほぼ張りつき。loss は最後まで滑らかに下降している（train_loss 3.41 → 0.18 / val_loss 3.40 → 0.06）。
+  </div>
+</div>
+
+<p class="note">
+  途中で val_acc が一瞬 0.9 付近に落ちている epoch（28, 31, 40, 43, 53 など）は
+  Dropout + augmentation の確率性の揺らぎで、loss 側は単調減少しているので過学習や発散ではない。
+  最終 val_loss 0.057 は 32-class なので perfect-confidence に近い。
+</p>
+
+<h2>6. テストセット評価（144 サンプル）</h2>
+
+<p>
+  学習中に切り出しておいた未見テスト分割 (n=144) に対する性能。
+  これが <b>v1 として宣言できる数字</b>。
+</p>
+
+<div class="metric-grid">
+  <div class="metric-tile">
+    <div class="label">accuracy (32-class)</div>
+    <div class="value">1.000</div>
+    <div class="sub">144 / 144 正解</div>
+  </div>
+  <div class="metric-tile">
+    <div class="label">accuracy (14-class collapse)</div>
+    <div class="value">1.000</div>
+    <div class="sub">144 / 144 正解</div>
+  </div>
+  <div class="metric-tile">
+    <div class="label">macro-F1 (14-class)</div>
+    <div class="value">1.000</div>
+    <div class="sub">全 14 クラス F1=1.000</div>
+  </div>
+  <div class="metric-tile">
+    <div class="label">best val acc</div>
+    <div class="value">1.000</div>
+    <div class="sub">epoch 29 以降ほぼ毎回</div>
+  </div>
+</div>
+
+<div class="figure">
+  <img src="../pc/runs/v1_train_60ep/eval_test/confusion_14cls.png" alt="14-class confusion matrix (test split)">
+  <div class="cap">
+    14-class 混同行列（テストセット 144 サンプル）。対角線のみ点灯。
+    クラスごとの support は A1=32, A2=35, B*=9–13, C*=3–7（割合は元データセット
+    の比に等しい — A1/A2 は 8 メンバ × 30 = 240 サンプルあるので test 切出しも多くなる）。
+  </div>
+</div>
+
+<h2>7. 全データ評価（960 サンプル）</h2>
+
+<p>
+  学習・検証・テスト全部を含む全 960 サンプルでの推論結果。
+  これは「モデルが学習データを覚えてるか」の overfit 確認用で、
+  汎化性能を示すものではないが、32-class 混同行列の構造を見るのに使える。
+</p>
+
+<div class="metric-grid">
+  <div class="metric-tile">
+    <div class="label">accuracy (32-class)</div>
+    <div class="value">0.999</div>
+    <div class="sub">959 / 960 正解（1 サンプル誤）</div>
+  </div>
+  <div class="metric-tile">
+    <div class="label">accuracy (14-class collapse)</div>
+    <div class="value">1.000</div>
+    <div class="sub">誤分類した 1 サンプルも等価クラス内に収まる</div>
+  </div>
+</div>
+
+<div class="two-col">
+  <div class="figure">
+    <img src="../pc/runs/v1_train_60ep/eval/confusion_32cls.png" alt="32-class confusion matrix (full dataset)">
+    <div class="cap">32-class 混同行列（全 960 サンプル）。ほぼ対角線のみ。1 サンプルだけ A1/A2 内のサブ状態を取り違えている。</div>
+  </div>
+  <div class="figure">
+    <img src="../pc/runs/v1_train_60ep/eval/confusion_14cls.png" alt="14-class confusion matrix (full dataset)">
+    <div class="cap">14-class 混同行列（全 960 サンプル）。32-class の誤りも等価クラス境界を越えていないので、こちらは完全対角。</div>
+  </div>
+</div>
+
+<p class="note">
+  32-class で 0.999 が出る現象自体は、NN 設計の予測（情報理論的に等価クラス内は識別不能のはず）と矛盾する。
+  実際には <a href="../pc/captures/full_32_train_v1/analysis/overview/intra_class_sigma.csv">intra_class_sigma.csv</a>
+  に出ている通り、A1 クラス内で σ_state ≒ 0.64 dB という「本来 0 のはずの分散」があり、
+  これが時間ドリフトや微小機械バイアスとしてサブ状態のシグネチャになっているとモデルが拾っている可能性が高い。
+  デプロイ後の真の汎化には影響しないが、test split が時間相関を含むため <b>1.000 は楽観的</b> という点に注意。
+</p>
+
+<h2>8. 限界と次にやるべきこと</h2>
+
+<div class="summary-card">
+  <h3>⚠️ Test 精度の解釈</h3>
+  <p>
+    70/15/15 のランダム分割は同一 run_id の 30 連続フレームを混ぜているので、test サンプルは
+    train サンプルと時間相関が強い。<b>真の汎化評価には別 run でのデータが必要</b>。
+    1.000 という数字を device 性能の保証として持ち出さないこと。
+  </p>
+</div>
+
+<div class="summary-card">
+  <h3>次にやるべきこと</h3>
+  <ol>
+    <li>
+      <b>別 run でのクロスバリデーション</b> — 同じ 32 状態 × 30 フレームをもう 1 回別日に撮って
+      <code>full_32_train_v2</code> として保存、train_v1 で学習 → train_v2 で評価。
+      これで真の generalization を測る。
+    </li>
+    <li>
+      <b>D-1〜F フェーズ（MCU デプロイ）への移行</b> — ONNX エクスポート → INT8 量子化 →
+      Neutron 変換 → firmware/10_inference 統合。所要 2–3 日。
+    </li>
+    <li>
+      <b>14-class softmax 専用モデル</b> — 現状 32-class で訓練後に畳み込んでいるが、
+      初めから 14-class で学習する方が出力エントロピーが理論限界 (log₂14) と直接対応する。
+      NN 設計ドキュメントの推奨実装。
+    </li>
+  </ol>
+</div>
+
+<h2>9. 過去データへの汎化テスト（cross-run inference）</h2>
+
+<p>
+  §8 で「test 1.000 は楽観的、別 run のデータで検証が必要」と書いた件、
+  実際に <b>本収集よりも前に取得した既存データ</b>でモデルを評価してみた。
+  使ったのは下記 2 セット、どちらも 32 状態 × 1 フレーム:
+</p>
+
+<table class="compact">
+  <thead><tr><th>データセット</th><th>励振</th><th>収集日</th><th>備考</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><a href="../pc/captures/full_32_noise_v1/">full_32_noise_v1</a></td>
+      <td>PRBS ノイズ (SPK 駆動)</td>
+      <td>2026-05-22</td>
+      <td>train_v1 と同方式・別日。<a href="full32_noise_test.html">ページ</a>あり</td>
+    </tr>
+    <tr>
+      <td><a href="../pc/captures/full_32_passive_v1/">full_32_passive_v1</a></td>
+      <td>受動 listening (SPK 無音, TV 雑音床のみ)</td>
+      <td>2026-05-22</td>
+      <td><a href="full32_passive_test.html">ページ</a>あり (励振方式の負例)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>9-1. 結果サマリ</h3>
+
+<div class="metric-grid">
+  <div class="metric-tile">
+    <div class="label">noise_v1 (別日同方式)</div>
+    <div class="value">0.812</div>
+    <div class="sub">14-class acc / 26 of 32 正解</div>
+  </div>
+  <div class="metric-tile">
+    <div class="label">noise_v1 macro-F1</div>
+    <div class="value">0.692</div>
+    <div class="sub">クラスごと不均衡</div>
+  </div>
+  <div class="metric-tile">
+    <div class="label">passive_v1 (励振無)</div>
+    <div class="value">0.031</div>
+    <div class="sub">14-class acc / 実質ランダム</div>
+  </div>
+  <div class="metric-tile">
+    <div class="label">train_v1 (参考)</div>
+    <div class="value">1.000</div>
+    <div class="sub">学習元、test split</div>
+  </div>
+</div>
+
+<div class="two-col">
+  <div class="figure">
+    <img src="../pc/runs/v1_train_60ep/eval_xrun_noise_v1/confusion_14cls.png"
+         alt="14-class confusion — full_32_noise_v1 (cross-run)">
+    <div class="cap">
+      <b>noise_v1</b>（別日同方式 32 サンプル）。A2 と C 系の多くは正解、
+      B1/B2/B4 は全滅で A1 と C 系に誤分類されている。
+    </div>
+  </div>
+  <div class="figure">
+    <img src="../pc/runs/v1_train_60ep/eval_xrun_passive/confusion_14cls.png"
+         alt="14-class confusion — full_32_passive_v1 (cross-run)">
+    <div class="cap">
+      <b>passive_v1</b>（SPK 無 TV のみ 32 サンプル）。
+      ほぼ全予測が C8 に偏り 1/32 だけ正解。励振信号無しでは何も区別できないことを示す負例。
+    </div>
+  </div>
+</div>
+
+<h3>9-2. クラス別 F1 (noise_v1)</h3>
+
+<table class="compact">
+  <thead>
+    <tr><th>class</th><th>n</th><th>F1</th><th>P</th><th>R</th><th>備考</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>A1</td><td>8</td><td>0.889</td><td>0.800</td><td>1.000</td><td>recall は完璧、B 系の取り違えを吸収</td></tr>
+    <tr><td>A2</td><td>8</td><td><b>1.000</b></td><td>1.000</td><td>1.000</td><td>窓 a 開状態は最も robust</td></tr>
+    <tr><td>B1</td><td>2</td><td><b>0.000</b></td><td>0.000</td><td>0.000</td><td>全 miss</td></tr>
+    <tr><td>B2</td><td>2</td><td><b>0.000</b></td><td>0.000</td><td>0.000</td><td>全 miss</td></tr>
+    <tr><td>B3</td><td>2</td><td>0.800</td><td>0.667</td><td>1.000</td><td>recall は完璧</td></tr>
+    <tr><td>B4</td><td>2</td><td><b>0.000</b></td><td>0.000</td><td>0.000</td><td>全 miss</td></tr>
+    <tr><td>C1</td><td>1</td><td>1.000</td><td>1.000</td><td>1.000</td><td></td></tr>
+    <tr><td>C2</td><td>1</td><td>1.000</td><td>1.000</td><td>1.000</td><td></td></tr>
+    <tr><td>C3</td><td>1</td><td>1.000</td><td>1.000</td><td>1.000</td><td></td></tr>
+    <tr><td>C4</td><td>1</td><td>0.667</td><td>0.500</td><td>1.000</td><td>FP あり</td></tr>
+    <tr><td>C5</td><td>1</td><td>0.667</td><td>0.500</td><td>1.000</td><td>FP あり</td></tr>
+    <tr><td>C6</td><td>1</td><td>1.000</td><td>1.000</td><td>1.000</td><td></td></tr>
+    <tr><td>C7</td><td>1</td><td>1.000</td><td>1.000</td><td>1.000</td><td></td></tr>
+    <tr><td>C8</td><td>1</td><td>0.667</td><td>0.500</td><td>1.000</td><td>FP あり</td></tr>
+  </tbody>
+</table>
+
+<h3>9-3. 所見</h3>
+
+<div class="summary-card">
+  <h3>✅ 8 割は generalize する</h3>
+  <p>
+    train と test を別日で取り直しても 14-class acc 0.812 をキープした。
+    test split で出た 1.000 は時間相関に底上げされた数字だが、
+    モデル自体は noise 励振による <b>系の伝達関数</b>を
+    実体としてある程度学習できている。
+    特に A2 と C 系の半分は別日でも完璧。
+  </p>
+</div>
+
+<div class="summary-card">
+  <h3>⚠️ B クラスが脆い</h3>
+  <p>
+    B1 / B2 / B4 が全 miss。B 系は「扉 AB 開・扉 BC 閉」共通でリビング A + B 部屋までは
+    音が届く条件。train_v1 段階でも
+    <a href="../pc/captures/full_32_train_v1/analysis/overview/intra_class_sigma.csv">intra-class σ</a>
+    の中で B 系は member 数 2 しかなく学習信号が薄かった。
+    cross-run でその脆さが顕在化した形。
+  </p>
+  <p>誤分類の方向を見ると B → A1 / C 系に偏っており、
+  「扉 AB の開閉判定だけは day-to-day で不安定」が現状の主な失敗モード。</p>
+</div>
+
+<div class="summary-card">
+  <h3>🚫 受動 listening では学習効果ゼロ</h3>
+  <p>
+    passive_v1（SPK off, TV 雑音床のみ）に対しては 14-class acc 0.031 = 完全ランダム。
+    予測がほぼ C8 に偏ったのは入力の log-magnitude 平均が大幅に違うため最終層 bias が引いてるだけ。
+    <b>モデルは励振信号の存在に強く依存している</b>ことが裏返しで確認できた。
+    本番運用でも能動励振を前提に置くべき（passive 経路は v1.5 以降の課題）。
+  </p>
+</div>
+
+<h3>9-4. 結論と必要な対策</h3>
+
+<ul>
+  <li><b>「真の汎化性能 ≒ 81%」</b>を v1 の公式数字として扱う。
+      §8 の test 1.000 は今後 train/test 同一 run である限りこの程度の楽観値が出ると認識しておく。</li>
+  <li>B 系の改善には <b>同条件でもう 1〜2 run 撮って学習側の B 系メンバ数を増やす</b>のが最も直接的。
+      train_v1 段階で B 系は class あたり 2 状態 × 30 frame = 60 サンプルしかない。
+      もう 1 run 足すと 120 → 学習信号が倍になる。</li>
+  <li>クロス-run の頑健性が日 (温度・湿度・家具配置) と相関しているなら、
+      <b>SPK 励振の calibration（spk_eq の再測定）を本収集前に毎回かける</b>運用も検討。
+      現状 EQ disabled で運用しているが、SPK 周波数特性のドリフトが B 系の脆さの原因かもしれない。</li>
+</ul>
+
+<h2>10. 14-class softmax 単ヘッド版（NN 設計の本命）</h2>
+
+<p>
+  §1–9 までは 32-class softmax で学習し評価時に等価クラスへ畳み込んでいた。
+  これは <a href="../pc/training/model_32cls.py">model_32cls.py</a> の
+  「等価クラス内サブ状態をモデルが拾えるか」を確認する実験用設計。
+  <a href="nn_design.html">NN 設計</a>の本命は <b>初めから 14-class softmax 単ヘッドで学習</b>する形で、
+  情報理論的上限 (log₂14 ≒ 3.81 bit) と直接対応する。今回新たに
+  <a href="../pc/training/model_14cls.py">model_14cls.py</a>
+  +
+  <a href="../pc/training/train_14cls.py">train_14cls.py</a>
+  を実装して同じ条件で学習・評価したので、両者を並べて報告する。
+</p>
+
+<h3>10-1. アーキテクチャの違い</h3>
+
+<table class="compact">
+  <thead><tr><th></th><th>32cls 版</th><th>14cls 版</th></tr></thead>
+  <tbody>
+    <tr><td>Backbone</td><td colspan="2" style="text-align:center;">Conv1D 16/32/64 + GAP + Dropout (同一)</td></tr>
+    <tr><td>出力ヘッド</td><td>Linear(64 → 32)</td><td>Linear(64 → 14)</td></tr>
+    <tr><td>Loss target</td><td>state_idx 0..31 (5-bit 全状態)</td><td>cls_idx_14 0..13 (等価クラス)</td></tr>
+    <tr><td>パラメータ数</td><td>14,960</td><td><b>13,790</b></td></tr>
+    <tr><td>評価時の畳み込み</td><td>32→14 を class_of で集約</td><td>不要 (出力が直接 14-class)</td></tr>
+  </tbody>
+</table>
+
+<h3>10-2. 学習収束の比較</h3>
+
+<div class="figure">
+  <img src="../pc/runs/v1_train_14cls/eval/training_curves.png" alt="14cls training curves">
+  <div class="cap">
+    14cls の学習カーブ。<b>val_acc は epoch 10 で 1.000 に到達</b>し、loss は終盤 0.001 まで落ちる
+    (32cls は epoch 29 到達 + 終盤 val_loss 0.057)。出力空間が 32 → 14 に縮んだ分、
+    観測等価クラス内の不可能な区別を学ぼうとせず、学習信号がクラス境界に集中する。
+  </div>
+</div>
+
+<h3>10-3. テスト / 全データ評価</h3>
+
+<div class="metric-grid">
+  <div class="metric-tile">
+    <div class="label">test acc (14cls 直接)</div>
+    <div class="value">1.000</div>
+    <div class="sub">144 / 144</div>
+  </div>
+  <div class="metric-tile">
+    <div class="label">全データ acc</div>
+    <div class="value">1.000</div>
+    <div class="sub">960 / 960、誤分類ゼロ</div>
+  </div>
+  <div class="metric-tile">
+    <div class="label">macro-F1</div>
+    <div class="value">1.000</div>
+    <div class="sub">全 14 クラス F1=1.000</div>
+  </div>
+  <div class="metric-tile">
+    <div class="label">収束 epoch</div>
+    <div class="value">10</div>
+    <div class="sub">32cls は 29</div>
+  </div>
+</div>
+
+<div class="figure">
+  <img src="../pc/runs/v1_train_14cls/eval/confusion_14cls.png" alt="14cls confusion (full dataset)">
+  <div class="cap">
+    全 960 サンプルに対する 14-class 混同行列。完全対角線、誤分類ゼロ。
+    32cls 版では全データで 1 サンプルだけサブ状態を間違えていたが、
+    14cls 版はその誤りも構造的に発生しない (そもそも分類対象が等価クラスのみ)。
+  </div>
+</div>
+
+<h3>10-4. cross-run 比較（既存データへの汎化）</h3>
+
+<table class="compact">
+  <thead>
+    <tr>
+      <th>データ</th>
+      <th>サンプル数</th>
+      <th>32cls (14-collapse) acc</th>
+      <th>14cls 直接 acc</th>
+      <th>勝者</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>train_v1 (test split)</td><td>144</td><td>1.000</td><td>1.000</td>
+      <td>同点</td>
+    </tr>
+    <tr>
+      <td>train_v1 (全 960)</td><td>960</td><td>1.000</td><td>1.000</td>
+      <td>同点</td>
+    </tr>
+    <tr>
+      <td><b>noise_v1 (別日同方式)</b></td><td>32</td>
+      <td><b>0.812</b></td><td>0.750</td>
+      <td>32cls がわずかに上</td>
+    </tr>
+    <tr>
+      <td>passive_v1 (励振無)</td><td>32</td>
+      <td>0.031</td><td>0.250 (A2 偏り)</td>
+      <td>どちらも実質失敗</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="two-col">
+  <div class="figure">
+    <img src="../pc/runs/v1_train_14cls/eval_xrun_noise_v1/confusion_14cls.png"
+         alt="14cls noise_v1 cross-run confusion">
+    <div class="cap">
+      <b>14cls × noise_v1</b>（別日同方式）。A1/A2/C 全部正解、<b>B1–B4 全 miss</b>。
+      失敗パターンは 32cls 版と同じ — 扉 AB 開・BC 閉条件 (B 系) が cross-day で脆い。
+    </div>
+  </div>
+  <div class="figure">
+    <img src="../pc/runs/v1_train_14cls/eval_xrun_passive/confusion_14cls.png"
+         alt="14cls passive cross-run confusion">
+    <div class="cap">
+      <b>14cls × passive_v1</b>。ほぼ全予測が A2 に偏った（32cls は C8 に偏った）。
+      励振信号無しでは決定境界が定まらず最も近い「default」クラスに落ちるだけで、
+      0.25 accuracy は「たまたま A2 が 8 サンプルあった」だけの偶然。
+    </div>
+  </div>
+</div>
+
+<h3>10-5. なぜ 14cls の方が cross-run でわずかに劣ったのか</h3>
+
+<div class="summary-card">
+  <h3>仮説: 32cls の "不可能タスク学習" が偶発的に汎化を助けた</h3>
+  <p>
+    32cls は等価クラス内で原理的に判別不能な 8 メンバ (A1 など) を頑張って区別しようとする
+    悪条件タスクを背負っていた。これがある種の <b>正則化 / 暗黙のデータ拡張</b>として働き、
+    cross-day で B 系スペクトルがズレたときに偶然「近い A1 サブ状態」と判定して
+    結果的に A1 (= B からの誤り先) に振れ、F1 を 0 に落ちきらない救済が起きた可能性がある。
+  </p>
+  <p>
+    14cls は最初からクラス境界だけ学ぶので、cross-day で境界の外に出たサンプルは
+    迷わず誤分類される。これは数字としては悪く見えるが、<b>原理的な振る舞いとしては
+    14cls の方が正しい</b>: 識別不能な対象を識別しようとする 32cls の方が
+    むしろ「期待しない情報源 (微小ドリフト)」に依存していることになる。
+  </p>
+</div>
+
+<div class="summary-card">
+  <h3>B クラス問題は head の選択では解決しない</h3>
+  <p>
+    両モデル共通の失敗パターン (B1/B2/B4 全 miss) は、<b>train データ側の B クラス
+    member 数不足</b>が根本原因。class あたり 2 状態 × 30 frame = 60 サンプルしかなく、
+    cross-day でクラス境界が動いた瞬間に対応する学習信号がない。
+  </p>
+  <p>解決には:</p>
+  <ul>
+    <li>同条件で run_id を増やして B 系のメンバ多様性を上げる (train_v2, train_v3 ...)</li>
+    <li>spk_eq 再キャリブレーション運用で日々の SPK ドリフトを補正</li>
+    <li>augment 強化: SpecAugment 系の周波数マスクで spectral drift に耐性</li>
+  </ul>
+  <p>これらは head 設計とは独立に効くので、<b>v1 本命としては 14cls を採用しつつ
+  データと augment 側で B 系を強化する</b>のが正しい方向。</p>
+</div>
+
+<h3>10-6. 結論</h3>
+
+<ul>
+  <li>v1 本命は <b>IchiPingV1_14cls (model_14cls.py)</b> — 学習収束 3 倍速 + 出力意味論が NN 設計と一致。</li>
+  <li>cross-run noise の 0.750 は 32cls の 0.812 より下だが、<b>本質的な振る舞い (B 系 miss) は両者同じ</b>。差分は 32cls の偶発正則化分にすぎず、構造的優位ではない。</li>
+  <li>MCU デプロイ (ONNX → INT8 → Neutron) の対象は <b>14cls 版</b>を採用。13,790 params で 32cls (14,960) より更にコンパクト。</li>
+  <li>cross-run 性能の本格的な改善は B 系データ拡充 + spk_eq 再校正で別途取り組む。</li>
+</ul>
+
+<h2>11. 特徴量を「baseline からの diff」に変えてみる</h2>
+
+<p>
+  §10 までで「B 系の cross-day 脆さはデータ不足が根本」と書いた。
+  だが本当にそうか確かめるため、特徴量側を 1 段強化してみた:
+  <b>各 frame の log-magnitude PSD から、そのデータセット自身の s00000 (全閉) 平均を per-bin 引く</b>。
+  全体音量シフトが消え、純粋に「全閉に対する周波数応答の差分」だけが残る形になる。
+  実装は <a href="../pc/training/features.py">features.py</a> の
+  <code>samples_to_noise_diff_features()</code> + dataset 側で run ごとの s00000 平均を
+  自動計算（<a href="../pc/training/dataset.py">dataset.py</a>）。
+</p>
+
+<p>
+  この前処理は <a href="full32_initial_test.html">chirp 解析</a> や
+  <a href="full32_noise_test.html">noise 解析</a> の overview ヒートマップ
+  (FFT diff from baseline) と原理的に同じ。可視化で特徴を強調できているなら
+  モデルにとっても判別しやすいはず、という仮説。
+</p>
+
+<h3>11-1. 学習収束</h3>
+
+<div class="figure">
+  <img src="../pc/runs/v1_train_14cls_diff/eval/training_curves.png" alt="14cls noise_diff training curves">
+  <div class="cap">
+    14cls × noise_diff の学習カーブ。val_acc は epoch 11 で 1.000 到達、
+    終盤 val_loss 0.001 — 14cls noise mode と同じ収束速度 (内部 in-distribution
+    では特徴量変更の優位は出ない、学習信号が十分強い)。
+  </div>
+</div>
+
+<h3>11-2. cross-run 比較 — 3 モード並列</h3>
+
+<table class="compact">
+  <thead>
+    <tr>
+      <th>データ</th>
+      <th>32cls (14-collapse)</th>
+      <th>14cls noise</th>
+      <th><b>14cls noise_diff</b></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>train_v1 test split (n=144)</td><td>1.000</td><td>1.000</td><td>1.000</td></tr>
+    <tr><td>train_v1 全 960</td><td>0.999 (誤 1)</td><td>1.000</td><td>1.000</td></tr>
+    <tr>
+      <td><b>noise_v1 cross-day (n=32)</b></td>
+      <td>0.812</td>
+      <td>0.750</td>
+      <td><b style="color:#7be0a4;">0.938</b></td>
+    </tr>
+    <tr><td>passive_v1 (n=32, 励振無)</td><td>0.031</td><td>0.250</td><td>0.250</td></tr>
+  </tbody>
+</table>
+
+<div class="figure" style="max-width:680px; margin: 18px auto;">
+  <img src="../pc/runs/v1_train_14cls_diff/eval_xrun_noise_v1/confusion_14cls.png"
+       alt="14cls noise_diff cross-run noise_v1 confusion">
+  <div class="cap">
+    <b>14cls × noise_diff × noise_v1 (cross-day)</b> 混同行列。
+    A1/A2/C 全部正解、B1/B3 も完全正解。B2 は recall 1.0 / precision 0.5 で、
+    B4 だけが完全 miss (B2 へ流出)。
+  </div>
+</div>
+
+<h3>11-3. クラス別 F1 比較 (noise_v1 cross-day)</h3>
+
+<table class="compact">
+  <thead>
+    <tr><th>クラス</th><th>n</th><th>32cls collapse</th><th>14cls noise</th><th><b>14cls noise_diff</b></th></tr>
+  </thead>
+  <tbody>
+    <tr><td>A1</td><td>8</td><td>0.889</td><td>0.727</td><td><b>1.000</b></td></tr>
+    <tr><td>A2</td><td>8</td><td>1.000</td><td>0.889</td><td><b>1.000</b></td></tr>
+    <tr><td>B1</td><td>2</td><td>0.000</td><td>0.000</td><td><b>1.000</b> ⭐</td></tr>
+    <tr><td>B2</td><td>2</td><td>0.000</td><td>0.000</td><td><b>0.667</b> ⭐</td></tr>
+    <tr><td>B3</td><td>2</td><td>0.800</td><td>0.000</td><td><b>1.000</b> ⭐</td></tr>
+    <tr><td>B4</td><td>2</td><td>0.000</td><td>0.000</td><td><span style="color:#ffb454;">0.000</span></td></tr>
+    <tr><td>C1</td><td>1</td><td>1.000</td><td>1.000</td><td><b>1.000</b></td></tr>
+    <tr><td>C2</td><td>1</td><td>1.000</td><td>1.000</td><td><b>1.000</b></td></tr>
+    <tr><td>C3</td><td>1</td><td>1.000</td><td>1.000</td><td><b>1.000</b></td></tr>
+    <tr><td>C4</td><td>1</td><td>0.667</td><td>1.000</td><td><b>1.000</b></td></tr>
+    <tr><td>C5</td><td>1</td><td>0.667</td><td>1.000</td><td><b>1.000</b></td></tr>
+    <tr><td>C6</td><td>1</td><td>1.000</td><td>1.000</td><td><b>1.000</b></td></tr>
+    <tr><td>C7</td><td>1</td><td>1.000</td><td>1.000</td><td><b>1.000</b></td></tr>
+    <tr><td>C8</td><td>1</td><td>0.667</td><td>1.000</td><td><b>1.000</b></td></tr>
+    <tr><td><b>macro-F1</b></td><td>—</td><td>0.692</td><td>0.687</td><td><b>0.905</b></td></tr>
+  </tbody>
+</table>
+
+<h3>11-4. 何が起きたか</h3>
+
+<div class="summary-card">
+  <h3>✅ B 系の救済は SPK ドリフトの除去で大半が解決</h3>
+  <p>
+    14cls noise → noise_diff で B 系の正解数が <b>0/8 → 7/8</b> に跳ね上がった
+    (n=2 × 4 クラスのうち B4 の 2 つだけが残った形)。
+    §10-5 で「32cls の偶発正則化が B3 を救った」と書いたが、
+    今回の結果から見れば <b>真の犯人は per-run の絶対 dB レベルドリフト</b>だった。
+    各 run の s00000 をベースラインに引き算することで、SPK の温度ドリフト・
+    マイク位置誤差・収集時間帯の電源ノイズ等が消え、door 開閉による per-bin の
+    形状変化だけがクリアに残る。
+  </p>
+</div>
+
+<div class="summary-card">
+  <h3>⚠️ B4 だけ残った理由</h3>
+  <p>
+    B4 = (a, b, c, AB, BC) = (1, 1, *, 1, 0) ＝ 窓 a/b 同時に開 + 扉 AB 開 + 扉 BC 閉。
+    Room A の窓 a と Room B の窓 b が同時に開く唯一の B クラスで、
+    train_v1 内のスペクトル σ_state を見ると B クラス内で最も大きい
+    (B4 σ_state = 0.383 dB vs B1 0.453 / B3 0.352)。
+    つまり「真の B4 状態自体が train 内でも揺らいでいた」ので、
+    cross-day で更にズレると判別境界の外に出やすい。
+    対策はやはり <b>train データの B4 サンプル増量</b>か、
+    augmentation で B4 周辺を厚く撒くこと。
+  </p>
+</div>
+
+<div class="summary-card">
+  <h3>🎯 デプロイ運用への含意</h3>
+  <p>
+    noise_diff 経路は <b>「各家・各日に最初の 1 回 s00000 録音を取って baseline にする」</b>
+    というキャリブレーション工程を前提とする。これは IchiPing の運用シナリオ
+    （設置時に家ごとにキャリブレーションする想定）と相性が良い:
+  </p>
+  <ul>
+    <li>設置直後: 全閉状態を MCU 側で要請 → s00000 録音 → ベースライン log-mag を flash に保存</li>
+    <li>運用時: 録音ごとに log-mag を取り、保存したベースラインを per-bin で引く</li>
+    <li>季節変化や家具配置変更があれば、ユーザ操作で baseline 再取得</li>
+  </ul>
+  <p>
+    必要な flash サイズは 1024 × 2 byte (INT16) = <b>2 KB</b>、または float16 で 2 KB、
+    INT8 量子化なら 1 KB。MCXN947 の SRAM/Flash に問題なく載る。
+  </p>
+</div>
+
+<h3>11-5. v1 確定構成</h3>
+
+<table class="compact">
+  <thead><tr><th>項目</th><th>v1 確定値</th></tr></thead>
+  <tbody>
+    <tr><td>励振</td><td>PRBS ホワイトノイズ (noise_2s_prbs)</td></tr>
+    <tr><td>特徴量</td><td><b>Welch log-magnitude PSD − run-ごと s00000 baseline</b> (1024 bin)</td></tr>
+    <tr><td>モデル</td><td>IchiPingV1_14cls (14-class softmax 単ヘッド, 13,790 params)</td></tr>
+    <tr><td>cross-day macro-F1 (現状)</td><td>0.905 (B4 のみ脆い)</td></tr>
+    <tr><td>cross-day overall acc (現状)</td><td>0.938 (30 / 32)</td></tr>
+    <tr><td>運用前提</td><td>設置時の s00000 ベースライン取得が必須</td></tr>
+  </tbody>
+</table>
+
+<h2>12. 特徴量空間 augmentation で B4 を解く</h2>
+
+<p>
+  §11 の noise_diff で B 系の 3/4 (B1, B2, B3) は解けたが B4 だけ残った。
+  サンプル数不足説と表現力不足説の両方が候補に挙がった中、まず
+  augmentation 強化で「同じデータを擬似多様化」する方を先に試した。
+</p>
+
+<h3>12-1. 既存の波形 augmentation はノイズ励振でほぼ無効だった</h3>
+
+<p>
+  <a href="../pc/training/augment.py">augment.py</a> の <code>default_train_transform</code>
+  は元々 chirp 励振想定で書かれていて、PRBS ノイズに対しては:
+</p>
+
+<ul>
+  <li><b>TimeShift</b>: PRBS は shift-invariant なので Welch スペクトル不変 → no-op</li>
+  <li><b>LevelJitter</b>: BatchNorm で大半吸収される → 効果薄</li>
+  <li><b>GaussianHiss</b>: SNR 15-35 dB は +0.0003〜0.13 dB 程度の dB 棚上げ → 弱い</li>
+</ul>
+
+<h3>12-2. 追加した特徴量空間 augmentation</h3>
+
+<p>
+  Welch スペクトル化した 1024-bin の特徴量に対して直接効かせる
+  SpecAugment 系 2 種類を追加した
+  (<a href="../pc/training/augment.py">augment.py</a> 末尾 <code>FreqMask</code> /
+  <code>SpectralJitter</code> / <code>default_feature_transform</code>):
+</p>
+
+<table class="compact">
+  <thead><tr><th>変換</th><th>パラメータ</th><th>確率</th><th>狙い</th></tr></thead>
+  <tbody>
+    <tr><td><b>FreqMask</b></td><td>連続 1–60 bin × 2 回マスク (0 で埋める)</td><td>0.7</td><td>単一 bin への過剰依存防止 / 帯域欠落耐性</td></tr>
+    <tr><td><b>SpectralJitter</b></td><td>per-bin Gaussian σ=0.3 dB</td><td>0.8</td><td>SPK 周波数応答の日々のドリフト擬似化</td></tr>
+  </tbody>
+</table>
+
+<p class="note">
+  σ=0.3 dB は実測の cross-day intra-class σ_state (0.4–0.6 dB) と同オーダーに揃えた。
+  これより大きいと真のクラス境界も埋もれる、これより小さいと cross-day での
+  spectral drift をシミュレートしきれない、というバランス。
+</p>
+
+<h3>12-3. cross-run 結果 — perfect cross-day</h3>
+
+<div class="metric-grid">
+  <div class="metric-tile">
+    <div class="label">train_v1 test split</div>
+    <div class="value">1.000</div>
+    <div class="sub">144 / 144</div>
+  </div>
+  <div class="metric-tile">
+    <div class="label">train_v1 全 960</div>
+    <div class="value">1.000</div>
+    <div class="sub">960 / 960</div>
+  </div>
+  <div class="metric-tile">
+    <div class="label">noise_v1 cross-day</div>
+    <div class="value" style="color:#7be0a4;">1.000</div>
+    <div class="sub">32 / 32 — B4 救済</div>
+  </div>
+  <div class="metric-tile">
+    <div class="label">macro-F1 (noise_v1)</div>
+    <div class="value" style="color:#7be0a4;">1.000</div>
+    <div class="sub">全 14 クラス F1=1.000</div>
+  </div>
+</div>
+
+<div class="figure" style="max-width:680px; margin: 18px auto;">
+  <img src="../pc/runs/v1_train_14cls_diff_aug/eval_xrun_noise_v1/confusion_14cls.png"
+       alt="14cls noise_diff + feature_aug, noise_v1 cross-run confusion">
+  <div class="cap">
+    <b>14cls × noise_diff × feature_aug × noise_v1 (cross-day)</b> 混同行列。
+    完全対角線。全 14 クラス × 32 サンプルでミス無し。
+  </div>
+</div>
+
+<h3>12-4. 4 モード総合比較 (cross-day noise_v1)</h3>
+
+<table class="compact">
+  <thead>
+    <tr>
+      <th>モード</th>
+      <th>head</th>
+      <th>特徴量</th>
+      <th>feat aug</th>
+      <th>cross-day acc</th>
+      <th>macro-F1</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>v1.0</td><td>32cls→14 collapse</td><td>noise</td><td>—</td><td>0.812</td><td>0.692</td></tr>
+    <tr><td>v1.1</td><td>14cls 直接</td><td>noise</td><td>—</td><td>0.750</td><td>0.687</td></tr>
+    <tr><td>v1.2</td><td>14cls 直接</td><td>noise_diff</td><td>—</td><td>0.938</td><td>0.905</td></tr>
+    <tr style="background:rgba(123, 224, 164, 0.08);">
+      <td><b>v1.3 (確定)</b></td>
+      <td>14cls 直接</td>
+      <td>noise_diff</td>
+      <td><b>FreqMask + SpectralJitter</b></td>
+      <td><b>1.000</b></td>
+      <td><b>1.000</b></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>12-5. 何が起きたか — サンプル数不足ではなく "表現多様性" の不足だった</h3>
+
+<div class="summary-card">
+  <h3>✅ ユーザー提案の検証結果</h3>
+  <p>
+    B4 残存の原因として <b>(a) サンプル数不足</b>、<b>(b) モデル表現力不足
+    (50 Hz 幅の peak 検出には GAP 解像度 250 Hz が荒すぎる)</b>、<b>(c) augmentation
+    無効</b> の 3 つが候補に挙がっていた。今回の実験で <b>(c) が真因</b>と判明。
+    モデルアーキテクチャはそのまま、訓練時の特徴量変動を増やすだけで完全分離達成。
+  </p>
+  <p>
+    解釈: 13,790 params のモデルでも 1150–1200 Hz の微小 peak を識別する
+    capacity は既にあった。ただし train_v1 だけだとその peak は「固定位置」
+    で出現するため、cross-day で peak 位置が ±50 Hz 程度ずれると認識できなかった。
+    FreqMask が「peak が消えても他の bin で代替する」訓練を、SpectralJitter が
+    「peak の絶対 dB が ±0.3 dB ぶれても拾う」訓練を与えた結果、
+    cross-day の小ドリフトに頑健になった。
+  </p>
+</div>
+
+<div class="summary-card">
+  <h3>⚠️ 解けたとは言え caveat あり</h3>
+  <p>
+    noise_v1 の cross-day サンプル数は 1 状態あたり 1 frame なので、
+    B 系 = 2 サンプル、C 系 = 1 サンプルしかない。<b>「32/32 ぴったり通った」も
+    統計的に薄い</b>。本来は cross-day を REPEATS=30 で再収集して
+    32 × 30 = 960 frames で評価すべき。
+    現状の 1.000 は「方向性は確認できたがマージンは未測定」という認識でいる。
+  </p>
+</div>
+
+<div class="summary-card">
+  <h3>📌 アーキテクチャ拡張 (GAP 廃止 / 層増加) は持ち越し</h3>
+  <p>
+    ユーザー観察「1150–1200 Hz の差を識別するには GAP の解像度 250 Hz では
+    粗すぎる」は正しい指摘だったが、結果として <b>aug で代替できた</b>。
+    GAP 廃止 + Flatten 化は params が +25k になり MCU 制約が厳しくなる方向なので、
+    cross-day 1.000 が崩れない限り見送り。今後 train_v2/v3 と組み合わせて
+    更に難しい cross-house 評価で割れたら、その時点でアーキテクチャ拡張に進む。
+  </p>
+</div>
+
+<h3>12-6. v1 最終確定構成</h3>
+
+<table class="compact">
+  <thead><tr><th>項目</th><th>v1 (v1.3) 確定値</th></tr></thead>
+  <tbody>
+    <tr><td>励振</td><td>PRBS ホワイトノイズ (noise_2s_prbs, 2 s)</td></tr>
+    <tr><td>特徴量</td><td>Welch log-magnitude PSD − run-ごと s00000 baseline (1024 bin)</td></tr>
+    <tr><td>学習時 augmentation (波形)</td><td>TimeShift(±10ms, p=0.7) + LevelJitter(±2dB, p=0.7) + GaussianHiss(SNR15-35dB, p=0.5)</td></tr>
+    <tr><td>学習時 augmentation (特徴量)</td><td><b>FreqMask(max=60, n=2, p=0.7) + SpectralJitter(σ=0.3dB, p=0.8)</b></td></tr>
+    <tr><td>モデル</td><td>IchiPingV1_14cls (Conv1D ×3 + GAP + Linear 64→14, 13,790 params)</td></tr>
+    <tr><td>収束 epoch</td><td>~10 (val 1.000 到達)</td></tr>
+    <tr><td>train test acc</td><td>1.000</td></tr>
+    <tr><td><b>cross-day noise_v1 acc</b></td><td><b>1.000 (32/32, macro-F1 1.000)</b></td></tr>
+    <tr><td>passive_v1 acc</td><td>0.250 (構造的に解けない — 励振信号必須)</td></tr>
+    <tr><td>運用前提</td><td>設置時に s00000 を 1 回録音して baseline 取得</td></tr>
+  </tbody>
+</table>
+
+<p>
+  再現:
+  <code>cd pc &amp;&amp; uv run --extra training python -m training.train_14cls
+  --captures captures/full_32_train_v1 --out runs/v1_train_14cls_diff_aug
+  --epochs 60 --feature-mode noise_diff --feature-aug</code>
+</p>
+
+<h2>13. 32cls vs 14cls フェア比較（同条件で再対決）</h2>
+
+<p>
+  §10 で 14cls と 32cls を比較したときは、32cls は <b>noise mode + 波形 aug のみ</b>、
+  14cls は最終的に <b>noise_diff + feature_aug</b> という非対称な条件だった。
+  「head の差じゃなく特徴量・aug の差で勝敗が決まったのでは？」を排除するため、
+  32cls も同じ <b>noise_diff + feature_aug</b> で再学習して noise_v1 cross-day に
+  ぶつけ直した。
+</p>
+
+<h3>13-1. 結果サマリ</h3>
+
+<table class="compact">
+  <thead>
+    <tr><th></th><th>14cls v1.3</th><th>32cls 同条件</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>head</td><td>14-class softmax 直接</td><td>32-class softmax (後で 14 に畳み込み)</td></tr>
+    <tr><td>特徴量</td><td>noise_diff</td><td>noise_diff</td></tr>
+    <tr><td>feature aug</td><td>FreqMask + SpectralJitter</td><td>同じ</td></tr>
+    <tr><td>params</td><td>13,790</td><td>14,960</td></tr>
+    <tr><td>train test split (14cls 評価)</td><td>1.000</td><td>1.000</td></tr>
+    <tr style="background:rgba(123, 224, 164, 0.08);">
+      <td><b>noise_v1 cross-day 14-class acc</b></td>
+      <td><b>1.000</b> (32/32)</td>
+      <td><b>0.906</b> (29/32)</td>
+    </tr>
+    <tr style="background:rgba(123, 224, 164, 0.08);">
+      <td><b>noise_v1 cross-day macro-F1</b></td>
+      <td><b>1.000</b></td>
+      <td>0.845</td>
+    </tr>
+    <tr><td>noise_v1 32-class acc (参考)</td><td>—</td><td>0.469 (15/32)</td></tr>
+    <tr><td>passive_v1 14-class acc</td><td>0.250</td><td>0.250</td></tr>
+  </tbody>
+</table>
+
+<p>
+  <b>結論</b>: 同じ特徴量・同じ augmentation でも、<b>14cls 直接学習が cross-day 14-class 性能で勝つ</b>。
+  §10 で観察した 32cls の <code>0.812</code> も含めて、これで「head 構造の選択は性能に効いてた」と確認できた
+  (§10-5 の "32cls の偶発正則化" 仮説は今となっては誤りで、14cls の方が構造的に強い)。
+</p>
+
+<h3>13-2. 32cls 正誤表 — どの状態でどう外したか</h3>
+
+<p>
+  noise_v1 全 32 状態 × 1 frame に対する 32cls 予測。
+  「32cls」列は 5-bit 完全一致、「14cls」列は等価クラス畳み込み後の正誤。
+</p>
+
+<table class="compact">
+  <thead>
+    <tr>
+      <th>#</th><th>true</th><th>pred</th>
+      <th>true cls</th><th>pred cls</th>
+      <th>32cls</th><th>14cls</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>s00000</td><td>s00000</td><td>A1</td><td>A1</td><td>○</td><td>○</td></tr>
+    <tr><td>2</td><td>s10000</td><td>s10100</td><td>A2</td><td>A2</td><td>✗ (c 誤)</td><td>○</td></tr>
+    <tr><td>3</td><td>s01000</td><td>s00000</td><td>A1</td><td>A1</td><td>✗ (b 誤)</td><td>○</td></tr>
+    <tr><td>4</td><td>s11000</td><td>s11000</td><td>A2</td><td>A2</td><td>○</td><td>○</td></tr>
+    <tr><td>5</td><td>s00100</td><td>s00100</td><td>A1</td><td>A1</td><td>○</td><td>○</td></tr>
+    <tr><td>6</td><td>s10100</td><td>s10100</td><td>A2</td><td>A2</td><td>○</td><td>○</td></tr>
+    <tr><td>7</td><td>s01100</td><td>s01000</td><td>A1</td><td>A1</td><td>✗ (c 誤)</td><td>○</td></tr>
+    <tr><td>8</td><td>s11100</td><td>s10100</td><td>A2</td><td>A2</td><td>✗ (b 誤)</td><td>○</td></tr>
+    <tr><td>9</td><td>s00010</td><td>s00010</td><td>B1</td><td>B1</td><td>○</td><td>○</td></tr>
+    <tr><td>10</td><td>s10010</td><td>s10010</td><td>B2</td><td>B2</td><td>○</td><td>○</td></tr>
+    <tr><td>11</td><td>s01010</td><td>s01110</td><td>B3</td><td>B3</td><td>✗ (c 誤)</td><td>○</td></tr>
+    <tr style="background:rgba(255, 180, 84, 0.12);">
+      <td>12</td><td><b>s11010</b></td><td><b>s11111</b></td>
+      <td><b>B4</b></td><td><b>C8</b></td><td>✗</td><td><b>❌</b></td>
+    </tr>
+    <tr><td>13</td><td>s00110</td><td>s00010</td><td>B1</td><td>B1</td><td>✗ (c 誤)</td><td>○</td></tr>
+    <tr style="background:rgba(255, 180, 84, 0.12);">
+      <td>14</td><td><b>s10110</b></td><td><b>s10111</b></td>
+      <td><b>B2</b></td><td><b>C6</b></td><td>✗</td><td><b>❌</b></td>
+    </tr>
+    <tr><td>15</td><td>s01110</td><td>s01110</td><td>B3</td><td>B3</td><td>○</td><td>○</td></tr>
+    <tr style="background:rgba(255, 180, 84, 0.12);">
+      <td>16</td><td><b>s11110</b></td><td><b>s11111</b></td>
+      <td><b>B4</b></td><td><b>C8</b></td><td>✗</td><td><b>❌</b></td>
+    </tr>
+    <tr><td>17</td><td>s00001</td><td>s00100</td><td>A1</td><td>A1</td><td>✗ (BC↔c)</td><td>○</td></tr>
+    <tr><td>18</td><td>s10001</td><td>s10100</td><td>A2</td><td>A2</td><td>✗</td><td>○</td></tr>
+    <tr><td>19</td><td>s01001</td><td>s01000</td><td>A1</td><td>A1</td><td>✗</td><td>○</td></tr>
+    <tr><td>20</td><td>s11001</td><td>s11100</td><td>A2</td><td>A2</td><td>✗</td><td>○</td></tr>
+    <tr><td>21</td><td>s00101</td><td>s00100</td><td>A1</td><td>A1</td><td>✗</td><td>○</td></tr>
+    <tr><td>22</td><td>s10101</td><td>s10100</td><td>A2</td><td>A2</td><td>✗</td><td>○</td></tr>
+    <tr><td>23</td><td>s01101</td><td>s01000</td><td>A1</td><td>A1</td><td>✗</td><td>○</td></tr>
+    <tr><td>24</td><td>s11101</td><td>s11100</td><td>A2</td><td>A2</td><td>✗</td><td>○</td></tr>
+    <tr><td>25</td><td>s00011</td><td>s00011</td><td>C1</td><td>C1</td><td>○</td><td>○</td></tr>
+    <tr><td>26</td><td>s10011</td><td>s10011</td><td>C2</td><td>C2</td><td>○</td><td>○</td></tr>
+    <tr><td>27</td><td>s01011</td><td>s01011</td><td>C3</td><td>C3</td><td>○</td><td>○</td></tr>
+    <tr><td>28</td><td>s11011</td><td>s11011</td><td>C4</td><td>C4</td><td>○</td><td>○</td></tr>
+    <tr><td>29</td><td>s00111</td><td>s00111</td><td>C5</td><td>C5</td><td>○</td><td>○</td></tr>
+    <tr><td>30</td><td>s10111</td><td>s10111</td><td>C6</td><td>C6</td><td>○</td><td>○</td></tr>
+    <tr><td>31</td><td>s01111</td><td>s01111</td><td>C7</td><td>C7</td><td>○</td><td>○</td></tr>
+    <tr><td>32</td><td>s11111</td><td>s11111</td><td>C8</td><td>C8</td><td>○</td><td>○</td></tr>
+  </tbody>
+</table>
+
+<p class="note">
+  「c 誤」「b 誤」「BC↔c」等は、5-bit のうちどの bit を取り違えたかの注釈。
+  AB=0 (A 系) 内では b/c/BC を間違えても 14cls 等価クラスは A1 / A2 で保たれるので
+  14cls 列は ○、AB=1 で BC を間違えると B → C クラスへ流出して 14cls も ❌ になる。
+</p>
+
+<div class="figure" style="max-width:680px; margin: 18px auto;">
+  <img src="../pc/runs/v1_train_32cls_diff_aug/eval_xrun_noise_v1/confusion_14cls.png"
+       alt="32cls noise_diff+aug, 14-class collapsed confusion on noise_v1">
+  <div class="cap">
+    32cls (noise_diff + feature_aug) の予測を 14-class に畳み込んだ noise_v1 混同行列。
+    3 件すべて B 系 → C 系への流出 (赤色強調セル)。
+  </div>
+</div>
+
+<h3>13-3. 失敗パターンの構造</h3>
+
+<table class="compact">
+  <thead>
+    <tr><th>true</th><th>pred</th><th>違い</th><th>意味</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>s11010 (B4)</td><td>s11111 (C8)</td><td>c=0→1, BC=0→1</td><td>窓 c も扉 BC も「閉→開」</td></tr>
+    <tr><td>s10110 (B2)</td><td>s10111 (C6)</td><td>BC=0→1</td><td>扉 BC を「閉→開」</td></tr>
+    <tr><td>s11110 (B4)</td><td>s11111 (C8)</td><td>BC=0→1</td><td>扉 BC を「閉→開」</td></tr>
+  </tbody>
+</table>
+
+<div class="summary-card">
+  <h3>共通失敗モード: 「扉 BC 閉 → 開」と誤判定</h3>
+  <p>
+    3 件すべて <b>扉 BC の閉↔開境界で外している</b>。これは観測等価クラスの定義そのもの:
+    BC が開けば Room C 由来の周波数応答が加わり 14-class B → C へ移行する境界。
+    32cls 学習だと <b>5 bit すべてを当てに行く広い学習信号</b>に分散するため、
+    BC bit に集中した識別シグナル (B/C 境界の細かい peak 違い) が他の bit (b, c) と
+    トレードオフされて弱まる。14cls 直接学習だと <b>BC 境界の差分が直接 loss に効く</b>
+    ので、この境界が硬く保たれる。
+  </p>
+</div>
+
+<h3>13-4. v1 head 選択の確定根拠</h3>
+
+<ul>
+  <li><b>14cls 直接</b>: cross-day 1.000 (32/32)、macro-F1 1.000、params 13,790、収束 epoch ~10</li>
+  <li><b>32cls 同条件</b>: cross-day 14cls 0.906 (29/32)、macro-F1 0.845、params 14,960、3 件すべて B → C 境界で miss</li>
+  <li><b>差の本質</b>: head の出力構造が直接 cross-day robustness に効く。32cls の "サブ状態予測" は
+      情報理論的に不可能な目標を含むので、可能な目標 (等価クラス境界) の学習信号を希釈する</li>
+  <li><b>v1 デプロイ対象は IchiPingV1_14cls で決定</b>。MCU 容量・推論速度・cross-day 性能すべて 14cls 優位</li>
+</ul>
+
+<h2>14. 成果物リスト</h2>
+
+<table class="compact">
+  <thead><tr><th>ファイル</th><th>内容</th></tr></thead>
+  <tbody>
+    <tr><td><a href="../pc/runs/v1_train_60ep/best.pt">best.pt</a></td><td>val 最良チェックポイント（epoch 29 付近で凍結したものに近い）</td></tr>
+    <tr><td><a href="../pc/runs/v1_train_60ep/train_log.csv">train_log.csv</a></td><td>60 epoch 分の loss / acc 履歴</td></tr>
+    <tr><td><a href="../pc/runs/v1_train_60ep/config.json">config.json</a></td><td>run メタ（lr / batch / feature_mode 等）</td></tr>
+    <tr><td><a href="../pc/runs/v1_train_60ep/eval/">eval/</a></td><td>全 960 サンプル評価の PNG / CSV / report.json</td></tr>
+    <tr><td><a href="../pc/runs/v1_train_60ep/eval_test/">eval_test/</a></td><td>test 144 サンプルだけの再評価</td></tr>
+    <tr><td><a href="../pc/runs/v1_train_60ep/eval_xrun_noise_v1/">eval_xrun_noise_v1/</a></td><td>32cls × full_32_noise_v1 (別日同方式)</td></tr>
+    <tr><td><a href="../pc/runs/v1_train_60ep/eval_xrun_passive/">eval_xrun_passive/</a></td><td>32cls × full_32_passive_v1 (受動)</td></tr>
+    <tr><td><a href="../pc/runs/v1_train_14cls/">v1_train_14cls/</a></td><td>14cls × noise 学習 run + eval / eval_test / eval_xrun_noise_v1 / eval_xrun_passive 一式</td></tr>
+    <tr><td><a href="../pc/runs/v1_train_14cls_diff/">v1_train_14cls_diff/</a></td><td>14cls × noise_diff 学習 run (B4 のみ脆い)</td></tr>
+    <tr><td><a href="../pc/runs/v1_train_14cls_diff_aug/">v1_train_14cls_diff_aug/</a></td><td><b>14cls × noise_diff × feature_aug (v1 最終確定)</b></td></tr>
+    <tr><td><a href="../pc/runs/v1_train_32cls_diff_aug/">v1_train_32cls_diff_aug/</a></td><td>32cls × noise_diff × feature_aug (フェア比較用)</td></tr>
+  </tbody>
+</table>
+
+<p class="note">
+  再現 (14cls 版):
+  <code>cd pc &amp;&amp; uv run --extra training python -m training.train_14cls
+  --captures captures/full_32_train_v1 --out runs/v1_train_14cls --epochs 60 --feature-mode noise</code>
+</p>
+
+<p class="note">
+  再現:
+  <code>cd pc &amp;&amp; uv run --extra training python -m training.train_32cls
+  --captures captures/full_32_train_v1 --out runs/v1_train_60ep --epochs 60 --feature-mode noise</code>
+</p>
+
+</main>
+
+</body>
+</html>

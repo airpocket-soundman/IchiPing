@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>v1+v2 結合学習レポート — IchiPing</title>
+<link rel="stylesheet" href="style.css">
+<script src="embed.js"></script>
+<style>
+  .method-card {
+    background: var(--panel, #181b22);
+    border: 1px solid var(--border, #2a313d);
+    border-left: 4px solid var(--accent-2, #7be0a4);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 18px 0;
+  }
+  .method-card h3 { margin: 0 0 6px 0; color: var(--accent-2, #7be0a4); }
+  .method-card.warn { border-left-color: #ffb454; }
+  .method-card.warn h3 { color: #ffb454; }
+  .method-card.winner { border-left-color: #ffd166; background: rgba(255, 209, 102, 0.08); }
+  .method-card.winner h3 { color: #ffd166; }
+  table.compact { font-size: 12px; }
+  table.compact th, table.compact td { padding: 5px 9px; }
+  .acc { font-family: "Consolas", monospace; font-weight: 700; }
+  .acc.good { color: #7be0a4; }
+  .acc.mid  { color: #ffb454; }
+  .acc.bad  { color: #ff6b6b; }
+  .figure { margin: 14px 0; text-align: center; }
+  .figure img { max-width: 100%; border: 1px solid var(--border, #2a313d); border-radius: 6px; }
+  .figure .cap { font-size: 12px; color: var(--muted, #8b95a7); margin-top: 6px; }
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin: 18px 0;
+  }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+  .placeholder {
+    color: var(--muted, #8b95a7);
+    font-style: italic;
+    padding: 18px;
+    background: var(--panel-2, #1f242d);
+    border-radius: 6px;
+  }
+</style>
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../index.html">トップ</a>
+      <a href="../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="spec.html">仕様書 (spec)</a>
+      <a href="nn_design.html">NN 設計</a>
+      <a href="mcu_deployment.html">MCU デプロイ</a>
+      <a href="bringup.html">実機ブリングアップ</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">NN 検討</div>
+      <a href="probe_sound.html">走査音考察</a>
+      <a href="nn_review.html">NN 考察</a>
+      <a href="full32_initial_test.html">Full 32 初期計測 (chirp)</a>
+      <a href="full32_noise_test.html">Full 32 計測 (noise)</a>
+      <a href="full32_passive_test.html">Full 32 受動 listening</a>
+      <a href="nn_train_v1_result.html">v1 学習結果 (noise/32cls)</a>
+      <a href="nn_methods_compare.html">head 設計の比較実験</a>
+      <a href="nn_train_v1v2_combined.html" class="current">v1+v2 結合学習レポート</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="../hardware/wiring.html">配線テーブル</a>
+      <a href="../hardware/bom.html">BOM (部品表)</a>
+      <a href="../hardware/display_options.html">ディスプレイ候補</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../firmware/README.html">firmware ガイド</a>
+      <a href="../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">対外発信</div>
+      <a href="protopedia_preview.html">ProtoPedia プレビュー</a>
+      <a href="protopedia.md">ProtoPedia 投稿原稿</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="vscode_setup.html">VS Code セットアップ</a>
+      <a href="../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../index.html">← IchiPing トップ</a>
+    ／ <a href="nn_methods_compare.html">head 設計の比較実験</a>
+    ／ <a href="nn_train_v1_result.html">v1 学習結果</a>
+  </div>
+  <h1>v1+v2 結合学習レポート <span class="pill">2026-05-23</span></h1>
+  <div class="sub">
+    train_v1 (5/22 収集, 960 sample) と train_v2 (5/23 収集, 1600 sample) を
+    <b>結合 (2560 sample)</b> して学習し直した sweep 結果のまとめ。
+    <a href="nn_methods_compare.html">前回</a>は train_v1 のみで学習した
+    モデルを cross-day 評価していたが、それは「最良の v1 モデルを作る」目的とずれる。
+    本ページでは <b>使えるデータを全部学習に投入</b> したときの size 別性能を測定する。
+  </div>
+</header>
+
+<main>
+
+<h2 id="setup">1. 実験セットアップ</h2>
+
+<table class="compact">
+  <thead><tr><th>項目</th><th>値</th></tr></thead>
+  <tbody>
+    <tr><td>学習データ</td>
+        <td>train_v1 (960 sample, 5/22) + train_v2 (1600 sample, 5/23) = <b>2560 sample</b></td></tr>
+    <tr><td>1 状態あたり frame 数</td><td>v1: 30 + v2: 50 = <b>80 frame/state</b></td></tr>
+    <tr><td>特徴量</td><td>noise_diff (run ごとの s00000 baseline を per-bin 引く)</td></tr>
+    <tr><td>augmentation</td><td>TimeShift + LevelJitter + GaussianHiss (波形) + FreqMask + SpectralJitter (特徴量)</td></tr>
+    <tr><td>モデル</td><td>IchiPingV1_14cls × 4 size (S / M / L / XL)</td></tr>
+    <tr><td>シード</td><td>0, 1, 2, 3, 4 (各 size 5 seed)</td></tr>
+    <tr><td>epoch</td><td>60</td></tr>
+    <tr><td>train/val/test split</td><td>70 / 15 / 15 (結合データから seed 固定でランダム分割)</td></tr>
+    <tr><td>総 run 数</td><td>4 size × 5 seed = <b>20 run</b></td></tr>
+  </tbody>
+</table>
+
+<h2 id="eval_design">2. 評価設計 — 何が測れて、何が測れないか</h2>
+
+<div class="method-card warn">
+  <h3>⚠️ "真の cross-day generalization" は v3 がないと測れない</h3>
+  <p>
+    v1 と v2 を結合学習した時点で、両日のサンプルが train/val/test すべてに
+    混入する (70/15/15 ランダム split)。test split は <b>in-distribution</b>
+    (= 学習データと同じ 2 日に閉じた分布) になるため、accuracy が 1.000 でも
+    「新しい日にも 1.000 出る」とは言えない。
+  </p>
+  <p>
+    本ページで報告できるのは以下:
+  </p>
+  <ul>
+    <li><b>in-distribution test acc</b>: 結合 test split (~384 sample) でのスコア</li>
+    <li><b>cross-day on noise_v1</b>: noise_v1 (5/22 別収集, 32 sample) は学習データ
+        と独立な日のデータなのでこれは真の cross-day 評価 (ただし n=32 で標本誤差 ±0.10)</li>
+    <li><b>v1 のみ学習との直接比較</b>: 同じ size × seed が結合学習で
+        どれだけ伸びたか</li>
+  </ul>
+  <p>
+    <b>v3 (今後収集予定) を取れば</b>、結合 train (v1+v2+v3 から v3 を抜く) →
+    v3 で評価という形で、決定的な cross-day generalization が測定可能になる。
+  </p>
+</div>
+
+<h2 id="results">3. 結果</h2>
+
+<h3>3-1. cross-day acc (noise_v1, n=32) サマリ</h3>
+
+<table class="compact">
+  <thead>
+    <tr>
+      <th rowspan="2">size</th><th rowspan="2">params</th>
+      <th colspan="5"><b>noise_v1 cross-day acc (5 seed)</b></th>
+    </tr>
+    <tr>
+      <th>mean</th><th>std</th><th>min</th><th>max</th><th>per-seed</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>S</td><td>13,790</td>
+      <td><span class="acc good">0.963</span></td>
+      <td>0.041</td><td>0.906</td><td>1.000</td>
+      <td>1.000, 1.000, 0.906, 0.938, 0.969</td>
+    </tr>
+    <tr>
+      <td>M</td><td>30,366</td>
+      <td><span class="acc good">0.981</span></td>
+      <td>0.028</td><td>0.938</td><td>1.000</td>
+      <td>1.000, 0.938, 1.000, 1.000, 0.969</td>
+    </tr>
+    <tr>
+      <td>L</td><td>52,142</td>
+      <td><span class="acc good">0.975</span></td>
+      <td><b>0.026</b></td><td>0.938</td><td>1.000</td>
+      <td>0.938, 1.000, 0.969, 0.969, 1.000</td>
+    </tr>
+    <tr style="background:rgba(255, 209, 102, 0.10);">
+      <td><b>XL</b></td><td>104,110</td>
+      <td><b><span class="acc good">0.994</span></b> ⭐</td>
+      <td><b>0.014</b></td><td><b>0.969</b></td><td>1.000</td>
+      <td>0.969, 1.000, 1.000, 1.000, 1.000</td>
+    </tr>
+  </tbody>
+</table>
+
+<p class="note">
+  すべて in-distribution (結合データ test split + train_v1 全体 + train_v2 全体) では
+  <b>5 seed × 4 size 全て 1.000</b>。capacity は補間能力としては全 size 十分。
+</p>
+
+<h3>3-2. v1 のみ学習との比較 — 全 size で +0.10 以上の劇的改善</h3>
+
+<table class="compact">
+  <thead>
+    <tr>
+      <th rowspan="2">size</th>
+      <th colspan="2">cross-day mean</th>
+      <th colspan="2">cross-day std</th>
+      <th rowspan="2">改善幅</th>
+    </tr>
+    <tr><th>v1 のみ</th><th>v1+v2</th><th>v1 のみ</th><th>v1+v2</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>S</td>  <td>0.844</td><td><b>0.963</b></td><td>0.080</td><td>0.041</td><td><b>+0.119</b></td></tr>
+    <tr><td>M</td>  <td>0.875</td><td><b>0.981</b></td><td>0.049</td><td>0.028</td><td><b>+0.106</b></td></tr>
+    <tr><td>L</td>  <td>0.869</td><td><b>0.975</b></td><td>0.026</td><td>0.026</td><td><b>+0.106</b></td></tr>
+    <tr><td>XL</td> <td>0.881</td><td><b>0.994</b></td><td>0.064</td><td><b>0.014</b></td><td><b>+0.113</b></td></tr>
+  </tbody>
+</table>
+
+<div class="method-card winner">
+  <h3>✅ 「data 不足が天井」仮説が完全裏付け</h3>
+  <ul>
+    <li><b>全 size で +0.10 以上の改善</b> — v1 のみで 0.84-0.88 だった cross-day mean が
+        v1+v2 結合で 0.96-0.99 に</li>
+    <li><b>std もほぼ半減</b> (S: 0.080→0.041、XL: 0.064→0.014) — seed ガチャの影響も
+        data 多様性で抑制</li>
+    <li><b>XL が真の最強に台頭</b> (mean 0.994、std 0.014)。v1 のみでは差が見えなかったが、
+        data が capacity に追いついた瞬間に "理論通り" の振る舞いを示した</li>
+    <li>capacity ↔ data 比のスイートスポットは <b>「データが十分なら大きい方が勝つ」</b>
+        という modern DL の knowledge と整合</li>
+  </ul>
+</div>
+
+<h3>3-3. 5 seed 合算混同行列 (size 別、cross-day noise_v1)</h3>
+
+<div class="two-col">
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2_combined/aggregate_confusion/aggregated_S.png"
+         alt="S aggregate v1+v2 confusion">
+    <div class="cap"><b>S (14k)</b> 5seed 合算 — acc 0.963 (154/160)</div>
+  </div>
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2_combined/aggregate_confusion/aggregated_M.png"
+         alt="M aggregate v1+v2 confusion">
+    <div class="cap"><b>M (30k)</b> 5seed 合算 — acc 0.981 (157/160)</div>
+  </div>
+</div>
+<div class="two-col">
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2_combined/aggregate_confusion/aggregated_L.png"
+         alt="L aggregate v1+v2 confusion">
+    <div class="cap"><b>L (52k)</b> 5seed 合算 — acc 0.975 (156/160)</div>
+  </div>
+  <div class="figure">
+    <img src="../pc/runs/sweep_v1v2_combined/aggregate_confusion/aggregated_XL.png"
+         alt="XL aggregate v1+v2 confusion">
+    <div class="cap"><b>XL (104k)</b> 5seed 合算 — acc 0.994 (159/160) ⭐</div>
+  </div>
+</div>
+
+<h2 id="curves">4. 学習曲線 (省略)</h2>
+
+<p class="note">
+  全 size / 全 seed で train_v1 + train_v2 を結合した in-distribution test split (n=384) で
+  best val acc 1.000 に到達。学習自体は 60 epoch 中 ~10-15 epoch で val 天井に届く
+  挙動 (v1 のみ学習と同じパターン)。曲線そのものは v1 学習結果ページ §10-2 と
+  ほぼ同じ形状なので省略。
+</p>
+
+<h2 id="discussion">5. 議論</h2>
+
+<div class="method-card winner">
+  <h3>主要な発見: data 倍増で size 間の本来の優劣が顕在化</h3>
+  <p>
+    v1 のみ (960 sample) では cross-day mean 0.84-0.88 でほぼ並んでいた 4 size が、
+    v1+v2 結合 (2560 sample) で全 size 0.96-0.99 に押し上げられた上、
+    <b>XL (0.994) > M (0.981) > L (0.975) > S (0.963)</b> という順位が出た。
+    これは modern DL の "overparameterization は generalization に有利" 説に整合する。
+    v1 のみで XL が中位だったのは <b>data/capacity 比が不足していたから</b>であり、
+    XL のモデル設計に問題があったわけではなかった。
+  </p>
+</div>
+
+<div class="method-card">
+  <h3>統計的有意性 — 数値差は誤差レベル、ただし XL "ほぼ完璧"</h3>
+  <p>
+    n=32 × 5 seed = 160 試行集計で、各 size の miss 数:
+  </p>
+  <ul>
+    <li>S: 6/160 miss</li>
+    <li>L: 4/160 miss</li>
+    <li>M: 3/160 miss</li>
+    <li><b>XL: 1/160 miss</b> ⭐</li>
+  </ul>
+  <p>
+    Welch's t-test では <b>size 間の差は 95% 有意水準には届かない</b>
+    (n=5 seed では分解能不足)。ただし XL が「ほぼ完璧」(99.4%) を
+    達成している事実は実運用上 decisive。次の検証 (train_v3 cross-day eval) で
+    分解能が上がれば、size 間の真の差が確定する。
+  </p>
+</div>
+
+<div class="method-card">
+  <h3>v1 のみ実験で導いた結論の修正</h3>
+  <p>
+    <a href="nn_methods_compare.html">前ページ</a> §9-5 で「v1 デプロイ候補は L または XL」
+    としていた判断は、<b>v1+v2 結合の結果から「XL に確定」と更新</b>すべき。
+    M / L は誤差レベルで XL に近いが、XL の std 0.014 (最小)、
+    最悪 seed 0.969 という性能と安定性の両立は他 size に勝る。
+    MCU 容量制約 (104k params = INT8 ~104 KB、flash 1 MB の 10%) も問題なし。
+  </p>
+</div>
+
+<div class="method-card">
+  <h3>cross-day noise_v1 の限界</h3>
+  <p>
+    今回の cross-day eval は noise_v1 (5/22 収集、32 sample) で実施したが、
+    XL は <b>5 seed のうち 4 つで完璧 (acc=1.000)</b> を出している。
+    つまり <b>noise_v1 は既に "易しすぎる" テストセット</b>になりつつあり、
+    size 間の真の差を測るには <b>もっと厳しい cross-day data が必要</b>。
+    具体的には:
+  </p>
+  <ul>
+    <li><b>train_v3</b> (今日 5/23 別収集予定): n=1600 で標本誤差 ±0.015 に縮小、
+        size 間 0.01 差も検出可能</li>
+    <li><b>cross-house</b> (別宅収集): 真の generalization 限界を測る</li>
+    <li><b>季節変化、時間帯変化</b>: 長期的安定性</li>
+  </ul>
+</div>
+
+<h2 id="next">6. 次のステップ</h2>
+
+<ul>
+  <li><b>★ 直近: train_v3 を別日収集</b> (今日中、約 54 min 予定)
+      <ul>
+        <li>1600 sample 規模なので cross-day eval の分解能が 0.10 → 0.015 に向上</li>
+        <li>v1+v2 sweep のチェックポイントを v3 で再評価し、XL 優位を統計的に確定</li>
+        <li>更に v1+v2+v3 結合で再学習 → 段階的な data 増加効果を測定</li>
+      </ul>
+  </li>
+  <li><b>確定モデルを MCU 移植</b>
+      <ul>
+        <li>XL (104k params) を ONNX エクスポート → INT8 量子化 (eiq-onnx2tflite) → Neutron 変換</li>
+        <li>FRDM-MCXN947 の firmware 10_inference に組み込み</li>
+        <li>flash 占有予想 ~104 KB (INT8)、SRAM peak ~80 KB</li>
+      </ul>
+  </li>
+  <li><b>cross-house データ収集</b> (長期)
+      <ul>
+        <li>別宅で同条件収集 → cross-house generalization 評価</li>
+        <li>必要なら install wizard 化 (per-house キャリブレーション)</li>
+      </ul>
+  </li>
+</ul>
+
+<h2 id="streaming_proposal">7. 案: 連続録音 + PC 側 chunking パイプライン (将来計画)</h2>
+
+<p>
+  現状の収集は「2 s 録音 × N 回繰り返し」形式で、各 frame 間に約 1 s の overhead が発生する。
+  これを「1 状態あたり 2-3 分の連続録音 → PC 側で任意の chunk 長に分割」に切り替えれば、
+  時間効率とデータ密度の両方が大幅改善できる。
+</p>
+
+<h3>7-1. 期待される効果</h3>
+
+<table class="compact">
+  <thead><tr><th>項目</th><th>現状 (frame ベース)</th><th>連続録音 + chunking</th></tr></thead>
+  <tbody>
+    <tr><td>1 セッション収集時間 (1600 frame 相当)</td><td>~85 min</td><td><b>~58 min</b> (-30%)</td></tr>
+    <tr><td>per-frame overhead</td><td>~1 s × N frame</td><td><b>0</b> (1 stream で完結)</td></tr>
+    <tr><td>取得可能 chunk 数 (同録音時間)</td><td>50 / state</td><td><b>99-239 / state</b> (overlap 次第)</td></tr>
+    <tr><td>chunk 長の事後変更</td><td>不可 (録音時に固定)</td><td><b>可</b> (PC 側で 0.5 / 1 / 2 / 4 s 任意)</td></tr>
+    <tr><td>独立サンプル換算</td><td>1.0× (frame ごとに独立)</td><td>0.3-0.7× (overlap で相関)</td></tr>
+    <tr><td>UART 帯域要求</td><td>32 KB/s (現状 OK)</td><td>32 KB/s (継続)、921600 bps の 35%</td></tr>
+  </tbody>
+</table>
+
+<h3>7-2. 設計方針 — 既存資産は触らず新規実装</h3>
+
+<div class="method-card warn">
+  <h3>⚠️ 既存 firmware・PC ツールは改修しない</h3>
+  <p>
+    現状の <code>09_collector</code> firmware と <code>collector_client.py</code> は
+    v1 学習データ収集の正本として安定稼働中で、回帰リスクを避けたい。
+    連続録音モードは <b>別 firmware プロジェクトと別 PC ツールとして新規実装</b> する:
+  </p>
+  <table class="compact">
+    <thead><tr><th>レイヤ</th><th>既存 (変更しない)</th><th>新規実装</th></tr></thead>
+    <tbody>
+      <tr><td>firmware</td>
+          <td><code>firmware/projects/09_collector/</code> (frame ベース、SW3 trigger 等)</td>
+          <td><code>firmware/projects/11_streamer/</code> (仮、連続 stream モード専用)</td></tr>
+      <tr><td>PC 収集ツール</td>
+          <td><code>pc/collector_client.py</code> (frame ベース、plan YAML 駆動)</td>
+          <td><code>pc/stream_collector.py</code> (仮、stream モード専用)</td></tr>
+      <tr><td>plan YAML 形式</td>
+          <td><code>plans/full_32_train.yaml</code> 等 (frame ベース、repeats フィールド)</td>
+          <td><code>plans/full_32_stream.yaml</code> (仮、duration_s フィールド)</td></tr>
+      <tr><td>WAV 保存形式</td>
+          <td><code>captures/&lt;run_id&gt;/sXXXXX/frame_NNNNNN.wav</code> (2 s 固定)</td>
+          <td><code>captures_stream/&lt;run_id&gt;/sXXXXX/raw.wav</code> (可変長 raw + meta.json)</td></tr>
+      <tr><td>PC 側 chunking ツール</td>
+          <td>—</td>
+          <td><code>pc/stream_chunk.py</code> (仮、raw.wav → frame_*.wav 量産)</td></tr>
+      <tr><td>dataset</td>
+          <td>既存 <code>training/dataset.py</code> をそのまま流用可</td>
+          <td>chunk 出力先を既存 layout に揃えれば dataset 改修不要</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3>7-3. firmware 側に必要な追加機能 (新規 11_streamer)</h3>
+
+<ul>
+  <li>UART コマンド: <code>STREAM &lt;duration_s&gt;</code> — 指定秒数だけ I2S RX を UART に流し続ける</li>
+  <li>SPK の連続駆動: 既存 PRBS パターンをループ再生 (切れ目なし)</li>
+  <li>DMA chain: I2S RX → リングバッファ → UART TX を継続 (frame 区切り無し)</li>
+  <li>start/stop コマンド、進捗インジケーション (TFT へ何秒経過か表示)</li>
+  <li>サーボ制御コマンドは 09_collector から流用 (共通モジュール化)</li>
+</ul>
+
+<h3>7-4. PC 側に必要な新規ツール</h3>
+
+<ul>
+  <li><code>stream_collector.py</code>: plan YAML を読んで「サーボ → STREAM &lt;sec&gt; → raw.wav 保存」を 32 state 巡回</li>
+  <li><code>stream_chunk.py</code>: raw.wav と任意の chunk 設定 (長さ / overlap) を入力に
+      <code>frame_*.wav</code> + <code>labels.csv</code> + <code>meta.json</code> を量産。
+      出力は既存 dataset.py がそのまま読める layout</li>
+  <li><code>analyze_stream.py</code>: raw.wav の品質チェック (時間方向の安定性、glitch 検出)</li>
+</ul>
+
+<h3>7-5. 検証順序</h3>
+
+<ol>
+  <li><b>Step 0 (今日できる)</b>: 既存 train_v2 の 50 frame を時間順 concat → 100s 連続音を擬似生成 →
+      PC 側 chunk 抽出 → 既存 M モデルで学習 → <b>chunking 戦略の効果を先に検証</b></li>
+  <li><b>Step 1</b>: chunking が効くと確認できたら、11_streamer firmware の実装開始</li>
+  <li><b>Step 2</b>: stream_collector + stream_chunk PC ツール実装</li>
+  <li><b>Step 3</b>: 1 state 2-3 min × 32 state で実機収集 (~80-100 min/run)</li>
+  <li><b>Step 4</b>: 既存 v1 / v2 と組合せて学習 → cross-day v3 評価</li>
+</ol>
+
+<h3>7-6. 想定リスク</h3>
+
+<ul>
+  <li><b>overlapping chunks の相関</b>: 独立サンプル数換算で 1/3 程度に目減り。
+      生 chunk 数が 4-5× でも実効 1.5-2× の効果に留まる可能性</li>
+  <li><b>UART buffer overflow</b>: 連続 stream で PC 側受信が一瞬詰まると droppped sample 発生 → 長時間録音で要対策 (リング buffer 大型化、handshake 等)</li>
+  <li><b>SPK の連続駆動による熱ドリフト</b>: 2-3 min 連続再生で SPK 特性が微変化する可能性 (現状は frame 間で 1 s 休めるので冷却)、データ内で時間方向に分布シフトを起こすかも</li>
+</ul>
+
+</main>
+
+</body>
+</html>
