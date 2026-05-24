@@ -141,12 +141,16 @@
     ／ <a href="probe_sound.html">走査音考察</a>
     ／ <a href="nn_review.html">NN 考察</a>
   </div>
-  <h1>Full 32 状態 初期計測結果 <span class="pill">full_32_v1 / 2026-05-21</span></h1>
+  <h1>Full 32 状態 初期計測結果 <span class="pill">full_32_v2 / 2026-05-22</span></h1>
   <div class="sub">
     32 真状態に対して Linear chirp 200 Hz → 6 kHz, 2 秒を 1 ショットずつ撃った
-    実機計測（[<a href="../pc/captures/full_32_v1/">pc/captures/full_32_v1/</a>]）の俯瞰レポート。
+    実機計測（[<a href="../pc/captures/full_32_v2/">pc/captures/full_32_v2/</a>]）の俯瞰レポート。
     観測可能性ツリーから導かれる <b>14 等価クラス</b>でグループ化し、
     予測される音響挙動 vs 実測スペクトルの突き合わせをまとめる。
+    <br><b>履歴:</b> 初回計測 (<code>full_32_v1</code> / 2026-05-21) は一部フレームに外部雑音が混入していたため、
+    同条件 (chirp 200-6k, vol 3, repeats 1) で取り直したのが本ページの <code>full_32_v2</code>。
+    v1 で目立っていた A2 クラスの外れ値 (s10100 / s11000) は v2 では消失し、予言通りクラス内に収束した。
+    並走でホワイトノイズ励振 (<a href="full32_noise_test.html">full32_noise_test.html</a>) も取得済。
   </div>
   <div class="meta">
     <span class="meta-stat done"><span class="num">32</span> 真状態</span>
@@ -243,14 +247,14 @@
   <table class="gallery">
     <thead><tr><th>state</th><th>真の状態（bit）</th><th>FFT (全データ 1D)</th><th>STFT 2D ヒートマップ</th></tr></thead>
     <tbody>
-      <tr><td class="state-name">s00000</td><td class="bit-detail">全閉</td><td><a href="../pc/captures/full_32_v1/analysis/s00000/fft.png"><img src="../pc/captures/full_32_v1/analysis/s00000/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s00000/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s00000/spectrogram.png"></a></td></tr>
-      <tr><td class="state-name">s01000</td><td class="bit-detail">窓 b 開（遮断側）</td><td><a href="../pc/captures/full_32_v1/analysis/s01000/fft.png"><img src="../pc/captures/full_32_v1/analysis/s01000/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s01000/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s01000/spectrogram.png"></a></td></tr>
-      <tr><td class="state-name">s00100</td><td class="bit-detail">窓 c 開（遮断側）</td><td><a href="../pc/captures/full_32_v1/analysis/s00100/fft.png"><img src="../pc/captures/full_32_v1/analysis/s00100/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s00100/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s00100/spectrogram.png"></a></td></tr>
-      <tr><td class="state-name">s01100</td><td class="bit-detail">窓 b, c 開（遮断側）</td><td><a href="../pc/captures/full_32_v1/analysis/s01100/fft.png"><img src="../pc/captures/full_32_v1/analysis/s01100/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s01100/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s01100/spectrogram.png"></a></td></tr>
-      <tr><td class="state-name">s00001</td><td class="bit-detail">扉 BC 開（AB 閉のため無効）</td><td><a href="../pc/captures/full_32_v1/analysis/s00001/fft.png"><img src="../pc/captures/full_32_v1/analysis/s00001/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s00001/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s00001/spectrogram.png"></a></td></tr>
-      <tr><td class="state-name">s01001</td><td class="bit-detail">b + BC 開（AB 閉のため無効）</td><td><a href="../pc/captures/full_32_v1/analysis/s01001/fft.png"><img src="../pc/captures/full_32_v1/analysis/s01001/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s01001/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s01001/spectrogram.png"></a></td></tr>
-      <tr><td class="state-name">s00101</td><td class="bit-detail">c + BC 開（AB 閉のため無効）</td><td><a href="../pc/captures/full_32_v1/analysis/s00101/fft.png"><img src="../pc/captures/full_32_v1/analysis/s00101/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s00101/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s00101/spectrogram.png"></a></td></tr>
-      <tr><td class="state-name">s01101</td><td class="bit-detail">b + c + BC 開（AB 閉のため無効）</td><td><a href="../pc/captures/full_32_v1/analysis/s01101/fft.png"><img src="../pc/captures/full_32_v1/analysis/s01101/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s01101/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s01101/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s00000</td><td class="bit-detail">全閉</td><td><a href="../pc/captures/full_32_v2/analysis/s00000/fft.png"><img src="../pc/captures/full_32_v2/analysis/s00000/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s00000/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s00000/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s01000</td><td class="bit-detail">窓 b 開（遮断側）</td><td><a href="../pc/captures/full_32_v2/analysis/s01000/fft.png"><img src="../pc/captures/full_32_v2/analysis/s01000/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s01000/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s01000/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s00100</td><td class="bit-detail">窓 c 開（遮断側）</td><td><a href="../pc/captures/full_32_v2/analysis/s00100/fft.png"><img src="../pc/captures/full_32_v2/analysis/s00100/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s00100/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s00100/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s01100</td><td class="bit-detail">窓 b, c 開（遮断側）</td><td><a href="../pc/captures/full_32_v2/analysis/s01100/fft.png"><img src="../pc/captures/full_32_v2/analysis/s01100/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s01100/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s01100/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s00001</td><td class="bit-detail">扉 BC 開（AB 閉のため無効）</td><td><a href="../pc/captures/full_32_v2/analysis/s00001/fft.png"><img src="../pc/captures/full_32_v2/analysis/s00001/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s00001/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s00001/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s01001</td><td class="bit-detail">b + BC 開（AB 閉のため無効）</td><td><a href="../pc/captures/full_32_v2/analysis/s01001/fft.png"><img src="../pc/captures/full_32_v2/analysis/s01001/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s01001/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s01001/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s00101</td><td class="bit-detail">c + BC 開（AB 閉のため無効）</td><td><a href="../pc/captures/full_32_v2/analysis/s00101/fft.png"><img src="../pc/captures/full_32_v2/analysis/s00101/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s00101/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s00101/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s01101</td><td class="bit-detail">b + c + BC 開（AB 閉のため無効）</td><td><a href="../pc/captures/full_32_v2/analysis/s01101/fft.png"><img src="../pc/captures/full_32_v2/analysis/s01101/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s01101/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s01101/spectrogram.png"></a></td></tr>
     </tbody>
   </table>
 </div>
@@ -266,14 +270,14 @@
   <table class="gallery">
     <thead><tr><th>state</th><th>真の状態（bit）</th><th>FFT (全データ 1D)</th><th>STFT 2D ヒートマップ</th></tr></thead>
     <tbody>
-      <tr><td class="state-name">s10000</td><td class="bit-detail">窓 a だけ開</td><td><a href="../pc/captures/full_32_v1/analysis/s10000/fft.png"><img src="../pc/captures/full_32_v1/analysis/s10000/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s10000/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s10000/spectrogram.png"></a></td></tr>
-      <tr><td class="state-name">s11000</td><td class="bit-detail">a + b 開</td><td><a href="../pc/captures/full_32_v1/analysis/s11000/fft.png"><img src="../pc/captures/full_32_v1/analysis/s11000/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s11000/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s11000/spectrogram.png"></a></td></tr>
-      <tr><td class="state-name">s10100</td><td class="bit-detail">a + c 開</td><td><a href="../pc/captures/full_32_v1/analysis/s10100/fft.png"><img src="../pc/captures/full_32_v1/analysis/s10100/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s10100/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s10100/spectrogram.png"></a></td></tr>
-      <tr><td class="state-name">s11100</td><td class="bit-detail">a + b + c 開</td><td><a href="../pc/captures/full_32_v1/analysis/s11100/fft.png"><img src="../pc/captures/full_32_v1/analysis/s11100/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s11100/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s11100/spectrogram.png"></a></td></tr>
-      <tr><td class="state-name">s10001</td><td class="bit-detail">a + BC 開</td><td><a href="../pc/captures/full_32_v1/analysis/s10001/fft.png"><img src="../pc/captures/full_32_v1/analysis/s10001/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s10001/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s10001/spectrogram.png"></a></td></tr>
-      <tr><td class="state-name">s11001</td><td class="bit-detail">a + b + BC 開</td><td><a href="../pc/captures/full_32_v1/analysis/s11001/fft.png"><img src="../pc/captures/full_32_v1/analysis/s11001/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s11001/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s11001/spectrogram.png"></a></td></tr>
-      <tr><td class="state-name">s10101</td><td class="bit-detail">a + c + BC 開</td><td><a href="../pc/captures/full_32_v1/analysis/s10101/fft.png"><img src="../pc/captures/full_32_v1/analysis/s10101/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s10101/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s10101/spectrogram.png"></a></td></tr>
-      <tr><td class="state-name">s11101</td><td class="bit-detail">a + b + c + BC 開</td><td><a href="../pc/captures/full_32_v1/analysis/s11101/fft.png"><img src="../pc/captures/full_32_v1/analysis/s11101/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s11101/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s11101/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s10000</td><td class="bit-detail">窓 a だけ開</td><td><a href="../pc/captures/full_32_v2/analysis/s10000/fft.png"><img src="../pc/captures/full_32_v2/analysis/s10000/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s10000/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s10000/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s11000</td><td class="bit-detail">a + b 開</td><td><a href="../pc/captures/full_32_v2/analysis/s11000/fft.png"><img src="../pc/captures/full_32_v2/analysis/s11000/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s11000/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s11000/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s10100</td><td class="bit-detail">a + c 開</td><td><a href="../pc/captures/full_32_v2/analysis/s10100/fft.png"><img src="../pc/captures/full_32_v2/analysis/s10100/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s10100/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s10100/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s11100</td><td class="bit-detail">a + b + c 開</td><td><a href="../pc/captures/full_32_v2/analysis/s11100/fft.png"><img src="../pc/captures/full_32_v2/analysis/s11100/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s11100/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s11100/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s10001</td><td class="bit-detail">a + BC 開</td><td><a href="../pc/captures/full_32_v2/analysis/s10001/fft.png"><img src="../pc/captures/full_32_v2/analysis/s10001/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s10001/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s10001/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s11001</td><td class="bit-detail">a + b + BC 開</td><td><a href="../pc/captures/full_32_v2/analysis/s11001/fft.png"><img src="../pc/captures/full_32_v2/analysis/s11001/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s11001/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s11001/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s10101</td><td class="bit-detail">a + c + BC 開</td><td><a href="../pc/captures/full_32_v2/analysis/s10101/fft.png"><img src="../pc/captures/full_32_v2/analysis/s10101/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s10101/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s10101/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s11101</td><td class="bit-detail">a + b + c + BC 開</td><td><a href="../pc/captures/full_32_v2/analysis/s11101/fft.png"><img src="../pc/captures/full_32_v2/analysis/s11101/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s11101/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s11101/spectrogram.png"></a></td></tr>
     </tbody>
   </table>
 </div>
@@ -290,8 +294,8 @@
   <table class="gallery">
     <thead><tr><th>state</th><th>真の状態（bit）</th><th>FFT</th><th>STFT</th></tr></thead>
     <tbody>
-      <tr><td class="state-name">s00010</td><td class="bit-detail">AB 開（c=0, BC=0）</td><td><a href="../pc/captures/full_32_v1/analysis/s00010/fft.png"><img src="../pc/captures/full_32_v1/analysis/s00010/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s00010/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s00010/spectrogram.png"></a></td></tr>
-      <tr><td class="state-name">s00110</td><td class="bit-detail">AB 開 + c 開（観測不能側）</td><td><a href="../pc/captures/full_32_v1/analysis/s00110/fft.png"><img src="../pc/captures/full_32_v1/analysis/s00110/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s00110/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s00110/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s00010</td><td class="bit-detail">AB 開（c=0, BC=0）</td><td><a href="../pc/captures/full_32_v2/analysis/s00010/fft.png"><img src="../pc/captures/full_32_v2/analysis/s00010/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s00010/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s00010/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s00110</td><td class="bit-detail">AB 開 + c 開（観測不能側）</td><td><a href="../pc/captures/full_32_v2/analysis/s00110/fft.png"><img src="../pc/captures/full_32_v2/analysis/s00110/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s00110/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s00110/spectrogram.png"></a></td></tr>
     </tbody>
   </table>
 </div>
@@ -305,8 +309,8 @@
   <table class="gallery">
     <thead><tr><th>state</th><th>真の状態（bit）</th><th>FFT</th><th>STFT</th></tr></thead>
     <tbody>
-      <tr><td class="state-name">s10010</td><td class="bit-detail">a + AB 開</td><td><a href="../pc/captures/full_32_v1/analysis/s10010/fft.png"><img src="../pc/captures/full_32_v1/analysis/s10010/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s10010/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s10010/spectrogram.png"></a></td></tr>
-      <tr><td class="state-name">s10110</td><td class="bit-detail">a + c + AB 開（c は観測不能）</td><td><a href="../pc/captures/full_32_v1/analysis/s10110/fft.png"><img src="../pc/captures/full_32_v1/analysis/s10110/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s10110/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s10110/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s10010</td><td class="bit-detail">a + AB 開</td><td><a href="../pc/captures/full_32_v2/analysis/s10010/fft.png"><img src="../pc/captures/full_32_v2/analysis/s10010/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s10010/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s10010/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s10110</td><td class="bit-detail">a + c + AB 開（c は観測不能）</td><td><a href="../pc/captures/full_32_v2/analysis/s10110/fft.png"><img src="../pc/captures/full_32_v2/analysis/s10110/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s10110/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s10110/spectrogram.png"></a></td></tr>
     </tbody>
   </table>
 </div>
@@ -321,8 +325,8 @@
   <table class="gallery">
     <thead><tr><th>state</th><th>真の状態（bit）</th><th>FFT</th><th>STFT</th></tr></thead>
     <tbody>
-      <tr><td class="state-name">s01010</td><td class="bit-detail">b + AB 開</td><td><a href="../pc/captures/full_32_v1/analysis/s01010/fft.png"><img src="../pc/captures/full_32_v1/analysis/s01010/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s01010/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s01010/spectrogram.png"></a></td></tr>
-      <tr><td class="state-name">s01110</td><td class="bit-detail">b + c + AB 開（c は観測不能）</td><td><a href="../pc/captures/full_32_v1/analysis/s01110/fft.png"><img src="../pc/captures/full_32_v1/analysis/s01110/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s01110/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s01110/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s01010</td><td class="bit-detail">b + AB 開</td><td><a href="../pc/captures/full_32_v2/analysis/s01010/fft.png"><img src="../pc/captures/full_32_v2/analysis/s01010/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s01010/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s01010/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s01110</td><td class="bit-detail">b + c + AB 開（c は観測不能）</td><td><a href="../pc/captures/full_32_v2/analysis/s01110/fft.png"><img src="../pc/captures/full_32_v2/analysis/s01110/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s01110/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s01110/spectrogram.png"></a></td></tr>
     </tbody>
   </table>
 </div>
@@ -336,8 +340,8 @@
   <table class="gallery">
     <thead><tr><th>state</th><th>真の状態（bit）</th><th>FFT</th><th>STFT</th></tr></thead>
     <tbody>
-      <tr><td class="state-name">s11010</td><td class="bit-detail">a + b + AB 開</td><td><a href="../pc/captures/full_32_v1/analysis/s11010/fft.png"><img src="../pc/captures/full_32_v1/analysis/s11010/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s11010/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s11010/spectrogram.png"></a></td></tr>
-      <tr><td class="state-name">s11110</td><td class="bit-detail">a + b + c + AB 開（c は観測不能）</td><td><a href="../pc/captures/full_32_v1/analysis/s11110/fft.png"><img src="../pc/captures/full_32_v1/analysis/s11110/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s11110/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s11110/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s11010</td><td class="bit-detail">a + b + AB 開</td><td><a href="../pc/captures/full_32_v2/analysis/s11010/fft.png"><img src="../pc/captures/full_32_v2/analysis/s11010/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s11010/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s11010/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s11110</td><td class="bit-detail">a + b + c + AB 開（c は観測不能）</td><td><a href="../pc/captures/full_32_v2/analysis/s11110/fft.png"><img src="../pc/captures/full_32_v2/analysis/s11110/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s11110/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s11110/spectrogram.png"></a></td></tr>
     </tbody>
   </table>
 </div>
@@ -353,7 +357,7 @@
   <table class="gallery">
     <thead><tr><th>state</th><th>真の状態（bit）</th><th>FFT</th><th>STFT</th></tr></thead>
     <tbody>
-      <tr><td class="state-name">s00011</td><td class="bit-detail">AB + BC 開、全窓閉</td><td><a href="../pc/captures/full_32_v1/analysis/s00011/fft.png"><img src="../pc/captures/full_32_v1/analysis/s00011/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s00011/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s00011/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s00011</td><td class="bit-detail">AB + BC 開、全窓閉</td><td><a href="../pc/captures/full_32_v2/analysis/s00011/fft.png"><img src="../pc/captures/full_32_v2/analysis/s00011/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s00011/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s00011/spectrogram.png"></a></td></tr>
     </tbody>
   </table>
 </div>
@@ -365,7 +369,7 @@
   <table class="gallery">
     <thead><tr><th>state</th><th>真の状態（bit）</th><th>FFT</th><th>STFT</th></tr></thead>
     <tbody>
-      <tr><td class="state-name">s10011</td><td class="bit-detail">a + AB + BC 開</td><td><a href="../pc/captures/full_32_v1/analysis/s10011/fft.png"><img src="../pc/captures/full_32_v1/analysis/s10011/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s10011/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s10011/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s10011</td><td class="bit-detail">a + AB + BC 開</td><td><a href="../pc/captures/full_32_v2/analysis/s10011/fft.png"><img src="../pc/captures/full_32_v2/analysis/s10011/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s10011/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s10011/spectrogram.png"></a></td></tr>
     </tbody>
   </table>
 </div>
@@ -377,7 +381,7 @@
   <table class="gallery">
     <thead><tr><th>state</th><th>真の状態（bit）</th><th>FFT</th><th>STFT</th></tr></thead>
     <tbody>
-      <tr><td class="state-name">s01011</td><td class="bit-detail">b + AB + BC 開</td><td><a href="../pc/captures/full_32_v1/analysis/s01011/fft.png"><img src="../pc/captures/full_32_v1/analysis/s01011/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s01011/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s01011/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s01011</td><td class="bit-detail">b + AB + BC 開</td><td><a href="../pc/captures/full_32_v2/analysis/s01011/fft.png"><img src="../pc/captures/full_32_v2/analysis/s01011/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s01011/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s01011/spectrogram.png"></a></td></tr>
     </tbody>
   </table>
 </div>
@@ -389,7 +393,7 @@
   <table class="gallery">
     <thead><tr><th>state</th><th>真の状態（bit）</th><th>FFT</th><th>STFT</th></tr></thead>
     <tbody>
-      <tr><td class="state-name">s11011</td><td class="bit-detail">a + b + AB + BC 開</td><td><a href="../pc/captures/full_32_v1/analysis/s11011/fft.png"><img src="../pc/captures/full_32_v1/analysis/s11011/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s11011/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s11011/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s11011</td><td class="bit-detail">a + b + AB + BC 開</td><td><a href="../pc/captures/full_32_v2/analysis/s11011/fft.png"><img src="../pc/captures/full_32_v2/analysis/s11011/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s11011/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s11011/spectrogram.png"></a></td></tr>
     </tbody>
   </table>
 </div>
@@ -401,7 +405,7 @@
   <table class="gallery">
     <thead><tr><th>state</th><th>真の状態（bit）</th><th>FFT</th><th>STFT</th></tr></thead>
     <tbody>
-      <tr><td class="state-name">s00111</td><td class="bit-detail">c + AB + BC 開</td><td><a href="../pc/captures/full_32_v1/analysis/s00111/fft.png"><img src="../pc/captures/full_32_v1/analysis/s00111/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s00111/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s00111/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s00111</td><td class="bit-detail">c + AB + BC 開</td><td><a href="../pc/captures/full_32_v2/analysis/s00111/fft.png"><img src="../pc/captures/full_32_v2/analysis/s00111/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s00111/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s00111/spectrogram.png"></a></td></tr>
     </tbody>
   </table>
 </div>
@@ -412,7 +416,7 @@
   <table class="gallery">
     <thead><tr><th>state</th><th>真の状態（bit）</th><th>FFT</th><th>STFT</th></tr></thead>
     <tbody>
-      <tr><td class="state-name">s10111</td><td class="bit-detail">a + c + AB + BC 開</td><td><a href="../pc/captures/full_32_v1/analysis/s10111/fft.png"><img src="../pc/captures/full_32_v1/analysis/s10111/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s10111/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s10111/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s10111</td><td class="bit-detail">a + c + AB + BC 開</td><td><a href="../pc/captures/full_32_v2/analysis/s10111/fft.png"><img src="../pc/captures/full_32_v2/analysis/s10111/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s10111/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s10111/spectrogram.png"></a></td></tr>
     </tbody>
   </table>
 </div>
@@ -423,7 +427,7 @@
   <table class="gallery">
     <thead><tr><th>state</th><th>真の状態（bit）</th><th>FFT</th><th>STFT</th></tr></thead>
     <tbody>
-      <tr><td class="state-name">s01111</td><td class="bit-detail">b + c + AB + BC 開</td><td><a href="../pc/captures/full_32_v1/analysis/s01111/fft.png"><img src="../pc/captures/full_32_v1/analysis/s01111/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s01111/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s01111/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s01111</td><td class="bit-detail">b + c + AB + BC 開</td><td><a href="../pc/captures/full_32_v2/analysis/s01111/fft.png"><img src="../pc/captures/full_32_v2/analysis/s01111/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s01111/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s01111/spectrogram.png"></a></td></tr>
     </tbody>
   </table>
 </div>
@@ -435,7 +439,7 @@
   <table class="gallery">
     <thead><tr><th>state</th><th>真の状態（bit）</th><th>FFT</th><th>STFT</th></tr></thead>
     <tbody>
-      <tr><td class="state-name">s11111</td><td class="bit-detail">全開</td><td><a href="../pc/captures/full_32_v1/analysis/s11111/fft.png"><img src="../pc/captures/full_32_v1/analysis/s11111/fft.png"></a></td><td><a href="../pc/captures/full_32_v1/analysis/s11111/spectrogram.png"><img src="../pc/captures/full_32_v1/analysis/s11111/spectrogram.png"></a></td></tr>
+      <tr><td class="state-name">s11111</td><td class="bit-detail">全開</td><td><a href="../pc/captures/full_32_v2/analysis/s11111/fft.png"><img src="../pc/captures/full_32_v2/analysis/s11111/fft.png"></a></td><td><a href="../pc/captures/full_32_v2/analysis/s11111/spectrogram.png"><img src="../pc/captures/full_32_v2/analysis/s11111/spectrogram.png"></a></td></tr>
     </tbody>
   </table>
 </div>
@@ -443,15 +447,15 @@
 <h2>4. 全体俯瞰</h2>
 
 <div class="overview-imgs">
-  <img src="../pc/captures/full_32_v1/analysis/overview/fft_overlay_all.png"
+  <img src="../pc/captures/full_32_v2/analysis/overview/fft_overlay_all.png"
        alt="32 states FFT overlay">
-  <img src="../pc/captures/full_32_v1/analysis/overview/fft_single_open.png"
+  <img src="../pc/captures/full_32_v2/analysis/overview/fft_single_open.png"
        alt="Baseline vs single-element-open contrast">
-  <img src="../pc/captures/full_32_v1/analysis/overview/fft_diff_from_baseline.png"
+  <img src="../pc/captures/full_32_v2/analysis/overview/fft_diff_from_baseline.png"
        alt="FFT diff from baseline heatmap (alphabetical)">
-  <img src="../pc/captures/full_32_v1/analysis/overview/fft_diff_from_baseline_by_class.png"
+  <img src="../pc/captures/full_32_v2/analysis/overview/fft_diff_from_baseline_by_class.png"
        alt="FFT diff from baseline heatmap (grouped by equivalence class)">
-  <img src="../pc/captures/full_32_v1/analysis/overview/spectrogram_grid.png"
+  <img src="../pc/captures/full_32_v2/analysis/overview/spectrogram_grid.png"
        alt="32-panel STFT grid">
 </div>
 
@@ -464,11 +468,13 @@
   （<a href="#A2">A2 の s10100</a> が代表例）。
 </p>
 
-<h2>5. 定量サマリ — 全閉 s00000 からの距離</h2>
+<h2 id="sec5">5. 定量サマリ — 全閉 s00000 からの距離</h2>
 
 <p>
   各状態と全閉 s00000 の <b>1D FFT の dB 差を 300–6000 Hz でとった RMS</b>を距離指標として、
-  上位 / 下位を抜粋。最後列の <code>group</code> は §2 の観測等価クラス記号。
+  全 32 状態を距離降順で並べる。<code>group</code> は §2 の観測等価クラス記号。
+  v1 で外れ値だった s10100 / s11000 が <b>A2 クラスの 4.80 dB に収束</b>している点に注目
+  （v1 ではここに大きな外れがあり、外部雑音 200–400 Hz 由来と推定していた）。
 </p>
 
 <table>
@@ -482,17 +488,43 @@
     </tr>
   </thead>
   <tbody>
-    <tr><td><code>s10110</code></td><td>6.77</td><td>52.5</td><td><span class="class-tag group-B">B2</span></td><td>a 開 + AB 開 (c は遮断側)</td></tr>
-    <tr><td><code>s10010</code></td><td>6.75</td><td>39.7</td><td><span class="class-tag group-B">B2</span></td><td>a + AB 開 — B2 ペアのもう片方</td></tr>
-    <tr><td><code>s11010</code></td><td>6.50</td><td>39.3</td><td><span class="class-tag group-B">B4</span></td><td>a + b + AB 開</td></tr>
-    <tr><td><code>s11110</code></td><td>6.48</td><td>43.4</td><td><span class="class-tag group-B">B4</span></td><td>a + b + AB 開 (c は遮断側)</td></tr>
-    <tr><td><code>s10111</code></td><td>6.42</td><td>45.3</td><td><span class="class-tag group-C">C6</span></td><td>a + c + 両扉開</td></tr>
-    <tr><td><code>s10011</code></td><td>6.41</td><td>39.2</td><td><span class="class-tag group-C">C2</span></td><td>a + 両扉開</td></tr>
-    <tr><td><code>s11111</code></td><td>6.21</td><td>45.3</td><td><span class="class-tag group-C">C8</span></td><td>全開</td></tr>
-    <tr><td><code>s11011</code></td><td>6.17</td><td>44.1</td><td><span class="class-tag group-C">C4</span></td><td>a + b + 両扉開</td></tr>
-    <tr><td colspan="5" style="color:var(--muted, #8b95a7); text-align:center; padding:8px 0;">⋮（中間状態を省略）⋮</td></tr>
-    <tr><td><code>s01000</code></td><td>1.00</td><td>35.7</td><td><span class="class-tag group-A">A1</span></td><td>窓 b 開（遮断側）— 物理予測通り差が小さい</td></tr>
-    <tr><td><code>s00100</code></td><td>0.86</td><td>31.4</td><td><span class="class-tag group-A">A1</span></td><td>窓 c 開（遮断側）— 同上</td></tr>
+    <tr><td><code>s11110</code></td><td>6.50</td><td>38.5</td><td><span class="class-tag group-B">B4</span></td><td>a + b + AB 開（c は遮断側）</td></tr>
+    <tr><td><code>s11010</code></td><td>6.49</td><td>41.7</td><td><span class="class-tag group-B">B4</span></td><td>a + b + AB 開</td></tr>
+    <tr><td><code>s10010</code></td><td>6.48</td><td>31.6</td><td><span class="class-tag group-B">B2</span></td><td>a + AB 開</td></tr>
+    <tr><td><code>s10110</code></td><td>6.46</td><td>35.9</td><td><span class="class-tag group-B">B2</span></td><td>a + c + AB 開（c は遮断側）</td></tr>
+    <tr><td><code>s10011</code></td><td>6.46</td><td>44.6</td><td><span class="class-tag group-C">C2</span></td><td>a + 両扉開</td></tr>
+    <tr><td><code>s10111</code></td><td>6.41</td><td>36.4</td><td><span class="class-tag group-C">C6</span></td><td>a + c + 両扉開</td></tr>
+    <tr><td><code>s11011</code></td><td>6.31</td><td>50.9</td><td><span class="class-tag group-C">C4</span></td><td>a + b + 両扉開</td></tr>
+    <tr><td><code>s11111</code></td><td>6.25</td><td>39.3</td><td><span class="class-tag group-C">C8</span></td><td>全開</td></tr>
+    <tr><td colspan="5" style="color:var(--muted, #8b95a7); text-align:center; padding:8px 0;">━━━ A2 クラス（窓 a 開、扉 AB 閉、8 メンバー）━━━ <b>4.79 〜 4.87 dB に集中</b>（v1 では s10100/s11000 が外れていた）</td></tr>
+    <tr><td><code>s11000</code></td><td>4.87</td><td>33.7</td><td><span class="class-tag group-A">A2</span></td><td>a + b 開（<b>v1 では外れ値、v2 でクラス内</b>）</td></tr>
+    <tr><td><code>s11001</code></td><td>4.86</td><td>33.8</td><td><span class="class-tag group-A">A2</span></td><td>a + b + BC 開（b/BC は観測不能）</td></tr>
+    <tr><td><code>s10001</code></td><td>4.84</td><td>32.6</td><td><span class="class-tag group-A">A2</span></td><td>a + BC 開（BC は観測不能）</td></tr>
+    <tr><td><code>s11101</code></td><td>4.83</td><td>32.9</td><td><span class="class-tag group-A">A2</span></td><td>a + b + c + BC 開</td></tr>
+    <tr><td><code>s10000</code></td><td>4.81</td><td>32.9</td><td><span class="class-tag group-A">A2</span></td><td>窓 a だけ開</td></tr>
+    <tr><td><code>s10100</code></td><td>4.80</td><td>32.6</td><td><span class="class-tag group-A">A2</span></td><td>a + c 開（<b>v1 では外れ値、v2 でクラス内</b>）</td></tr>
+    <tr><td><code>s11100</code></td><td>4.80</td><td>33.9</td><td><span class="class-tag group-A">A2</span></td><td>a + b + c 開</td></tr>
+    <tr><td><code>s10101</code></td><td>4.79</td><td>35.9</td><td><span class="class-tag group-A">A2</span></td><td>a + c + BC 開</td></tr>
+    <tr><td colspan="5" style="color:var(--muted, #8b95a7); text-align:center; padding:8px 0;">━━━ B1（扉 AB 開、窓 a/b 閉 — 4.73〜4.76）━━━</td></tr>
+    <tr><td><code>s00010</code></td><td>4.76</td><td>37.5</td><td><span class="class-tag group-B">B1</span></td><td>AB 開のみ</td></tr>
+    <tr><td><code>s00110</code></td><td>4.73</td><td>40.7</td><td><span class="class-tag group-B">B1</span></td><td>AB + c 開（c は観測不能）</td></tr>
+    <tr><td colspan="5" style="color:var(--muted, #8b95a7); text-align:center; padding:8px 0;">━━━ B3（扉 AB 開 + 窓 b 開、4.45〜4.46）━━━</td></tr>
+    <tr><td><code>s01010</code></td><td>4.46</td><td>35.9</td><td><span class="class-tag group-B">B3</span></td><td>b + AB 開</td></tr>
+    <tr><td><code>s01110</code></td><td>4.45</td><td>32.1</td><td><span class="class-tag group-B">B3</span></td><td>b + c + AB 開（c は観測不能）</td></tr>
+    <tr><td colspan="5" style="color:var(--muted, #8b95a7); text-align:center; padding:8px 0;">━━━ C1 + C5（両扉開、a/b 閉 — 4.20〜4.26）━━━</td></tr>
+    <tr><td><code>s00011</code></td><td>4.26</td><td>29.7</td><td><span class="class-tag group-C">C1</span></td><td>両扉開、全窓閉</td></tr>
+    <tr><td><code>s00111</code></td><td>4.20</td><td>32.4</td><td><span class="class-tag group-C">C5</span></td><td>c + 両扉開</td></tr>
+    <tr><td colspan="5" style="color:var(--muted, #8b95a7); text-align:center; padding:8px 0;">━━━ C3 + C7（両扉開 + 窓 b 開、3.97〜4.01）━━━</td></tr>
+    <tr><td><code>s01011</code></td><td>4.01</td><td>29.0</td><td><span class="class-tag group-C">C3</span></td><td>b + 両扉開</td></tr>
+    <tr><td><code>s01111</code></td><td>3.97</td><td>29.5</td><td><span class="class-tag group-C">C7</span></td><td>b + c + 両扉開</td></tr>
+    <tr><td colspan="5" style="color:var(--muted, #8b95a7); text-align:center; padding:8px 0;">━━━ A1 クラス（全閉相当、8 メンバー — 0.0〜1.29 dB）━━━</td></tr>
+    <tr><td><code>s00101</code></td><td>1.29</td><td>22.9</td><td><span class="class-tag group-A">A1</span></td><td>c + BC 開（無効）</td></tr>
+    <tr><td><code>s01101</code></td><td>1.27</td><td>22.6</td><td><span class="class-tag group-A">A1</span></td><td>b + c + BC 開（無効）</td></tr>
+    <tr><td><code>s00001</code></td><td>1.24</td><td>23.3</td><td><span class="class-tag group-A">A1</span></td><td>BC 開（無効）</td></tr>
+    <tr><td><code>s01001</code></td><td>1.23</td><td>23.2</td><td><span class="class-tag group-A">A1</span></td><td>b + BC 開（無効）</td></tr>
+    <tr><td><code>s01100</code></td><td>1.09</td><td>39.5</td><td><span class="class-tag group-A">A1</span></td><td>b + c 開（遮断側）</td></tr>
+    <tr><td><code>s01000</code></td><td>0.85</td><td>30.0</td><td><span class="class-tag group-A">A1</span></td><td>窓 b 開（遮断側）— 物理予測通り差が小さい</td></tr>
+    <tr><td><code>s00100</code></td><td>0.80</td><td>20.1</td><td><span class="class-tag group-A">A1</span></td><td>窓 c 開（遮断側）— 同上</td></tr>
     <tr><td><code>s00000</code></td><td>0.00</td><td>0.0</td><td><span class="class-tag group-A">A1</span></td><td>基準</td></tr>
   </tbody>
 </table>
@@ -530,19 +562,25 @@
 </ol>
 
 <div class="callout">
-  <strong>次のステップ:</strong>
-  本ページのギャラリーを目視で確認して、上記 5 項目すべてが <b>「予言通り見える」</b>と判断できれば、
-  Day 0 サニティチェック合格として
-  <a href="probe_sound.html#sec4">§4 共鳴探索 → マルチトーン圧縮</a> の本格展開に進む。
-  予言から外れる項目が出てきたら、模型の遮音・マイク位置・SPK 駆動レベルのいずれかを見直す。
+  <strong>結論:</strong>
+  v2 計測では <b>14 等価クラスの予言がほぼ完全に成立</b>している:
+  A1 は 0–1.29 dB に集中、A2 は 4.79–4.87 dB に集中（σ ≈ 0.03 dB）、B1/B3/C1-C7 も
+  それぞれクラス内 σ < 0.05 dB。v1 で目立った s10100 / s11000 の外れは v2 で完全に解消した
+  ため、原因はやはり <b>v1 採取時の外部雑音混入</b>（chirp 励振方式そのものの問題ではない）。
+  <br><br>
+  並走で取得した <a href="full32_noise_test.html">ホワイトノイズ版</a> も同様の収束を示しており、
+  <b>両方式とも 14 等価クラス予言に整合</b>。走査音方式の最終決定
+  (<a href="near_term_plan.html#decisions">D-1</a>) は判別性以外の観点
+  （解析パイプライン単純さ、雑踏 SNR 耐性）で決められる。
+  本格展開は <a href="probe_sound.html#sec4">probe_sound §4 共鳴探索 → マルチトーン圧縮</a> に進む。
 </div>
 
 <div class="footer-note">
   関連:
   <a href="probe_sound.html">走査音考察</a> ／
   <a href="nn_review.html">NN 考察</a> ／
-  <a href="../pc/captures/full_32_v1/">pc/captures/full_32_v1/</a> ／
-  <a href="../pc/captures/full_32_v1/analysis/">analysis/ 出力ディレクトリ</a> ／
+  <a href="../pc/captures/full_32_v2/">pc/captures/full_32_v2/</a> ／
+  <a href="../pc/captures/full_32_v2/analysis/">analysis/ 出力ディレクトリ</a> ／
   <a href="../pc/analyze_full32.py">analyze_full32.py</a>
 </div>
 

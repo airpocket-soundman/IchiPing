@@ -8,6 +8,7 @@ extern "C" {
 void BOARD_InitBootPins(void);
 void BOARD_InitPins(void);
 void SAI1_InitPins(void);
+void LPI2C2_InitPins(void);
 void LPSPI1_InitPins(void);
 void ILI9341_GPIO_InitPins(void);
 void SW3_InitPins(void);

@@ -543,8 +543,71 @@ def _write_run_readme(saver: CaptureSaver, plan: list[PlanStep]) -> None:
     (saver.out_root / "README.md").write_text("".join(lines), encoding="utf-8")
 
 
+class PauseController:
+    """スペースキーで plan 実行を一時停止 / 再開するためのコントローラ。
+
+    full_32 × repeats=30 のような長時間計測 (数十分) では、装置から離れ
+    たいタイミングが出てくる。コンソールでスペースを押すと pause フラグ
+    が立ち、plan 実行ループはステップ境界 (RUN 完了後・次のサーボ動作前)
+    でこのフラグを確認して停止する。録音中の RUN を中断することは
+    しない — あくまで「計測と計測の合間」だけを保持する。
+
+    Windows では msvcrt でノンブロッキング 1 キー入力を読む。他プラット
+    フォームでは no-op にして、呼び出し側は条件分岐せず常に使えるよう
+    にしてある。
+    """
+
+    def __init__(self) -> None:
+        self._paused = threading.Event()
+        self._stop = threading.Event()
+        self._thread: Optional[threading.Thread] = None
+        try:
+            import msvcrt  # type: ignore[import-not-found]
+            self._msvcrt = msvcrt
+        except ImportError:
+            self._msvcrt = None
+
+    def start(self) -> None:
+        if self._msvcrt is None:
+            print("pause: msvcrt unavailable on this platform — pause disabled")
+            return
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+        print("pause: SPACE = pause/resume between steps "
+              "(an in-progress RUN always finishes first)")
+
+    def _run(self) -> None:
+        m = self._msvcrt
+        if m is None:
+            return
+        while not self._stop.is_set():
+            if m.kbhit():
+                key = m.getch()
+                if key == b" ":
+                    if self._paused.is_set():
+                        self._paused.clear()
+                        print("\n>>> RESUME requested — continuing")
+                    else:
+                        self._paused.set()
+                        print("\n>>> PAUSE armed — will hold at next step boundary "
+                              "(SPACE again to resume)")
+            time.sleep(0.05)
+
+    def stop(self) -> None:
+        self._stop.set()
+
+    def wait_if_paused(self) -> None:
+        if not self._paused.is_set():
+            return
+        print(">>> PAUSED — press SPACE to resume")
+        while self._paused.is_set():
+            time.sleep(0.1)
+        print(">>> resumed")
+
+
 def run_plan(plan: list[PlanStep], ser: serial.Serial, reader: StreamReader,
-             saver: CaptureSaver, lib: PatternLibrary) -> None:
+             saver: CaptureSaver, lib: PatternLibrary,
+             pause: Optional[PauseController] = None) -> None:
     # Drop a top-level summary into the run dir before any servo activity
     # — keeps the label → door mapping available even if execution is
     # interrupted mid-plan.
@@ -570,6 +633,8 @@ def run_plan(plan: list[PlanStep], ser: serial.Serial, reader: StreamReader,
     print(f"plan: home={tracker.home_deg} open={tracker.open_deg}")
 
     for step in plan:
+        if pause is not None:
+            pause.wait_if_paused()
         print(f"\n=== step: label={step.label} repeats={step.repeats} "
               f"pattern={step.pattern} ===")
 
@@ -1037,6 +1102,8 @@ def main() -> int:
     reader = StreamReader(ser)
     reader.start()
 
+    pause = PauseController()
+
     # Resolve the run dir. The default appends a timestamped subdir to
     # --out so each invocation lands in its own folder — patterns or
     # calibration may have changed between runs and we don't want the
@@ -1120,10 +1187,12 @@ def main() -> int:
             return run_oneshot(ser, reader, commands)
         elif args.plan:
             plan = load_plan(args.plan)
-            run_plan(plan, ser, reader, saver, lib)
+            pause.start()
+            run_plan(plan, ser, reader, saver, lib, pause=pause)
         else:
             run_repl(ser, reader, saver, lib)
     finally:
+        pause.stop()
         reader.stop()
         saver.close()
         ser.close()

@@ -39,50 +39,77 @@ import torch.nn.functional as F
 N_CLASSES = 32
 
 
+# サイズ別プリセット (model_14cls.py の SIZE_PRESETS と同形式)。
+SIZE_PRESETS = {
+    "S":  {"channels": (16, 32, 64),  "extra_conv": False, "head": "gap",     "dropout": 0.3},
+    "M":  {"channels": (16, 32, 64),  "extra_conv": True,  "head": "gap",     "dropout": 0.3},
+    "L":  {"channels": (32, 64, 128), "extra_conv": False, "head": "gap",     "dropout": 0.3},
+    "XL": {"channels": (32, 64, 128), "extra_conv": False, "head": "flatten", "dropout": 0.4},
+}
+
+
 @dataclass
 class IchiPingV1_32clsConfig:
     in_channels: int = 1
-    embed_dim:   int = 64
     n_classes:   int = N_CLASSES
+    size:        str = "S"
 
 
 class IchiPingV1_32cls(nn.Module):
-    """Conv1D backbone + single 32-class softmax head."""
+    """Conv1D backbone + single 32-class softmax head with size variants。
+
+    model_14cls.py と同じ SIZE_PRESETS (S/M/L/XL) を持つ。head の出力次元だけ 32 に拡張。
+    """
 
     def __init__(self, cfg: IchiPingV1_32clsConfig | None = None) -> None:
         super().__init__()
         if cfg is None:
             cfg = IchiPingV1_32clsConfig()
         self.cfg = cfg
+        preset = SIZE_PRESETS[cfg.size]
+        c1, c2, c3 = preset["channels"]
 
-        # Backbone (same shape budget as IchiPingV1; ~13K params here too)
-        self.conv1 = nn.Conv1d(cfg.in_channels, 16, kernel_size=16, stride=4)
-        self.bn1   = nn.BatchNorm1d(16)
-        self.conv2 = nn.Conv1d(16, 32, kernel_size=8, stride=4)
-        self.bn2   = nn.BatchNorm1d(32)
-        self.conv3 = nn.Conv1d(32, 64, kernel_size=4, stride=2)
-        self.bn3   = nn.BatchNorm1d(64)
+        self.conv1 = nn.Conv1d(cfg.in_channels, c1, kernel_size=16, stride=4)
+        self.bn1   = nn.BatchNorm1d(c1)
+        self.conv2 = nn.Conv1d(c1, c2, kernel_size=8, stride=4)
+        self.bn2   = nn.BatchNorm1d(c2)
+        self.conv3 = nn.Conv1d(c2, c3, kernel_size=4, stride=2)
+        self.bn3   = nn.BatchNorm1d(c3)
 
-        # Classification head
-        self.dropout = nn.Dropout(0.3)
-        self.head = nn.Linear(cfg.embed_dim, cfg.n_classes)
+        if preset["extra_conv"]:
+            self.conv4 = nn.Conv1d(c3, c3, kernel_size=4, stride=2)
+            self.bn4   = nn.BatchNorm1d(c3)
+        else:
+            self.conv4 = None
+            self.bn4 = None
+
+        self.dropout = nn.Dropout(preset["dropout"])
+        self.head_type = preset["head"]
+        if self.head_type == "gap":
+            self.head = nn.Linear(c3, cfg.n_classes)
+        elif self.head_type == "flatten":
+            self.flatten_dim = c3 * 30
+            self.head = nn.Linear(self.flatten_dim, cfg.n_classes)
+        else:
+            raise ValueError(f"unknown head_type={self.head_type!r}")
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Returns logits of shape (batch, 32). Use F.cross_entropy for loss."""
         h = F.relu(self.bn1(self.conv1(x)))
         h = F.relu(self.bn2(self.conv2(h)))
         h = F.relu(self.bn3(self.conv3(h)))
-        h = h.mean(dim=-1)                  # global average pool over time
+        if self.conv4 is not None:
+            h = F.relu(self.bn4(self.conv4(h)))
+        if self.head_type == "gap":
+            h = h.mean(dim=-1)
+        else:
+            h = h.flatten(start_dim=1)
         h = self.dropout(h)
-        logits = self.head(h)
-        return logits
+        return self.head(h)
 
     def predict_bits(self, logits: torch.Tensor) -> torch.Tensor:
-        """Convert 32-class logits back to 5-bit state arrays.
-        Returns (batch, 5) long tensor matching the dataset convention."""
-        idx = logits.argmax(dim=-1)                              # (B,)
-        bits = torch.zeros(idx.shape[0], 5, dtype=torch.long,
-                            device=idx.device)
+        """logits → 5-bit (B, 5) long tensor。state_idx = sum(bit[i] * 2^i)。"""
+        idx = logits.argmax(dim=-1)
+        bits = torch.zeros(idx.shape[0], 5, dtype=torch.long, device=idx.device)
         for k in range(5):
             bits[:, k] = (idx >> k) & 1
         return bits

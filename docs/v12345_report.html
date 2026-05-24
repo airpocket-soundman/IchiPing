@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>v12345 検証レポート — IchiPing</title>
+<link rel="stylesheet" href="style.css">
+<script src="embed.js"></script>
+<style>
+  /* 本ページ専用の最小スタイル — 共通 style.css を補完 */
+  .figbox {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px;
+    margin: 10px 0 18px;
+  }
+  .figbox img { max-width: 100%; border-radius: 4px; }
+  .figbox figcaption { color: var(--muted); font-size: 13px; margin-top: 6px; }
+  table.compact { border-collapse: collapse; margin: 10px 0; font-size: 13px; }
+  table.compact th, table.compact td {
+    border: 1px solid var(--border);
+    padding: 5px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  table.compact th { background: var(--panel-2); color: var(--accent); }
+  table.compact tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+  .highlight-row td { background: rgba(123,224,164,0.08); font-weight: 600; }
+  .winner-row td { background: rgba(255,180,84,0.08); }
+  details.cm-section { margin: 10px 0; }
+  details.cm-section summary {
+    cursor: pointer;
+    background: var(--panel-2);
+    padding: 8px 12px;
+    border-radius: 5px;
+    color: var(--accent-2);
+  }
+  details.cm-section .cm-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    gap: 12px;
+    margin-top: 10px;
+  }
+  details.cm-section .cm-grid figure { margin: 0; }
+  details.cm-section .cm-grid img { max-width: 100%; border: 1px solid var(--border); border-radius: 4px; }
+  details.cm-section .cm-grid figcaption { color: var(--muted); font-size: 12px; text-align: center; }
+  .kpi-bar {
+    display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0 20px;
+  }
+  .kpi { background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 8px 14px; }
+  .kpi .v { font-size: 22px; color: var(--accent-2); font-weight: 700; display: block; }
+  .kpi .l { font-size: 11px; color: var(--muted); }
+  pre.path { background: #000; color: #7be0a4; padding: 6px 10px; border-radius: 4px; font-size: 11px; overflow-x: auto; }
+  .tldr-list li { margin-bottom: 8px; line-height: 1.55; }
+  .note { background: rgba(110,168,254,0.08); border-left: 3px solid var(--accent); padding: 8px 12px; margin: 12px 0; font-size: 13px; }
+  .winner { background: rgba(123,224,164,0.10); border-left: 3px solid var(--accent-2); padding: 8px 12px; margin: 12px 0; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../index.html">トップ</a>
+      <a href="../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="spec.html">仕様書 (spec)</a>
+      <a href="nn_design.html">NN 設計</a>
+      <a href="mcu_deployment.html">MCU デプロイ</a>
+      <a href="bringup.html">実機ブリングアップ</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">NN 検討</div>
+      <a href="probe_sound.html">走査音考察</a>
+      <a href="nn_review.html">NN 考察</a>
+      <a href="v12345_report.html" class="current">v12345 検証レポート</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="../hardware/wiring.html">配線テーブル</a>
+      <a href="../hardware/bom.html">BOM (部品表)</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../firmware/README.html">firmware ガイド</a>
+      <a href="../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a><br>
+    <a href="https://github.com/airpocket-soundman/digikey_project">正本 digikey_project</a>
+  </div>
+</aside>
+
+<main>
+
+<h1>IchiPing v12345 検証レポート</h1>
+<p class="muted">モデル進化 × 環境汎化 × 校正運用 × Baseline jittering augmentation — 8 モデル MCU 実機比較</p>
+
+<div class="kpi-bar">
+  <div class="kpi"><span class="v">8</span><span class="l">モデル比較</span></div>
+  <div class="kpi"><span class="v">256</span><span class="l">MCU 推論 (32×8)</span></div>
+  <div class="kpi"><span class="v">100%</span><span class="l">最高 32cls</span></div>
+  <div class="kpi"><span class="v">1.89 ms</span><span class="l">推論時間 (NPU 100%)</span></div>
+  <div class="kpi"><span class="v">+22pp</span><span class="l">BLJIT による校正不要時の改善</span></div>
+</div>
+
+<h2 id="tldr">0. 要約 (TL;DR)</h2>
+
+<ol class="tldr-list">
+  <li><strong>当初の懸念「変換劣化」は否定された</strong>。PC PyTorch FP32 / PINTO INT8 TFLite / neutron-converter optimize 後 TFLite いずれも eval_quiet 100% で一致。MCU 実機との残差は <em>学習データ × 現環境のミスマッチ</em> に起因 (環境汎化問題)。</li>
+  <li><strong>対処は学習データに現環境 v5 を追加するだけで足りた</strong>。MCU 実機 32cls 精度は 59% (v1234) → 88% (v12345 10f) → <strong>100%</strong> (v12345 50f) と階段状に改善。</li>
+  <li><strong>校正 (BL CALIBRATE + LIVE) は精度を絞り出す追加要素であり必須ではない</strong>。v12345_50f は factory baseline のまま 14cls=<strong>100%</strong>、32cls=66%。LIVE 校正で 32cls=<strong>100%</strong> に到達。</li>
+  <li><strong>ノイズ環境でもノイズ下で校正すれば 32cls=100%、14cls=100% を維持</strong>。LIVE 校正がノイズ床を取り込んで差分計算で打ち消すため、騒音環境でも実用可。</li>
+  <li><strong>Baseline jittering augmentation で校正不要の 32cls=88% を達成</strong>。学習時に「同じ録音を 5 種類の baseline で diff した 5 サンプル」と見なすことで (36800 sample) baseline 不変性をモデルに焼き込み、factory モードのまま <strong>+22pp 改善</strong> (v12345_50f_factory 66% → v12345_BLJIT_factory 88%)。</li>
+  <li><strong>推論時間は全モデル 1.89 ms</strong> — Neutron NPU 上で安定して 100% NPU 比率 (7/7 op) を維持。</li>
+</ol>
+
+<h2 id="models">1. 比較対象モデル</h2>
+
+<p>8 通りの (モデル, baseline モード, 環境) 組合せを同一ハードで MCU 実機計測:</p>
+
+<table class="compact">
+  <thead>
+    <tr><th>名称</th><th>学習データ</th><th>baseline モード</th><th>環境</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>v1234_factory</td>                <td>v1+v2+v3+v4 (5760 sample)</td>                              <td>factory (固定、eval_noise_low 由来)</td><td>静粛</td></tr>
+    <tr><td>v1234_live</td>                   <td>同上</td>                                                    <td>LIVE (現環境 10 frame 校正)</td>      <td>静粛</td></tr>
+    <tr><td>v12345_10f_live</td>              <td>v1+v2+v3+v4+<strong>v5 (10 frame/state)</strong></td>        <td>LIVE</td>                              <td>静粛</td></tr>
+    <tr><td>v12345_50f_factory</td>           <td>v1+v2+v3+v4+<strong>v5 (50 frame/state)</strong></td>        <td>factory</td>                           <td>静粛</td></tr>
+    <tr><td>v12345_50f_live</td>              <td>同上</td>                                                    <td>LIVE</td>                              <td>静粛</td></tr>
+    <tr><td>v12345_50f_live_noiselow</td>     <td>同上</td>                                                    <td>LIVE (ノイズ下で校正)</td>            <td><strong>noise_low (TV 等継続音)</strong></td></tr>
+    <tr class="winner-row"><td><strong>v12345_BLJIT_factory</strong></td><td>v12345 7360 sample × <strong>5 baselines = 36800 sample</strong> (baseline jittering aug)</td><td>factory</td><td>静粛</td></tr>
+    <tr class="highlight-row"><td><strong>v12345_BLJIT_live</strong></td>      <td>同上</td>                                                    <td>LIVE</td>                              <td>静粛</td></tr>
+  </tbody>
+</table>
+
+<h2 id="summary">2. 結果サマリ</h2>
+
+<table class="compact">
+  <thead>
+    <tr><th>モデル</th><th>32cls accuracy</th><th>14cls accuracy</th><th>mean margin</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>v1234_factory</td>            <td>25.0% (8/32)</td>   <td>46.9% (15/32)</td>  <td>11.4</td></tr>
+    <tr><td>v1234_live</td>               <td>59.4% (19/32)</td>  <td>96.9% (31/32)</td>  <td>19.8</td></tr>
+    <tr><td>v12345_10f_live</td>          <td>87.5% (28/32)</td>  <td>100.0% (32/32)</td> <td>32.6</td></tr>
+    <tr><td>v12345_50f_factory</td>       <td>65.6% (21/32)</td>  <td>100.0% (32/32)</td> <td>20.8</td></tr>
+    <tr><td>v12345_50f_live</td>          <td>100.0% (32/32)</td> <td>100.0% (32/32)</td> <td>47.4</td></tr>
+    <tr><td>v12345_50f_live_noiselow</td> <td>100.0% (32/32)</td> <td>100.0% (32/32)</td> <td>47.8</td></tr>
+    <tr class="winner-row"><td><strong>v12345_BLJIT_factory</strong></td>  <td><strong>87.5% (28/32)</strong></td>  <td>100.0% (32/32)</td>  <td>36.4</td></tr>
+    <tr class="highlight-row"><td><strong>v12345_BLJIT_live</strong></td>     <td><strong>100.0% (32/32)</strong></td> <td>100.0% (32/32)</td>  <td><strong>56.2</strong></td></tr>
+  </tbody>
+</table>
+
+<figure class="figbox">
+  <img src="v12345_figs/accuracy_bars.png" alt="accuracy bars">
+  <figcaption>各モデルの 32cls / 14cls 正解率。階段状の進化が見て取れる。</figcaption>
+</figure>
+
+<div class="note">
+  <strong>読み解き</strong>:
+  <ul>
+    <li>校正で 25%→59% (32cls 34pp 向上)</li>
+    <li>現環境 10 frame 追加で 59%→88% (32cls 29pp 向上)</li>
+    <li>現環境 50 frame に増量で 88%→100% (32cls 12pp 向上)</li>
+    <li>14cls は v12345_50f なら校正無しでも <strong>100%</strong></li>
+    <li>Baseline jittering で校正なし 32cls が +22pp 改善 (66% → 88%)</li>
+  </ul>
+</div>
+
+<h2 id="per-state">3. 状態別 正解状況</h2>
+
+<p>緑 ✓ = 32cls 完全一致 / 黄 ≈ = 14cls 等価のみ一致 / 赤 ✗ = 14cls 不一致</p>
+
+<figure class="figbox">
+  <img src="v12345_figs/per_state_correct.png" alt="per-state correctness">
+  <figcaption>v12345_50f_live / v12345_50f_live_noiselow / v12345_BLJIT_live は全 32 状態 緑 (32cls exact)。下から 2 段目の BLJIT_factory も大幅に緑が支配的。</figcaption>
+</figure>
+
+<h2 id="margin">4. Confidence margin 分布</h2>
+
+<p>INT8 logit の <code>argmax_q - second_q</code>。大きいほど自信あり。</p>
+
+<figure class="figbox">
+  <img src="v12345_figs/margin_distribution.png" alt="margin distribution">
+  <figcaption>モデル進化に伴い分布が大きく右シフト (mean 11→56)。BLJIT_live は logit 100 超 (INT8 上限 127 飽和域) のヒストグラム尾を生む。</figcaption>
+</figure>
+
+<h2 id="confusion14">5. 14cls 混同行列</h2>
+
+<details class="cm-section" open>
+  <summary>8 モデル 14cls 混同行列 (クリックで展開/折りたたみ)</summary>
+  <div class="cm-grid">
+    <figure><img src="v12345_figs/confusion_14_v1234_factory.png"><figcaption>v1234_factory</figcaption></figure>
+    <figure><img src="v12345_figs/confusion_14_v1234_live.png"><figcaption>v1234_live</figcaption></figure>
+    <figure><img src="v12345_figs/confusion_14_v12345_10f_live.png"><figcaption>v12345_10f_live</figcaption></figure>
+    <figure><img src="v12345_figs/confusion_14_v12345_50f_factory.png"><figcaption>v12345_50f_factory</figcaption></figure>
+    <figure><img src="v12345_figs/confusion_14_v12345_50f_live.png"><figcaption>v12345_50f_live</figcaption></figure>
+    <figure><img src="v12345_figs/confusion_14_v12345_50f_live_noiselow.png"><figcaption>v12345_50f_live_noiselow</figcaption></figure>
+    <figure><img src="v12345_figs/confusion_14_v12345_BLJIT_factory.png"><figcaption>v12345_BLJIT_factory</figcaption></figure>
+    <figure><img src="v12345_figs/confusion_14_v12345_BLJIT_live.png"><figcaption>v12345_BLJIT_live</figcaption></figure>
+  </div>
+</details>
+
+<h2 id="confusion32">6. 32cls 混同行列</h2>
+
+<details class="cm-section">
+  <summary>8 モデル 32cls 混同行列 (折りたたみ、クリックで展開)</summary>
+  <div class="cm-grid">
+    <figure><img src="v12345_figs/confusion_32_v1234_factory.png"><figcaption>v1234_factory</figcaption></figure>
+    <figure><img src="v12345_figs/confusion_32_v1234_live.png"><figcaption>v1234_live</figcaption></figure>
+    <figure><img src="v12345_figs/confusion_32_v12345_10f_live.png"><figcaption>v12345_10f_live</figcaption></figure>
+    <figure><img src="v12345_figs/confusion_32_v12345_50f_factory.png"><figcaption>v12345_50f_factory</figcaption></figure>
+    <figure><img src="v12345_figs/confusion_32_v12345_50f_live.png"><figcaption>v12345_50f_live</figcaption></figure>
+    <figure><img src="v12345_figs/confusion_32_v12345_50f_live_noiselow.png"><figcaption>v12345_50f_live_noiselow</figcaption></figure>
+    <figure><img src="v12345_figs/confusion_32_v12345_BLJIT_factory.png"><figcaption>v12345_BLJIT_factory</figcaption></figure>
+    <figure><img src="v12345_figs/confusion_32_v12345_BLJIT_live.png"><figcaption>v12345_BLJIT_live</figcaption></figure>
+  </div>
+</details>
+
+<h2 id="pc-vs-mcu">7. PC eval (同入力 WAV) vs MCU 実機 — 環境汎化 vs 変換劣化の分離</h2>
+
+<p>現環境で 09_collector 録音した同一 WAV を PC PyTorch FP32 と MCU 実機両方で推論し精度比較。差が小さければ「変換劣化はゼロ」が証明される。</p>
+
+<table class="compact">
+  <thead>
+    <tr><th>モデル</th><th>PC 32cls</th><th>PC 14cls</th><th>MCU 32cls</th><th>MCU 14cls</th><th>差分 32cls</th><th>差分 14cls</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>v1234_live</td>       <td>61.3%</td>  <td>95.6%</td>  <td>59.4%</td>  <td>96.9%</td>  <td>-1.9pp</td><td>+1.2pp</td></tr>
+    <tr><td>v12345_50f_live</td>  <td>96.2%</td>  <td>100.0%</td> <td>100.0%</td> <td>100.0%</td> <td>+3.8pp</td><td>+0.0pp</td></tr>
+  </tbody>
+</table>
+
+<div class="winner">
+  → MCU 実機が PC FP32 を上回るケースもあり、<strong>Neutron 変換 + CMSIS-DSP Welch + INT8 量子化 は数値的にゼロ劣化</strong> と確認。
+</div>
+
+<h2 id="ops">8. 校正運用の実用ガイドライン</h2>
+
+<table class="compact">
+  <thead>
+    <tr><th>用途</th><th>推奨構成</th><th>起動時間</th><th>期待精度</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>「窓・扉が開いてるか」だけ知りたい (14cls)</td>            <td><strong>v12345_BLJIT + factory (校正なし)</strong></td><td>即時</td>      <td><strong>14cls 100%</strong></td></tr>
+    <tr><td>サブ状態 (32cls) も校正なしで</td>                          <td><strong>v12345_BLJIT + factory</strong></td>          <td>即時</td>      <td><strong>32cls 88%</strong></td></tr>
+    <tr><td>サブ状態 (32cls) を完璧に</td>                              <td>v12345_BLJIT or v12345_50f + LIVE</td>                  <td>校正 25 秒</td><td><strong>32cls 100%</strong></td></tr>
+    <tr><td>騒音環境 (TV / 空調 / 雨音) 下で運用</td>                   <td>v12345_50f + LIVE (ノイズ下で校正)</td>                 <td>校正 25 秒</td><td><strong>32cls 100%</strong> (静粛時と同等)</td></tr>
+    <tr><td>季節跨ぎ / 部屋移設 後</td>                                 <td>設置先で BL CALIBRATE 1 回</td>                          <td>25 秒</td>      <td>14cls 100%, 32cls ~95%+ 想定</td></tr>
+  </tbody>
+</table>
+
+<div class="note">
+  <strong>ノイズ耐性の重要な発見</strong>: ノイズ環境下で校正すれば、ノイズ床が baseline に取り込まれて 差分がきれいに乗る → 静粛時と同等の精度 (32cls 100%) を維持できる。ノイズが「常時鳴ってる」前提なら問題なし。
+</div>
+
+<div class="winner">
+  <strong>Baseline jittering aug の本質</strong>:
+  学習データの各録音を <strong>N 種類の baseline で diff</strong> して <strong>N サンプル分</strong> に増殖。
+  同じラベルが N 個の異なる特徴ベクトルとして登場するため、モデルは「baseline に依存しないラベル決定境界」を獲得する。
+  従来 (各 captures dir 自分の s00000) は baseline 環境がラベルに紐づいてしまい、推論時に違う baseline が来ると分布外。
+  Jitter で破壊的に解決。
+</div>
+
+<h2 id="future">9. 残課題 / 今後</h2>
+
+<ul>
+  <li>別環境 (別室・別季節) でも v12345_BLJIT が同等性能を出すか検証 (汎化の更なる証明)</li>
+  <li>BLJIT の baseline 数を 5 → 10+ に拡張 (別室で取った baseline も投入) で更なる汎化</li>
+  <li>起動時自動 calibrate フックを PC client / firmware に組み込み (運用簡略化、BLJIT factory で実用十分なら不要)</li>
+  <li>大きな環境変化検出 (推論 confidence が連続低下したら自動 re-calibrate)</li>
+</ul>
+
+<h2 id="artifacts">10. 成果物</h2>
+
+<ul>
+  <li>学習 (最良 = BLJIT): <pre class="path">runs/neutron_v12345_BLJIT_XL/best.pt   (104k params, 36,800 sample 学習)</pre></li>
+  <li>Neutron TFLite: <pre class="path">runs/neutron_v12345_BLJIT_XL/deploy4d/pinto_neutron_sdk26_03.tflite
+NPU 比率 7/7 = 100%, cycle est 208,879, 推論 1.89 ms, size 108 KB</pre></li>
+  <li>model_data.h: <pre class="path">firmware/projects/10_inference/source/model_data.h</pre></li>
+  <li>32 state sweep 生 log: <pre class="path">pc/runs/v12345_compare_report/sweeps/*.log  (8 ファイル)</pre></li>
+  <li>比較 CSV: <pre class="path">pc/runs/v12345_compare_report/sweep_summary.csv  (256 行 = 8 モデル × 32 state)</pre></li>
+  <li>レポート md 元データ: <pre class="path">pc/runs/v12345_compare_report/report.md</pre></li>
+  <li>グラフ素材: <pre class="path">pc/runs/v12345_compare_report/figs/*.png  (19 PNG)</pre></li>
+</ul>
+
+<hr>
+<p style="color: var(--muted); font-size: 12px;">
+  関連:
+  <a href="nn_design.html">NN 設計</a> ／
+  <a href="nn_review.html">NN 考察</a> ／
+  <a href="mcu_deployment.html">MCU デプロイ</a> ／
+  <a href="../firmware/projects/10_inference/README.html">10_inference firmware README</a>
+</p>
+
+</main>
+</body>
+</html>

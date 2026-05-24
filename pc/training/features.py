@@ -1,24 +1,30 @@
-"""Feature extraction for IchiPing v1.
+"""IchiPing v1 の特徴量抽出。
 
-The MCU pipeline (§3 spec.html) emits a 2-second 16 kHz WAV per frame
-that contains a chirp + room impulse response. We turn that into a
-1024-bin log-magnitude spectrum that the 1D-CNN consumes:
+励振方式が 2 系統あるので入口を 2 つ持つ:
 
-    chirp segment        : first 0.3 s of the 2 s frame (4800 samples)
-    rir segment          : the remainder (27200 samples) — has the room info
-    deconvolved RIR      : matched filter (cross-correlation) with template chirp
-    spectrum             : 2048-pt rFFT on the first 128 ms of RIR → 1024 bins
-    log-magnitude        : 20·log10(|X| + eps) then global mean-subtract
+  chirp 系 (samples_to_features):
+    2 s WAV → chirp テンプレートと matched filter で RIR を取り出し →
+    128 ms 窓を 2048-pt rFFT → 1024 bin log-magnitude → mean-subtract
+    spec.html §3 の元設計。1 状態 1 ショットでも RIR が出る。
 
-The exact constants are kept in one place so the same code path is used
-both at train time and (eventually) on the device. The MCU version will
-use PowerQuad-FFT in place of numpy.fft.rfft.
+  noise 系 (samples_to_noise_features):
+    2 s WAV を Welch (2048-pt Hann, 50% overlap, ~30 セグメント) で
+    平均パワースペクトル化 → 1024 bin log-magnitude → mean-subtract。
+    full_32_train_v1 のような PRBS 白色雑音励振用。matched filter は
+    使えない (テンプレートが事前に未知の擬似ランダム系列なので相関で
+    強調できない) ため、時間方向にスタッキングして分散を抑える方が
+    まっとう。
+
+どちらも出力は 1024 次元 float32、平均 0 に正規化済み。同じ 1D-CNN
+backbone を共有できる。device 側 (MCXN947) は PowerQuad-FFT で
+rFFT を高速化する想定。
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 import numpy as np
+from scipy import signal as sps
 
 # Constants tied to the firmware defaults — keep these in sync if you
 # change firmware/projects/01_dummy_emitter/main.c or dummy_audio.c.
@@ -79,6 +85,73 @@ def rir_to_logmag_spectrum(rir: np.ndarray,
 
 def samples_to_features(samples: np.ndarray,
                         cfg: FeatureConfig = FeatureConfig()) -> np.ndarray:
-    """One-stop: WAV samples → 1024-bin log-magnitude feature vector."""
+    """chirp 励振用: WAV → matched filter → 1024-bin log-magnitude feature。"""
     rir = extract_rir(samples, cfg)
     return rir_to_logmag_spectrum(rir, cfg)
+
+
+# ---------------------------------------------------------------------------
+# noise 系 (Welch スペクトル)
+# ---------------------------------------------------------------------------
+
+# Welch 設定。2 s @ 16 kHz = 32000 サンプルに対して 2048-pt 窓・50% overlap で
+# 約 30 セグメント取れる。chirp 経路と同じく 1024 ビン出力に揃える。
+NOISE_NPERSEG = 2048
+NOISE_NOVERLAP = 1024
+
+
+def samples_to_logmag_psd(samples: np.ndarray,
+                          cfg: FeatureConfig = FeatureConfig()) -> np.ndarray:
+    """noise 励振用: WAV → Welch 平均パワー → 1024-bin **絶対** log-magnitude。
+
+    mean-subtract 等の正規化を一切しない生の dB PSD。
+    samples_to_noise_features (frame 内 mean-subtract 版) と
+    noise_diff 経路 (baseline 引き) の両方の共通前段として使う。
+    """
+    x = np.asarray(samples, dtype=np.float32)
+    f, pxx = sps.welch(
+        x,
+        fs=cfg.rate_hz,
+        window="hann",
+        nperseg=NOISE_NPERSEG,
+        noverlap=NOISE_NOVERLAP,
+        scaling="spectrum",
+        return_onesided=True,
+    )
+    # rFFT(2048) は 1025 ビンになるので、chirp 系と同じく DC を捨てて 1024 ビンに
+    mag2 = pxx[1:]
+    # 10·log10(power) は 20·log10(mag) と等価。eps でゼロ割回避。
+    eps = 1e-12
+    db = 10.0 * np.log10(mag2 + eps)
+    db = np.maximum(db, DB_FLOOR)
+    return db.astype(np.float32)
+
+
+def samples_to_noise_features(samples: np.ndarray,
+                              cfg: FeatureConfig = FeatureConfig()) -> np.ndarray:
+    """noise 励振用: WAV → Welch 平均パワー → 1024-bin log-magnitude feature。
+
+    入力 samples は WAV から読んだ float32 (整数も可、内部で同様に扱う)。
+    出力は chirp 経路と同じ shape (1024,)、平均 0 に正規化、フロア -80 dB。
+    Hann 窓 + 50% overlap で 30 セグメント平均するので、1 フレーム内での
+    フレーム内 σ は √30 倍程度抑制される。
+    """
+    db = samples_to_logmag_psd(samples, cfg)
+    db = db - db.mean()
+    return db.astype(np.float32)
+
+
+def samples_to_noise_diff_features(samples: np.ndarray,
+                                   baseline_db: np.ndarray,
+                                   cfg: FeatureConfig = FeatureConfig()) -> np.ndarray:
+    """noise_diff 経路: 生 log-mag から baseline を per-bin で引く。
+
+    baseline_db は同じ shape (1024,) の log-magnitude (mean-subtract しない生 dB)。
+    通常は同 captures_dir の s00000 全フレーム平均を使う。
+    結果は「ベース (全閉) からのスペクトル偏差 (dB)」になり、ゼロ近傍中心。
+    全体音量シフトが偏差から消えるので cross-run の SPK ドリフトに強い想定。
+    """
+    db = samples_to_logmag_psd(samples, cfg)
+    if baseline_db.shape != db.shape:
+        raise ValueError(f"baseline shape {baseline_db.shape} != feature shape {db.shape}")
+    return (db - baseline_db).astype(np.float32)

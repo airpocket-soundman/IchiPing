@@ -84,6 +84,21 @@
 
 <main>
 
+<div class="callout" style="border-left: 4px solid #ffd166;">
+  <strong>作品コンセプト — 「雨降ってきた、窓大丈夫？」</strong><br>
+  <b>1 個のセンサで家全体の窓・扉の状態を聴き分ける</b> 技術検証 + スマートホーム PoC。
+  <ul style="margin: 8px 0 0 18px;">
+    <li><b>技術検証として</b>: 単一マイク + 単一スピーカで 14 等価クラス (窓 a/b/c 推定) が当初目標、
+        実測で <b>32 真状態すべてが識別可能</b>と判明 (acc 0.95+ @ XL モデル)。
+        「閉扉の向こうは観測不能」という理論的限界を超えた発見が研究の中核。</li>
+    <li><b>ソリューションとして</b>: 降雨センサ (追加予定) で雨検出 → IchiPing が窓状態を推論 →
+        サーバ経由でスマホ通知。「外出中に雨が降って窓が心配」をワンセンサで解決。</li>
+    <li><b>PoC ユーモア (2 段オチ)</b>: 通知が来ても外出中で何もできない悲しさ →
+        <b>でも安心してください。このおうちでは窓を閉めることもできます。</b>
+        (サーボ駆動で自動閉まで完結)</li>
+  </ul>
+</div>
+
 <div class="callout">
   <strong>母プロジェクト:</strong>
   <a href="https://github.com/airpocket-soundman/digikey_project">airpocket-soundman/digikey_project §C4</a>

@@ -28,6 +28,10 @@ training = [
     "onnx>=1.15",
     "onnxruntime>=1.16",
     "tqdm>=4.66",
+    "onnxscript>=0.6",  # torch 2.11+ ONNX export 必須
+    # NXP eiq-onnx2tflite: ONNX → INT8 TFLite 変換 (MCXN947 Neutron 経由のデプロイ用)。
+    # Windows 専用、PyPI に無いので [tool.uv.sources] で NXP repo に振り向け。
+    "eiq-onnx2tflite>=0.10; sys_platform == 'win32'",
 ]
 
 # Test dependencies (pytest replacement for `python -m unittest`,
@@ -50,6 +54,26 @@ ichiping-inference-monitor = "inference_client:main"
 package = false
 # This project is a workspace root — no src/ layout, scripts live next to
 # pyproject.toml. uv treats it as a flat collection of modules.
+
+# RTX 5060 Ti (Blackwell, sm_120) では CUDA 12.8 ビルドの PyTorch が必要。
+# Linux/macOS では CPU 版で良いので、Windows のみ cu128 index に固定する。
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cu128", marker = "sys_platform == 'win32'" },
+]
+eiq-onnx2tflite = [
+    { index = "nxp-eiq", marker = "sys_platform == 'win32'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[[tool.uv.index]]
+name = "nxp-eiq"
+url = "https://eiq.nxp.com/repository/"
+explicit = true
 
 [build-system]
 # Stub to satisfy PEP 517. uv does not require a real build backend for

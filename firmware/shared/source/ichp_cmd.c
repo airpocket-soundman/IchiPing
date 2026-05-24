@@ -454,6 +454,51 @@ bool ichp_cmd_parse(char *line, ichp_cmd_t *out, const char **err_token,
         return true;
     }
 
+    /* ---- INFER verb (10_inference) ---- */
+    if (strcmp(verb, "INFER") == 0) {
+        char *sub = next_token(&p);
+        if (!sub) {
+            out->kind = ICHP_CMD_INFER;
+            return true;
+        }
+        for (char *q = sub; *q; q++) *q = (char)toupper((unsigned char)*q);
+        if (strcmp(sub, "STREAM") == 0) {
+            char *v = next_token(&p);
+            if (!v) { if (err_token) *err_token = "BAD_ARGS"; if (err_arg) *err_arg = "INFER STREAM"; return false; }
+            int32_t n = (int32_t)strtol(v, NULL, 10);
+            if (n < 1 || n > 10000) { if (err_token) *err_token = "OUT_OF_RANGE"; if (err_arg) *err_arg = v; return false; }
+            out->kind    = ICHP_CMD_INFER_STREAM;
+            out->infer_n = n;
+            return true;
+        }
+        if (err_token) *err_token = "BAD_ARGS";
+        if (err_arg)   *err_arg   = sub;
+        return false;
+    }
+
+    /* ---- BL verb (10_inference: baseline 管理) ---- */
+    if (strcmp(verb, "BL") == 0) {
+        char *sub = next_token(&p);
+        if (!sub) { if (err_token) *err_token = "BAD_ARGS"; if (err_arg) *err_arg = "BL"; return false; }
+        for (char *q = sub; *q; q++) *q = (char)toupper((unsigned char)*q);
+
+        if (strcmp(sub, "STATUS")    == 0) { out->kind = ICHP_CMD_BL_STATUS;    return true; }
+        if (strcmp(sub, "FACTORY")   == 0) { out->kind = ICHP_CMD_BL_FACTORY;   return true; }
+        if (strcmp(sub, "LIVE")      == 0) { out->kind = ICHP_CMD_BL_LIVE;      return true; }
+        if (strcmp(sub, "CLEAR")     == 0) { out->kind = ICHP_CMD_BL_CLEAR;     return true; }
+        if (strcmp(sub, "CALIBRATE") == 0) {
+            char *v = next_token(&p);
+            int32_t n = v ? (int32_t)strtol(v, NULL, 10) : 10;
+            if (n < 1 || n > 200) { if (err_token) *err_token = "OUT_OF_RANGE"; if (err_arg) *err_arg = v ? v : "CALIBRATE"; return false; }
+            out->kind    = ICHP_CMD_BL_CALIBRATE;
+            out->infer_n = n;
+            return true;
+        }
+        if (err_token) *err_token = "BAD_ARGS";
+        if (err_arg)   *err_arg   = sub;
+        return false;
+    }
+
     if (err_token) *err_token = "BAD_VERB";
     if (err_arg)   *err_arg   = verb;
     return false;

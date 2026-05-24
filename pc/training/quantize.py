@@ -74,38 +74,69 @@ def _collect_calibration(captures: List[Path], n_samples: int = 200) -> np.ndarr
 
 def _quantize_eiq(onnx_path: Path, out_path: Path, captures: List[Path],
                   n_calib: int = 200, per_channel: bool = True) -> None:
-    """Call eiq-onnx2tflite to produce an INT8 TFLite suitable for Neutron."""
-    if shutil.which("eiq-onnx2tflite") is None:
+    """NXP eiq-onnx2tflite で ONNX FP32 → INT8 TFLite (Neutron 変換準備済)。
+
+    2 段フロー:
+      1. onnx2quant  : ONNX FP32 → ONNX QDQ (INT8 量子化、calibration 必要)
+      2. onnx2tflite : ONNX QDQ → TFLite (QDQ-aware で量子化情報温存)
+    """
+    quant_cli   = shutil.which("onnx2quant")
+    tflite_cli  = shutil.which("onnx2tflite")
+    if quant_cli is None or tflite_cli is None:
         raise RuntimeError(
-            "eiq-onnx2tflite not in PATH. Install via:\n"
-            "  pip install --index-url https://eiq.nxp.com/repository/ eiq-onnx2tflite\n"
-            "or use --backend onnxruntime for the fallback path."
+            "onnx2quant / onnx2tflite が PATH に見つからない。\n"
+            "  uv sync --extra training で eiq-onnx2tflite を入れ直す\n"
+            "or use --backend onnxruntime for the PC fallback path."
         )
 
-    # Dump calibration npz that eiq-onnx2tflite will read.
+    # --- Step 1: calibration data 準備 ---
+    # onnx2quant は <input_name>;<dir of .npy files> を期待するので、
+    # 個別 npy として書き出すディレクトリを作る。
     calib_data = _collect_calibration(captures, n_calib)
-    calib_npz = out_path.with_suffix(".calib.npz")
-    np.savez_compressed(calib_npz, spectrum=calib_data)
-    print(f"  calibration data: {calib_data.shape} → {calib_npz}")
+    calib_dir = out_path.parent / (out_path.stem + "_calib_npy")
+    calib_dir.mkdir(parents=True, exist_ok=True)
+    # 既存の npy を念のため掃除
+    for old in calib_dir.glob("*.npy"):
+        old.unlink()
+    for i, arr in enumerate(calib_data):
+        # arr shape は (1, 1024)。model 入力は (1, 1, 1024) なので batch 次元追加。
+        np.save(calib_dir / f"calib_{i:04d}.npy", arr[None, :, :])
+    print(f"  calibration: {calib_data.shape[0]} npy files in {calib_dir}")
 
-    cmd = [
-        "eiq-onnx2tflite",
-        "--cast-int64-to-int32",
-        "--symbolic-dimension-into-static",
-        "--calibration-input", str(calib_npz),
-        str(onnx_path),
-        str(out_path),
-    ]
+    # ONNX の入力テンソル名を抽出 (onnx2quant の --calibration-dataset-mapping に必要)
+    import onnx
+    m = onnx.load(str(onnx_path))
+    input_name = m.graph.input[0].name
+    print(f"  ONNX input name: {input_name}")
+
+    # --- Step 2: ONNX FP32 → ONNX QDQ (量子化) ---
+    qdq_path = out_path.with_suffix(".qdq.onnx")
+    # -c は nargs="+" なので位置引数 onnx_model を吸ってしまう。
+    # 順序: [flag args without nargs+] [positional onnx_model] [flag args with nargs+ at the end]
+    cmd_quant = [quant_cli,
+                 "-o", str(qdq_path)]
     if per_channel:
-        cmd.insert(1, "--per-channel")
-    print(f"  running: {' '.join(cmd)}")
-    subprocess.run(cmd, check=True)
-    print(f"  wrote {out_path}")
+        cmd_quant.append("--per-channel")
+    cmd_quant += [str(onnx_path),
+                  "-c", f"{input_name};{calib_dir}"]
+    print(f"  step 1 (onnx2quant): {' '.join(str(c) for c in cmd_quant)}")
+    subprocess.run(cmd_quant, check=True)
+    print(f"  -> {qdq_path} ({qdq_path.stat().st_size / 1024:.1f} KB)")
+
+    # --- Step 3: ONNX QDQ → TFLite ---
+    cmd_tflite = [tflite_cli,
+                  "--qdq-aware-conversion",
+                  "--cast-int64-to-int32",
+                  "-o", str(out_path),
+                  str(qdq_path)]
+    print(f"  step 2 (onnx2tflite): {' '.join(str(c) for c in cmd_tflite)}")
+    subprocess.run(cmd_tflite, check=True)
+    print(f"  -> {out_path} ({out_path.stat().st_size / 1024:.1f} KB)")
     print()
     print("Next steps (manual, on Windows):")
     print("  1. Open eIQ Toolkit CLI environment")
     print(f"  2. eiq-converter --plugin eiq-converter-neutron \\")
-    print(f'                   --custom-options "target mcxn94x" \\')
+    print(f'                   --custom-options \"target mcxn94x\" \\')
     print(f"                   {out_path.name} {out_path.stem}_neutron.tflite")
     print("  3. xxd -i <neutron.tflite> > model_data.h  (for firmware include)")
 

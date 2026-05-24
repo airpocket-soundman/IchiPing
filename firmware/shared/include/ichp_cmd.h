@@ -82,6 +82,22 @@
  *   EQ GET                            -> 8 x OK EQ stage=<n> b0=... b1=... b2=... a1=... a2=...
  *   EQ STATE                          -> OK EQ state=<ENABLED|DISABLED> stages=8
  *
+ *   --- 10_inference 専用 ---
+ *   INFER                             -> RESULT seq=<n> state=sABCDE state_idx=<0..31>
+ *                                                  cls14=<A1..C8> baseline=<factory|live>
+ *                                                  argmax_q=<int8> infer_ms=<n> cap_ms=<n>
+ *                                                  doors=<a=0/1 b=... AB=... BC=...>
+ *   INFER STREAM <N>                  -> N x RESULT lines, then OK INFER done
+ *   STOP                              -> abort active INFER STREAM
+ *
+ *   BL STATUS                         -> OK BL mode=<factory|live> calibrated=<0|1>
+ *                                                cal_frames=<n> scale=... offset=...
+ *   BL FACTORY                        -> OK BL mode=factory
+ *   BL LIVE                           -> OK BL mode=live           (ERR if not calibrated)
+ *   BL CALIBRATE [N]                  -> capture N frames (default 10) -> live baseline
+ *                                        OK BL calibrated frames=<n> scale=... offset=...
+ *   BL CLEAR                          -> OK BL cleared (mode reverts to factory)
+ *
  * Errors
  * ------
  *   ERR BAD_VERB <token>
@@ -163,6 +179,22 @@ typedef enum {
     ICHP_CMD_EQ_SET,
     ICHP_CMD_EQ_GET,
     ICHP_CMD_EQ_STATE,
+    /* 10_inference 専用: 推論実行と baseline 管理。
+     *   INFER                  : 1 回推論 → RESULT line
+     *   INFER STREAM <N>       : N 回連続推論 (途中で STOP 可)
+     *   BL STATUS              : 現在 baseline モード (factory/live) 表示
+     *   BL FACTORY             : factory_baseline.h に切替
+     *   BL LIVE                : RAM 上 live baseline に切替 (要 CALIBRATE 済)
+     *   BL CALIBRATE [N]       : 静粛時 N frame (default 10) 録音して live baseline 算出
+     *   BL CLEAR               : live baseline 破棄 (factory に戻す)
+     */
+    ICHP_CMD_INFER,
+    ICHP_CMD_INFER_STREAM,
+    ICHP_CMD_BL_STATUS,
+    ICHP_CMD_BL_FACTORY,
+    ICHP_CMD_BL_LIVE,
+    ICHP_CMD_BL_CALIBRATE,
+    ICHP_CMD_BL_CLEAR,
 } ichp_cmd_kind_t;
 
 #define ICHP_PAT_NAME_LEN  32u
@@ -193,6 +225,9 @@ typedef struct {
      *   EQ_SET : eq_stage = 0..7, eq_b0..eq_a2 = float coefficients */
     uint8_t  eq_stage;
     float    eq_b0, eq_b1, eq_b2, eq_a1, eq_a2;
+    /* INFER STREAM / BL CALIBRATE が共有する繰り返し回数 (1..10000)。
+     * INFER STREAM では推論回数、BL CALIBRATE では平均する frame 数。 */
+    int32_t  infer_n;
 } ichp_cmd_t;
 
 /* Parse one line. `line` is NUL-terminated, in/out. Returns true on a

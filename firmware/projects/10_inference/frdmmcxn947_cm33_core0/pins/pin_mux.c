@@ -3,14 +3,31 @@
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
- * Pin routing for 10_inference — the autonomous inference demo. Same as
- * 09_collector minus the servo I²C bus (no PCA9685 needed):
+ * Pin routing for 09_collector — the data-collection station that fuses
+ * 02_servo_test (PCA9685 over LPI2C2), 03_ili9341_test (LPSPI1 + 4 GPIOs
+ * for the TFT) and 08_mic_speaker_test (SAI1 full-duplex), all on the
+ * same FRDM-MCXN947 board with the OpenSDA debug UART on FC4.
  *
- *   D11/D12/D13 = LPSPI1 (FC1) → ILI9341 TFT
- *   A2/A3/A4/A5 = GPIO          → ILI CS/RESET/DC/BL
- *   J1.1/.11/.5/.15 = SAI1      → INMP441 + MAX98357A
- *   PIO1_8/9 = LP_FLEXCOMM4     → OpenSDA debug UART
- *   PIO0_6   = GPIO0 in         → SW3 (start/stop gate)
+ * Pin map (Arduino header → P-port → peripheral):
+ *
+ *   D11 (J2.8)   = P0_24  → LPSPI1 SDO  (Alt2)   ILI9341 SDI
+ *   D12 (J2.10)  = P0_26  → LPSPI1 SDI  (Alt2)   ILI9341 SDO (n/c)
+ *   D13 (J2.12)  = P0_25  → LPSPI1 SCK  (Alt2)
+ *   A2  (J4.6)   = P0_14  → GPIO out                ILI CS
+ *   A3  (J4.8)   = P0_22  → GPIO out                ILI RESET
+ *   A4  (J4.10)  = P0_15  → GPIO out                ILI DC   (SJ8 default 1-2)
+ *   A5  (J4.12)  = P0_23  → GPIO out                ILI BL   (SJ9 default 1-2)
+ *   D18 (J2.18)  = P4_0   → LP_FLEXCOMM2 P0 (SDA) Alt2   PCA9685 SDA
+ *   D19 (J2.20)  = P4_1   → LP_FLEXCOMM2 P1 (SCL) Alt2   PCA9685 SCL
+ *   J1.1         = P3_16  → SAI1_TX_BCLK Alt10          INMP441 SCK + MAX98357A BCLK
+ *   J1.11        = P3_17  → SAI1_TX_FS   Alt10          INMP441 WS  + MAX98357A LRC
+ *   J1.5         = P3_20  → SAI1_TXD0    Alt10          MAX98357A DIN
+ *   J1.15        = P3_21  → SAI1_RXD0    Alt10          INMP441 SD
+ *   on-board SW3 = P0_6   → GPIO in Alt0
+ *
+ * The TFT is optional — if not wired, the LPSPI1 init in main.c will
+ * still succeed (no slave attached, ILI9341 init may return error which
+ * main.c tolerates). The collector continues headless in that case.
  */
 
 #include "fsl_common.h"
@@ -21,6 +38,7 @@ void BOARD_InitBootPins(void)
 {
     BOARD_InitPins();
     SAI1_InitPins();
+    LPI2C2_InitPins();
     LPSPI1_InitPins();
     ILI9341_GPIO_InitPins();
     SW3_InitPins();
@@ -47,14 +65,31 @@ void SAI1_InitPins(void)
         kPORT_MuxAlt10,
         kPORT_InputBufferEnable, kPORT_InputNormal, kPORT_UnlockRegister,
     };
-    PORT_SetPinConfig(PORT3, 16U, &sai_cfg);   /* TX_BCLK */
-    PORT_SetPinConfig(PORT3, 17U, &sai_cfg);   /* TX_FS   */
-    PORT_SetPinConfig(PORT3, 20U, &sai_cfg);   /* TXD0    */
-    PORT_SetPinConfig(PORT3, 21U, &sai_cfg);   /* RXD0    */
+    PORT_SetPinConfig(PORT3, 16U, &sai_cfg);   /* TX_BCLK shared TX/RX */
+    PORT_SetPinConfig(PORT3, 17U, &sai_cfg);   /* TX_FS   shared TX/RX */
+    PORT_SetPinConfig(PORT3, 20U, &sai_cfg);   /* TXD0 → MAX98357A     */
+    PORT_SetPinConfig(PORT3, 21U, &sai_cfg);   /* RXD0 ← INMP441       */
+}
+
+void LPI2C2_InitPins(void)
+{
+    /* FC2 on Arduino D18/D19. Internal pull-ups sufficient for one slave
+     * (PCA9685) at 100 kHz — same as 02_servo_test. */
+    CLOCK_EnableClock(kCLOCK_Port4);
+    const port_pin_config_t i2c_cfg = {
+        kPORT_PullUp, kPORT_LowPullResistor, kPORT_FastSlewRate,
+        kPORT_PassiveFilterDisable, kPORT_OpenDrainDisable, kPORT_LowDriveStrength,
+        kPORT_MuxAlt2,
+        kPORT_InputBufferEnable, kPORT_InputNormal, kPORT_UnlockRegister,
+    };
+    PORT_SetPinConfig(PORT4, 0U, &i2c_cfg);    /* SDA = ARD_D18 */
+    PORT_SetPinConfig(PORT4, 1U, &i2c_cfg);    /* SCL = ARD_D19 */
 }
 
 void LPSPI1_InitPins(void)
 {
+    /* FC1 on Arduino D11/D12/D13. ILI9341 is write-only so D12 (SDI) is
+     * muxed but unused. Same as 03_ili9341_test. */
     CLOCK_EnableClock(kCLOCK_Port0);
     const port_pin_config_t spi_cfg = {
         kPORT_PullUp, kPORT_LowPullResistor, kPORT_SlowSlewRate,
@@ -62,13 +97,16 @@ void LPSPI1_InitPins(void)
         kPORT_MuxAlt2,
         kPORT_InputBufferEnable, kPORT_InputNormal, kPORT_UnlockRegister,
     };
-    PORT_SetPinConfig(PORT0, 24U, &spi_cfg);
-    PORT_SetPinConfig(PORT0, 25U, &spi_cfg);
-    PORT_SetPinConfig(PORT0, 26U, &spi_cfg);
+    PORT_SetPinConfig(PORT0, 24U, &spi_cfg);   /* SDO (D11) */
+    PORT_SetPinConfig(PORT0, 25U, &spi_cfg);   /* SCK (D13) */
+    PORT_SetPinConfig(PORT0, 26U, &spi_cfg);   /* SDI (D12) unused */
 }
 
 void ILI9341_GPIO_InitPins(void)
 {
+    /* A2..A5 → CS / RESET / DC / BL. All on PORT0 (shared with SPI pins
+     * — single clock enable above is sufficient, but call this again for
+     * clarity and to keep the function self-contained). */
     CLOCK_EnableClock(kCLOCK_Port0);
     const port_pin_config_t gpio_out_cfg = {
         kPORT_PullDisable, kPORT_LowPullResistor, kPORT_FastSlewRate,
@@ -76,10 +114,10 @@ void ILI9341_GPIO_InitPins(void)
         kPORT_MuxAlt0,
         kPORT_InputBufferEnable, kPORT_InputNormal, kPORT_UnlockRegister,
     };
-    PORT_SetPinConfig(PORT0, 14U, &gpio_out_cfg);  /* CS    */
-    PORT_SetPinConfig(PORT0, 22U, &gpio_out_cfg);  /* RESET */
-    PORT_SetPinConfig(PORT0, 15U, &gpio_out_cfg);  /* DC    */
-    PORT_SetPinConfig(PORT0, 23U, &gpio_out_cfg);  /* BL    */
+    PORT_SetPinConfig(PORT0, 14U, &gpio_out_cfg);  /* A2 → CS    */
+    PORT_SetPinConfig(PORT0, 22U, &gpio_out_cfg);  /* A3 → RESET */
+    PORT_SetPinConfig(PORT0, 15U, &gpio_out_cfg);  /* A4 → DC    */
+    PORT_SetPinConfig(PORT0, 23U, &gpio_out_cfg);  /* A5 → BL    */
 }
 
 void SW3_InitPins(void)
