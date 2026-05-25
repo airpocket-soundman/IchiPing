@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 720" role="img"
+     aria-label="IchiPing v1 PC 研究モデル — Conv1D + GAP + Linear (model_32cls.py, 変換前)">
+  <title>IchiPing v1 PC 研究 — Conv1D + GAP + Linear (model_32cls.py, S〜XL プリセット)</title>
+  <defs>
+    <marker id="arrPc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#6ea8fe"/>
+    </marker>
+    <linearGradient id="boxGrPc" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1f242d"/>
+      <stop offset="100%" stop-color="#181b22"/>
+    </linearGradient>
+    <linearGradient id="cpuBadge" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ffb454"/>
+      <stop offset="100%" stop-color="#e89a3d"/>
+    </linearGradient>
+    <linearGradient id="npuBadgePc" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#7be0a4"/>
+      <stop offset="100%" stop-color="#5fc88a"/>
+    </linearGradient>
+  </defs>
+  <style>
+    .box-in    { fill: url(#boxGrPc); stroke: #7be0a4; stroke-width: 1.6; }
+    .box-conv  { fill: url(#boxGrPc); stroke: #6ea8fe; stroke-width: 1.6; }
+    .box-pool  { fill: url(#boxGrPc); stroke: #ffb454; stroke-width: 1.6; }
+    .box-head  { fill: url(#boxGrPc); stroke: #c678dd; stroke-width: 1.8; }
+    .box-out   { fill: url(#boxGrPc); stroke: #7be0a4; stroke-width: 1.2; }
+    .box-cfg   { fill: url(#boxGrPc); stroke: #ff7ab6; stroke-width: 1.4; }
+    .ttl       { fill: #e5e9f0; font-family: 'Hiragino Sans','Yu Gothic UI',sans-serif; font-size: 13px; font-weight: 700; }
+    .ttl-s     { fill: #e5e9f0; font-family: 'Hiragino Sans','Yu Gothic UI',sans-serif; font-size: 11.5px; font-weight: 600; }
+    .sub       { fill: #8b95a7; font-family: 'JetBrains Mono',Consolas,monospace; font-size: 11px; }
+    .sub-s     { fill: #8b95a7; font-family: 'JetBrains Mono',Consolas,monospace; font-size: 10px; }
+    .arrow     { stroke: #6ea8fe; stroke-width: 1.8; fill: none; }
+    .legend-t  { fill: #e5e9f0; font-family: 'Hiragino Sans','Yu Gothic UI',sans-serif; font-size: 11px; }
+    .shape     { fill: #e5c07b; font-family: 'JetBrains Mono',Consolas,monospace; font-size: 10.5px; font-weight: 600; }
+    .cpu-pill  { fill: url(#cpuBadge); }
+    .cpu-t     { fill: #0f1115; font-family: 'JetBrains Mono',Consolas,monospace; font-size: 9.5px; font-weight: 700; }
+    .npu-pill  { fill: url(#npuBadgePc); }
+    .npu-t     { fill: #0f1115; font-family: 'JetBrains Mono',Consolas,monospace; font-size: 9.5px; font-weight: 700; }
+    .params    { fill: #6ea8fe; font-family: 'JetBrains Mono',Consolas,monospace; font-size: 10px; }
+  </style>
+
+  <text x="550" y="22" text-anchor="middle" class="ttl" style="font-size:15px">
+    IchiPing v1 PC 研究モデル — Conv1D + GAP + Linear（変換前、model_32cls.py）
+  </text>
+  <text x="550" y="40" text-anchor="middle" class="sub-s">
+    PC FP32 上で構造探索・精度上限確認のために使用。Neutron Converter では NPU 比率 ~30% に留まるため MCU デプロイには向かない。
+  </text>
+
+  <!-- Input -->
+  <rect class="box-in" x="430" y="55" width="240" height="50" rx="8"/>
+  <text x="550" y="77" text-anchor="middle" class="ttl">log-mag spectrum</text>
+  <text x="550" y="94" text-anchor="middle" class="sub">入力 (B, 1, 1024) float32</text>
+
+  <line class="arrow" x1="550" y1="108" x2="550" y2="130" marker-end="url(#arrPc)"/>
+
+  <!-- Conv1 -->
+  <rect class="box-conv" x="380" y="135" width="340" height="48" rx="8"/>
+  <text x="550" y="155" text-anchor="middle" class="ttl">Conv1D 16〜32ch  kernel=16  stride=4</text>
+  <text x="550" y="173" text-anchor="middle" class="sub">+ BN1 + ReLU</text>
+  <text x="940" y="161" text-anchor="end" class="shape">→ (B, c1, 253)</text>
+  <rect class="npu-pill" x="780" y="145" width="44" height="14" rx="3"/>
+  <text x="802" y="156" text-anchor="middle" class="npu-t">NPU</text>
+
+  <line class="arrow" x1="550" y1="185" x2="550" y2="207" marker-end="url(#arrPc)"/>
+
+  <!-- Conv2 -->
+  <rect class="box-conv" x="380" y="210" width="340" height="48" rx="8"/>
+  <text x="550" y="230" text-anchor="middle" class="ttl">Conv1D 32〜64ch  kernel=8  stride=4</text>
+  <text x="550" y="248" text-anchor="middle" class="sub">+ BN2 + ReLU</text>
+  <text x="940" y="236" text-anchor="end" class="shape">→ (B, c2, 62)</text>
+  <rect class="npu-pill" x="780" y="220" width="44" height="14" rx="3"/>
+  <text x="802" y="231" text-anchor="middle" class="npu-t">NPU</text>
+
+  <line class="arrow" x1="550" y1="260" x2="550" y2="282" marker-end="url(#arrPc)"/>
+
+  <!-- Conv3 -->
+  <rect class="box-conv" x="380" y="285" width="340" height="48" rx="8"/>
+  <text x="550" y="305" text-anchor="middle" class="ttl">Conv1D 64〜128ch  kernel=4  stride=2</text>
+  <text x="550" y="323" text-anchor="middle" class="sub">+ BN3 + ReLU</text>
+  <text x="940" y="311" text-anchor="end" class="shape">→ (B, c3, 30)</text>
+  <rect class="npu-pill" x="780" y="295" width="44" height="14" rx="3"/>
+  <text x="802" y="306" text-anchor="middle" class="npu-t">NPU</text>
+
+  <line class="arrow" x1="550" y1="335" x2="550" y2="357" marker-end="url(#arrPc)"/>
+
+  <!-- Conv4 (optional, M only) -->
+  <rect class="box-conv" x="380" y="360" width="340" height="48" rx="8" stroke-dasharray="5 3" opacity="0.75"/>
+  <text x="550" y="380" text-anchor="middle" class="ttl">Conv1D c3ch  kernel=4  stride=2  [M プリセットのみ]</text>
+  <text x="550" y="398" text-anchor="middle" class="sub-s">extra_conv=True の時だけ存在</text>
+
+  <line class="arrow" x1="550" y1="410" x2="550" y2="432" marker-end="url(#arrPc)"/>
+
+  <!-- GAP or Flatten -->
+  <rect class="box-pool" x="380" y="435" width="340" height="46" rx="8"/>
+  <text x="550" y="454" text-anchor="middle" class="ttl">GlobalAvgPool (mean op) / Flatten</text>
+  <text x="550" y="471" text-anchor="middle" class="sub-s">head="gap" → mean(-1) / head="flatten" → c3×30 次元に展開</text>
+  <rect class="cpu-pill" x="780" y="445" width="44" height="14" rx="3"/>
+  <text x="802" y="456" text-anchor="middle" class="cpu-t">CPU</text>
+
+  <line class="arrow" x1="550" y1="483" x2="550" y2="505" marker-end="url(#arrPc)"/>
+
+  <!-- Dropout -->
+  <rect class="box-conv" x="440" y="508" width="220" height="32" rx="6" opacity="0.75"/>
+  <text x="550" y="528" text-anchor="middle" class="sub">Dropout p=0.3〜0.4 (preset 依存)</text>
+
+  <line class="arrow" x1="550" y1="542" x2="550" y2="562" marker-end="url(#arrPc)"/>
+
+  <!-- Linear head -->
+  <rect class="box-head" x="380" y="565" width="340" height="48" rx="8"/>
+  <text x="550" y="585" text-anchor="middle" class="ttl">Linear (FC) → 32 logits</text>
+  <text x="550" y="603" text-anchor="middle" class="sub">head="gap": Linear(c3, 32) / head="flatten": Linear(c3·30, 32)</text>
+  <rect class="cpu-pill" x="780" y="575" width="44" height="14" rx="3"/>
+  <text x="802" y="586" text-anchor="middle" class="cpu-t">CPU</text>
+
+  <line class="arrow" x1="550" y1="615" x2="550" y2="635" marker-end="url(#arrPc)"/>
+
+  <!-- 32 logits out -->
+  <rect class="box-out" x="380" y="638" width="340" height="42" rx="6"/>
+  <text x="550" y="658" text-anchor="middle" class="ttl-s">32 logits = 5-bit state (s00000..s11111)</text>
+  <text x="550" y="672" text-anchor="middle" class="sub-s">PC は FP32 で訓練、PC 推論で精度上限を確認するための研究用</text>
+
+  <!-- SIZE_PRESETS 表 -->
+  <rect class="box-cfg" x="20" y="135" width="340" height="280" rx="8" opacity="0.92"/>
+  <text x="190" y="157" text-anchor="middle" class="ttl-s">SIZE_PRESETS</text>
+  <text x="35" y="180" class="params">"S"  : channels=(16, 32, 64),  head=gap,</text>
+  <text x="35" y="194" class="params">       extra=False, dropout=0.3   (~14K)</text>
+  <text x="35" y="216" class="params">"M"  : channels=(16, 32, 64),  head=gap,</text>
+  <text x="35" y="230" class="params">       extra=True,  dropout=0.3   (~30K)</text>
+  <text x="35" y="252" class="params">"L"  : channels=(32, 64, 128), head=gap,</text>
+  <text x="35" y="266" class="params">       extra=False, dropout=0.3   (~50K)</text>
+  <text x="35" y="288" class="params">"XL" : channels=(32, 64, 128), head=flatten,</text>
+  <text x="35" y="302" class="params">       extra=False, dropout=0.4   (~130K)</text>
+  <text x="35" y="328" class="ttl-s">主な選択軸:</text>
+  <text x="35" y="346" class="sub-s">- channels 幅 ↑ → 表現力 ↑ / params ↑</text>
+  <text x="35" y="361" class="sub-s">- head=flatten → 空間 30 dim 全保持で表現力最大</text>
+  <text x="35" y="376" class="sub-s">- extra_conv → 中サイズの探索用</text>
+  <text x="35" y="394" class="sub-s">- nn_methods_compare.html は S を共通 baseline 採用</text>
+
+  <!-- なぜ MCU デプロイに向かないか -->
+  <rect class="box-head" x="740" y="435" width="340" height="245" rx="8" opacity="0.92"/>
+  <text x="910" y="457" text-anchor="middle" class="ttl-s">なぜ MCU デプロイに不向きか</text>
+  <text x="755" y="480" class="sub-s">1. Conv1D → TFLite で必ず Reshape 強制</text>
+  <text x="755" y="494" class="sub-s">   → Neutron op fusion が崩れる</text>
+  <text x="755" y="513" class="sub-s">2. GAP は Mean op → NPU 非対応</text>
+  <text x="755" y="527" class="sub-s">   → CPU フォールバック発生</text>
+  <text x="755" y="546" class="sub-s">3. Flatten + Linear (FC) → NPU 上で非効率</text>
+  <text x="755" y="560" class="sub-s">   → さらに CPU フォールバック</text>
+  <text x="755" y="585" class="ttl-s" style="font-size:12px">結果: Neutron で NPU 比率 ~30% に留まる</text>
+  <text x="755" y="601" class="sub-s">推論時間が長くなり、消費電力にも直撃。</text>
+  <text x="755" y="615" class="sub-s">→ §3.7.2 で Conv2D 化等の書き換えを実施。</text>
+  <text x="755" y="638" class="ttl-s" style="font-size:12px">本モデルの存在意義:</text>
+  <text x="755" y="654" class="sub-s">- PC FP32 で精度上限を確認</text>
+  <text x="755" y="668" class="sub-s">- head 設計の方向性を探索 (nn_methods_compare)</text>
+
+  <!-- Legend -->
+  <rect class="npu-pill" x="30" y="700" width="32" height="11" rx="3"/>
+  <text x="46" y="709" text-anchor="middle" class="npu-t">NPU</text>
+  <text x="72" y="710" class="legend-t">Neutron で NPU 化される op</text>
+
+  <rect class="cpu-pill" x="290" y="700" width="32" height="11" rx="3"/>
+  <text x="306" y="709" text-anchor="middle" class="cpu-t">CPU</text>
+  <text x="332" y="710" class="legend-t">CPU フォールバック</text>
+
+  <rect x="510" y="700" width="14" height="11" fill="url(#boxGrPc)" stroke="#ff7ab6" stroke-width="1.4"/>
+  <text x="530" y="710" class="legend-t">プリセット / 設計ノート</text>
+
+  <text x="1070" y="710" text-anchor="end" class="sub-s">
+    用途: PC 上での研究 / nn_methods_compare の共通 backbone
+  </text>
+</svg>

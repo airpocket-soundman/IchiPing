@@ -714,20 +714,79 @@ is_c_open = err_c &lt; θ_c
     このアーキへ落とし込むのが理想形</li>
 </ul>
 
-<h3 id="sec3-7">3.7 本番採用 — Neutron 互換 32-class Conv2D（v12345_BLJIT_XL）<span class="pill" style="background:#7be0a4;color:#0f1115;">採用</span></h3>
+<h3 id="sec3-7">3.7 本番採用 — 32-class softmax（PC 研究版 + Neutron 変換版の 2 モデル）<span class="pill" style="background:#7be0a4;color:#0f1115;">採用</span></h3>
 
 <div class="callout">
-  <strong>これが MCXN947 に実デプロイされている本番モデル</strong>
-  (<a href="../pc/training/model_32cls_neutron.py">model_32cls_neutron.py</a>)。
-  検証結果と運用ガイドラインは <a href="v12345_report.html">v12345 検証レポート</a>。
-  §3.1〜§3.6 は <b>検討段階の候補</b>、本節は <b>その結果として何が選ばれて何が動いているか</b>を記す。
+  <strong>本節は実際にコードベースにある 2 つの 32-class モデルを併記する</strong>:
+  <ul style="margin:6px 0 0 18px;">
+    <li><b>PC 研究版</b>:
+      <a href="../pc/training/model_32cls.py"><code>model_32cls.py</code></a>
+      — Conv1D + GAP + Linear。PC FP32 で精度上限と head 設計を探索するための「思考用」モデル。
+      これが <a href="nn_methods_compare.html">nn_methods_compare</a> の baseline でも使われる。</li>
+    <li><b>Neutron 変換版（本番）</b>:
+      <a href="../pc/training/model_32cls_neutron.py"><code>model_32cls_neutron.py</code></a>
+      — Conv2D + AvgPool2D + 1×1 Conv head。MCXN947 Neutron NPU 比率 100% を達成し、
+      <a href="v12345_report.html">v12345 検証</a> で実機にデプロイされた本番モデル。</li>
+  </ul>
+  両者は同じ 32-class 出力で <b>API 互換</b>。学習データ・データ拡張・損失関数は共通だが、
+  グラフ構造が NPU 向けに書き直されている点が違う。
 </div>
+
+<h4 id="sec3-7-pc">3.7.1 PC 研究版（変換前、model_32cls.py）</h4>
+
+<img src="img/nn_arch_pc_research.svg"
+     alt="PC 研究モデル: Conv1D ×3 (+optional ×4) + GAP/Flatten + Linear, SIZE_PRESETS S/M/L/XL"
+     style="width: 100%; max-width: 1000px; display: block; margin: 12px 0;">
+
+<p>
+  <code>IchiPingV1_32cls</code> は素直な Conv1D + GAP + Linear 構成。
+  サイズ可変の <code>SIZE_PRESETS</code> (S / M / L / XL) を持ち、PC FP32 上で
+  「どこまで精度が出るか」「どの head 設計が cross-day 汎化に強いか」を探索するために使う。
+</p>
+
+<table>
+  <thead><tr><th>層</th><th>op</th><th>S preset shape</th><th>XL preset shape</th></tr></thead>
+  <tbody>
+    <tr><td>入力</td><td>log-mag spectrum</td><td>(B, 1, 1024)</td><td>(B, 1, 1024)</td></tr>
+    <tr><td>conv1 + BN1 + ReLU</td><td>Conv1D k=16 s=4</td><td>(B, 16, 253)</td><td>(B, 32, 253)</td></tr>
+    <tr><td>conv2 + BN2 + ReLU</td><td>Conv1D k=8 s=4</td><td>(B, 32, 62)</td><td>(B, 64, 62)</td></tr>
+    <tr><td>conv3 + BN3 + ReLU</td><td>Conv1D k=4 s=2</td><td>(B, 64, 30)</td><td>(B, 128, 30)</td></tr>
+    <tr><td>conv4 (M のみ)</td><td>Conv1D k=4 s=2</td><td>—</td><td>—</td></tr>
+    <tr><td>aggregator</td><td>S/L: GAP / XL: Flatten</td><td>(B, 64) GAP</td><td>(B, 3840) flatten</td></tr>
+    <tr><td>dropout</td><td>p = 0.3 〜 0.4</td><td>—</td><td>—</td></tr>
+    <tr><td>head (FC)</td><td>Linear</td><td>Linear(64, 32) = 2,080</td><td>Linear(3840, 32) = 122,912</td></tr>
+    <tr><th>合計 params</th><th></th><th>~14 K</th><th>~130 K</th></tr>
+  </tbody>
+</table>
+
+<p>
+  <b>用途</b>:
+</p>
+<ul>
+  <li>PC FP32 上で精度上限を把握（INT8 化や NPU 制約の影響を切り離して評価）</li>
+  <li><a href="nn_methods_compare.html">nn_methods_compare</a> で head 設計 5 案を同条件比較する際の共通 backbone（S preset）</li>
+  <li>S preset (~14 K) のサイズは <a href="#sec3-1">§3.1 baseline</a> とほぼ同じ規模で、検討段階の議論ラインを引き継ぐ</li>
+</ul>
+
+<p>
+  <b>MCU デプロイに不向きな理由</b>:
+</p>
+<ul>
+  <li>Conv1D は TFLite で必ず Reshape を強制 → Neutron op fusion が崩れる</li>
+  <li>GAP (Mean op) は Neutron NPU 非対応 → CPU フォールバック発生</li>
+  <li>Flatten + Linear (FC) も NPU 上の効率が悪い</li>
+  <li>結果として <b>Neutron で NPU 比率 ~30% に留まる</b>（残り 70% は CPU フォールバック）</li>
+</ul>
+
+<p>
+  これらの解決のために構造を書き直したのが次節の Neutron 変換版。
+</p>
+
+<h4 id="sec3-7-neutron">3.7.2 Neutron 変換版（本番、model_32cls_neutron.py）</h4>
 
 <img src="img/nn_arch_neutron_actual.svg"
      alt="Neutron 互換アーキ: Conv2D ×4 + AvgPool2D + 1×1 Conv head, 全 op NPU 化, ~104K params"
      style="width: 100%; max-width: 1000px; display: block; margin: 12px 0;">
-
-<h4>3.7.1 構造</h4>
 
 <table>
   <thead><tr><th>層</th><th>op</th><th>shape</th><th>params</th><th>NPU</th></tr></thead>
@@ -750,35 +809,41 @@ is_c_open = err_c &lt; θ_c
   チャネル幅だけ変える設計（<code>SIZE_PRESETS</code>）。
 </p>
 
-<h4>3.7.2 §3.1 baseline からの設計変更点（なぜ Conv1D を捨てたか）</h4>
+<h4 id="sec3-7-diff">3.7.3 2 モデルの対応関係（PC 研究版 → Neutron 変換版）</h4>
 
 <p>
-  §3.1 baseline (S サイズ ~13.7K params) は Conv1D + GlobalAvgPool + Linear で組まれていたが、
-  Neutron Converter にかけると <b>NPU 比率が 30% にとどまる</b>ことが判明
-  （<a href="nn_train_extra_experiments.html">nn_train_extra_experiments §7-3d</a>）。残りは
-  CPU フォールバックで、推論時間と消費電力に直撃する。
-  本番モデルでは下記 6 点を変更して <b>NPU 比率 100% (7/7 op)</b> を実現した:
+  同じ「Conv backbone + GAP 的集約 + 分類器 → 32 logits」という構造を保ったまま、
+  各 op を Neutron NPU が処理できる形に置き換えている:
 </p>
 
 <table>
-  <thead><tr><th>変更</th><th>旧 (§3.1)</th><th>新 (§3.7)</th><th>理由</th></tr></thead>
+  <thead><tr><th>論理ステージ</th><th>PC 研究版 (Conv1D)</th><th>Neutron 変換版 (Conv2D)</th><th>変更理由</th></tr></thead>
   <tbody>
-    <tr><td>畳み込み</td><td>Conv1D</td><td>Conv2D kernel=(1, K)</td>
-      <td>Conv1D は TFLite で必ず Reshape を強制 → グラフが汚れる。Neutron は Conv2D を主役 op として扱う</td></tr>
-    <tr><td>空間集約</td><td>GlobalAveragePool (Mean op)</td><td>AvgPool2D kernel=(1, 7)</td>
-      <td>Mean op は NPU 非対応。AvgPool2D は対応。stride を 4,4,4,2 にして空間 1024 → 7 に揃え、kernel ≤ 7 制限内で 1 にまで畳む</td></tr>
+    <tr><td>畳み込み</td><td>Conv1D kernel=K</td><td>Conv2D kernel=(1, K)</td>
+      <td>Conv1D は TFLite で Reshape を強制。Neutron は Conv2D を主役 op として扱う</td></tr>
+    <tr><td>空間集約</td><td>GlobalAveragePool（Mean op）</td><td>AvgPool2D kernel=(1, 7)</td>
+      <td>Mean op は NPU 非対応。stride 4,4,4,2 で空間 1024→7 に揃え、AvgPool2D kernel ≤ 7 制限に収める</td></tr>
     <tr><td>分類器</td><td>Flatten + Linear (FC)</td><td>1×1 Conv2D</td>
-      <td>Linear は NPU 上の効率が悪い。1×1 Conv2D で等価実装し NPU に乗せる</td></tr>
-    <tr><td>BatchNorm</td><td>推論時も BN レイヤとして残る</td><td>export 前に Conv に fold</td>
+      <td>Linear は NPU 上で非効率。1×1 Conv2D で等価実装し NPU に乗せる</td></tr>
+    <tr><td>BatchNorm</td><td>推論時も BN レイヤとして残す</td><td>export 前に Conv に fold</td>
       <td><code>torch.nn.utils.fusion.fuse_conv_bn_eval</code> で Conv に吸収、推論グラフから消す</td></tr>
-    <tr><td>unsqueeze</td><td>各層で発生</td><td>forward 冒頭 1 回だけ</td>
+    <tr><td>Reshape</td><td>各層で発生（Conv1D の暗黙 reshape）</td><td>forward 冒頭 unsqueeze 1 回だけ</td>
       <td>グラフ内 Reshape を最小化、Neutron Converter が op fusion しやすくなる</td></tr>
-    <tr><td>サイズ</td><td>S (~13.7 K)</td><td>XL (~104 K)</td>
+    <tr><td>backbone 段数</td><td>3 段 (S/L) / 4 段 (M)</td><td>4 段（conv4 で空間 15→7）</td>
+      <td>AvgPool kernel ≤ 7 制限に空間を合わせるため 1 段追加</td></tr>
+    <tr><td>サイズ選択</td><td>S (~14 K) で head 設計探索</td><td>XL (~104 K) で本番</td>
       <td>NPU が空いた分パラメータを増やして表現力を稼ぐ。INT8 量子化後でも 108 KB に収まる</td></tr>
   </tbody>
 </table>
 
-<h4>3.7.3 出力構造と firmware 側 14cls 導出</h4>
+<p>
+  両者で「<b>論理的にやっていること</b>」は同じ（Conv backbone → 空間集約 → 線形分類）なので、
+  PC 研究版で得た「どの head が良いか／どこまで params を増やせば飽和するか」の知見は
+  Neutron 変換版にそのまま転移する。<b>研究と実装を分離</b>することで、
+  NPU 制約の有無による精度差を切り分けて評価できる設計になっている。
+</p>
+
+<h4 id="sec3-7-output">3.7.4 出力構造と firmware 側 14cls 導出</h4>
 
 <p>
   モデル本体の出力は <b>32 logits のみ</b>（5-bit 真状態 s00000..s11111 の softmax）。
@@ -799,7 +864,7 @@ is_c_open = err_c &lt; θ_c
     (<a href="v12345_report.html">v12345 §0</a>) ため、32cls を直接学習する方が情報を捨てずに済む</li>
 </ul>
 
-<h4>3.7.4 達成性能（MCU 実機）</h4>
+<h4>3.7.5 達成性能（MCU 実機）</h4>
 
 <table>
   <thead><tr><th>指標</th><th>値</th><th>条件</th></tr></thead>
@@ -815,7 +880,7 @@ is_c_open = err_c &lt; θ_c
   </tbody>
 </table>
 
-<h4>3.7.5 §3.6 (マルチトーン極小 MLP) との比較</h4>
+<h4>3.7.6 §3.6 (マルチトーン極小 MLP) との比較</h4>
 
 <p>
   §3.6 は「ROI を絞れたら極小 MLP で十分」という理想形だったが、本番はそれとは別の道を選んだ:
@@ -829,7 +894,7 @@ is_c_open = err_c &lt; θ_c
   <li>§3.6 の「全推論を MCU で完結する」目標は §3.7 で達成された（NPU を含めて MCU 単独で完結）</li>
 </ul>
 
-<h4>3.7.6 成果物</h4>
+<h4>3.7.7 成果物</h4>
 
 <table>
   <thead><tr><th>用途</th><th>パス</th></tr></thead>
