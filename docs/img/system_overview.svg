@@ -75,11 +75,12 @@
   <!-- 左側: SPI(240), LPUART(290) -->
   <circle cx="200" cy="240" r="3" fill="#fff"/>
   <circle cx="200" cy="290" r="3" fill="#fff"/>
-  <!-- 右側: I²S(220), I²S mic(250), I²C(280), GPIO 雨(305) -->
+  <!-- 右側: I²S(220), I²S mic(250), I²C(280) -->
   <circle cx="400" cy="220" r="3" fill="#fff"/>
   <circle cx="400" cy="250" r="3" fill="#fff"/>
   <circle cx="400" cy="280" r="3" fill="#fff"/>
-  <circle cx="400" cy="305" r="3" fill="#fff"/>
+  <!-- 上側: GPIO 雨センサ(380) -->
+  <circle cx="380" cy="200" r="3" fill="#fff"/>
   <!-- 下側: GPIO トグル×5(290-310), EXEC(370) -->
   <circle cx="290" cy="320" r="3" fill="#fff"/>
   <circle cx="295" cy="320" r="3" fill="#fff"/>
@@ -295,9 +296,9 @@
 
   <!-- ============ 筐体間ケーブル ============ -->
 
-  <!-- 降雨センサ → MCU (GPIO) — 筐体跨ぎ -->
-  <path class="wire-gpio" d="M400,305 L575,305 L575,170 L820,170"/>
-  <text class="wire-label" x="500" y="298" fill="#ff7ab6">GPIO (rain detect)</text>
+  <!-- 降雨センサ → MCU (GPIO) — MCU 上辺 pin から上→右に抜け、他デバイスと重ならない -->
+  <path class="wire-gpio" d="M380,200 L380,145 L820,145"/>
+  <text class="wire-label" x="500" y="138" fill="#ff7ab6">GPIO (rain detect)</text>
 
   <!-- MAX98357A (530,185) -> スピーカ (820,235) -->
   <path class="wire-audio" d="M530,185 L585,185 L585,235 L820,235"/>
