@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>11_smart_window — 本実装ファーム (雨センサ + ESP32) — IchiPing</title>
+<link rel="stylesheet" href="../../../docs/style.css">
+<script src="../../../docs/embed.js"></script>
+</head>
+<body>
+
+<aside class="sidenav">
+  <div class="sidenav-brand"><a href="../../../index.html">IchiPing</a>
+    <div class="sidenav-tag">v0.2 本実装フェーズ</div>
+  </div>
+  <nav>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ナビゲーション</div>
+      <a href="../../../index.html">トップ</a>
+      <a href="../../../tasks.html">タスクボード</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">設計 / 仕様</div>
+      <a href="../../../docs/spec.html">仕様書 (spec)</a>
+      <a href="../../../hardware/wiring.html">配線図</a>
+      <a href="../../../docs/nn_design.html">NN 設計</a>
+      <a href="../../../docs/mcu_deployment.html">MCU デプロイ</a>
+      <a href="../../../docs/bringup.html">実機ブリングアップ</a>
+      <a href="../../../docs/servo_coords.html">サーボ座標系</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ハードウェア</div>
+      <a href="../../../hardware/wiring.html">配線テーブル</a>
+      <a href="../../../hardware/bom.html">BOM (部品表)</a>
+      <a href="../../../hardware/display_options.html">ディスプレイ候補</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">実装コード</div>
+      <a href="../../../firmware/README.html">firmware ガイド</a>
+      <a href="../../../pc/README.html">PC ガイド</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">ファーム別デモ</div>
+      <a href="../01_dummy_emitter/README.html">01 dummy_emitter</a>
+      <a href="../02_servo_test/README.html">02 servo_test</a>
+      <a href="../03_ili9341_test/README.html">03 ili9341_test</a>
+      <a href="../04_lvgl_test/README.html">04 lvgl_test (凍結)</a>
+      <a href="../05_usb_cdc_emitter/README.html">05 usb_cdc_emitter</a>
+      <a href="../06_mic_test/README.html">06 mic_test</a>
+      <a href="../07_speaker_test/README.html">07 speaker_test</a>
+      <a href="../08_mic_speaker_test/README.html">08 mic_speaker_test</a>
+      <a href="../09_collector/README.html">09 collector</a>
+      <a href="../10_inference/README.html">10 inference</a>
+      <a href="../11_smart_window/README.html" class="current">11 smart_window</a>
+      <a href="../../host_build/README.html">host_build</a>
+      <a href="../../../pc/training/README.html">pc/training (NN 学習)</a>
+    </div>
+    <div class="sidenav-group">
+      <div class="sidenav-h">メタ</div>
+      <a href="../../../docs/vscode_setup.html">VS Code セットアップ</a>
+      <a href="../../../CLAUDE.html">Claude 作業ガイド</a>
+    </div>
+  </nav>
+  <div class="sidenav-foot">
+    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a><br>
+    <a href="https://github.com/airpocket-soundman/digikey_project">正本 digikey_project</a>
+  </div>
+</aside>
+
+<header class="page">
+  <div class="crumb">
+    <a href="../../../index.html">← IchiPing トップ</a>
+    ／ <a href="../../README.html">firmware</a>
+    ／ <a href="../">projects</a>
+    ／ 11_smart_window
+  </div>
+  <h1>11_smart_window — 本実装ファーム (雨センサ連動 + ESP32 UART)</h1>
+  <div class="sub">
+    <a href="../10_inference/README.html">10_inference</a> を <b>運用想定の本実装</b> に拡張したファーム。
+    10 をそのまま流用するのではなく <b>新規プロジェクト</b> として分離し、10 は技術検証
+    (NPU 推論 + baseline 戦略の評価) 用にそのまま保存する位置づけ。
+  </div>
+  <div class="meta">
+    <span class="meta-stat"><span class="num">+ESP32</span> LPUART5 双方向</span>
+    <span class="meta-stat"><span class="num">+RAIN</span> YL-83 自動 INFER</span>
+    <span class="meta-stat"><span class="num">100%</span> 10 と同じ推論精度</span>
+  </div>
+</header>
+
+<main>
+
+<p>
+  10 からの追加は <b>2 つだけ</b> で、それ以外 (推論パイプライン、<code>ichp_cmd</code> verb 一式、
+  サーボ、TFT 上半分、baseline 戦略) は 10 と完全同一。
+</p>
+
+<table>
+  <thead>
+    <tr><th>追加要素</th><th>内容</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>ESP32 (M5Stamp Pico) 用 LPUART5</b></td>
+      <td>OpenSDA debug UART (LPUART4 / 921600) と並行に LPUART5 (115200) でも
+          <code>ichp_cmd</code> を受け付ける双方向チャネル。応答は受信元 UART に返し、
+          自発 event は両方に broadcast</td>
+    </tr>
+    <tr>
+      <td><b>YL-83 雨センサ (P3_4) ポーリング</b></td>
+      <td>乾→湿エッジが debounce 通過したら自動で <code>INFER</code> を 1 回回し、
+          結果を両 UART に broadcast + TFT 表示</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  通知ロジック・自動 OPEN/CLOSE・ホームオートメーション制御はこのファームでは
+  <b>やらない</b>。雨検知時の挙動は「INFER して結果を吐く」までで、判断と通知は
+  ESP 側で組む想定。
+</p>
+
+<h2>ESP32 UART (LPUART5)</h2>
+
+<table>
+  <tbody>
+    <tr><th>FlexComm</th><td>FC5 (<code>kFRO12M_to_FLEXCOMM5</code>)</td></tr>
+    <tr><th>ピン</th><td>P1_16 (TXD → ESP RX) / P1_17 (RXD ← ESP TX) — <b>要 datasheet 確認</b>、
+        配線見直し時は <code>pin_mux.c</code> と一緒に更新</td></tr>
+    <tr><th>ボーレート</th><td>115200 (M5Stamp Pico の REPL/IDE デフォルト)</td></tr>
+  </tbody>
+</table>
+
+<p>
+  <b>なぜ FC5 で LPUART2 ではないか</b>: 配線 spec の LPUART2 は LPI2C2 と FlexComm 2 を共有する。
+  サーボ I²C (PCA9685) が FC2 を既に使っているため、ESP UART はぶつからない FC5 に移した。
+</p>
+
+<h3>応答ルール</h3>
+
+<ul>
+  <li>コマンド受信した UART にだけ応答する (debug 経由なら debug に、ESP 経由なら ESP に)</li>
+  <li>自発 event (<code>EVENT RAIN_DETECTED</code>, それに続く <code>RESULT ...</code>) は両 UART に broadcast</li>
+  <li>起動完了時に ESP 側にも <code>INFO IchiPing 11_smart_window ready (esp uart)</code> を投げて
+      疎通の最初の手がかりを残す</li>
+  <li><code>STOP</code> は両 UART から受け付け、<code>INFER STREAM</code> / <code>BL CALIBRATE</code>
+      の途中で中断できる</li>
+</ul>
+
+<p>
+  ESP 側 PoC コードは未実装。当面は USB-TTL アダプタを P1_16/17 に直結して
+  <code>screen /dev/ttyUSB0 115200</code> のような単純な端末から
+  <code>PING\r\n</code> <code>INFER\r\n</code> などを叩いて疎通を見るところから始める。
+</p>
+
+<h2>雨センサ (YL-83)</h2>
+
+<table>
+  <tbody>
+    <tr><th>ピン</th><td>Arduino D9 = P3_4</td></tr>
+    <tr><th>プルアップ</th><td>内蔵 (pin_mux.c)</td></tr>
+    <tr><th>信号レベル</th><td>乾燥 = HIGH (1) / 湿潤 = LOW (0)</td></tr>
+    <tr><th>poll 周期</th><td>100 ms</td></tr>
+    <tr><th>debounce</th><td>3 連続一致 (≒ 300 ms)</td></tr>
+    <tr><th>クールダウン</th><td>5 秒 (連続トリガ抑制)</td></tr>
+  </tbody>
+</table>
+
+<h3>動作</h3>
+
+<ol>
+  <li>100 ms 周期で <code>GPIO_PinRead(P3_4)</code> をサンプル</li>
+  <li>同じ値が 3 連続したらその state を確定</li>
+  <li><b>乾→湿エッジ</b> 確定 (<code>wet=false → wet=true</code>) で:
+    <ul>
+      <li><code>EVENT RAIN_DETECTED</code> を両 UART に broadcast</li>
+      <li><code>do_infer_once(BCAST)</code> を回す → <code>RESULT ...</code> 行を両 UART に broadcast</li>
+      <li>TFT 下部 status strip を更新</li>
+    </ul>
+  </li>
+  <li>直近 5 秒以内に発火していたらスキップ</li>
+  <li>湿→乾はトリガにしない (state だけ静かに更新)</li>
+</ol>
+
+<p>
+  初期 state (起動時に既に湿っているケース) は event として扱わない。あくまで
+  「乾燥状態から雨が降り始めた瞬間」だけを能動的に検知する設計。
+</p>
+
+<p>
+  短絡テスト: P3_4 と GND を抵抗 (10 kΩ 程度) または直接で短絡すると WET になる。
+  離せば内蔵プルアップで HIGH に戻り、次回の短絡時にまたトリガ。
+</p>
+
+<h2>TFT 表示レイアウト (240×320 縦)</h2>
+
+<p>10 の主表示 (y=0..232) に <b>下部 status strip (y=232..320)</b> を追加。</p>
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 360" width="280" height="360" font-family="sans-serif" font-size="11">
+  <rect x="20" y="20" width="240" height="320" fill="#000" stroke="#555"/>
+  <rect x="20" y="20" width="240" height="28" fill="#000080"/>
+  <text x="26" y="38" fill="#fff">IchiPing smart_win</text>
+  <text x="26" y="68"  fill="#888">seq    42</text>
+  <text x="26" y="100" fill="#ffa500" font-size="22" font-weight="bold">s10010</text>
+  <text x="26" y="130" fill="#888">idx=9/32</text>
+  <text x="26" y="155" fill="#0f0">cls14=B2</text>
+  <text x="26" y="185" fill="#0ff">factory baseline</text>
+  <text x="26" y="210" fill="#888">2100 us</text>
+  <line x1="20" y1="252" x2="260" y2="252" stroke="#444"/>
+  <text x="26" y="270" fill="#888">RAIN</text>
+  <text x="26" y="290" fill="#0ff">WET  3s ago  (#7)</text>
+  <text x="26" y="312" fill="#888">ESP UART</text>
+  <text x="26" y="332" fill="#fff">rx=1284  tx=4096</text>
+</svg>
+
+<p>
+  下部 strip は <b>1 秒に 1 回</b> 自動で再描画される (推論中は <code>do_infer_once</code> 側で
+  更新するので二重描画にならない)。
+</p>
+
+<table>
+  <thead>
+    <tr><th>行</th><th>内容</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>RAIN</code> ラベル + state</td>
+      <td><code>WET</code> (cyan) / <code>DRY</code> (green) + 直近 event からの経過秒
+          + event 回数 <code>#N</code></td>
+    </tr>
+    <tr>
+      <td><code>ESP UART</code> ラベル + counters</td>
+      <td><code>rx=XXXX tx=XXXX</code> (受信/送信バイト数の累積)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>コマンド体系</h2>
+
+<p>
+  10 と完全同一。<code>ichp_cmd</code> で受け付ける verb 一覧は
+  <a href="../10_inference/README.html#コマンド体系">10_inference README</a> 参照。
+</p>
+
+<p><code>GET CONFIG</code> の応答に <b>ESP UART カウンタと雨センサ状態を追加</b> してある:</p>
+
+<pre><code>OK CONFIG rate=16000 window=32000 pattern=... volume=5 baseline=factory
+  in_scale_x1e6=185412 in_zp=29 n_invokes=42 last_us=2104
+  esp_rx=1284 esp_tx=4096 rain=dry rain_events=7
+</code></pre>
+
+<h2>ビルド + フラッシュ</h2>
+
+<p>10 と完全に同じ手順。MCUXpresso for VS Code で:</p>
+
+<ol>
+  <li>Import project → <code>firmware/projects/11_smart_window</code></li>
+  <li>Build → <code>Debug/ichiping_11_smart_window.bin</code></li>
+  <li>Flash via OpenSDA</li>
+</ol>
+
+<p>
+  依存 (TFLite Micro + Neutron, CMSIS-DSP, prj.conf) は 10 をそのままコピーしてあるので
+  新規セットアップは不要。
+</p>
+
+<h2>動作確認シーケンス (推奨)</h2>
+
+<pre><code># 1. OpenSDA UART (debug) で起動ログを見る
+cd pc
+uv run python inference_client.py --port COM7
+
+# 2. patterns push + baseline 校正 + 推論一発 (10 と同じ)
+:reload
+BL CALIBRATE 10
+BL LIVE
+INFER
+
+# 3. ESP UART 疎通: 別 USB-TTL アダプタを P1_16/17 に挿して
+screen /dev/ttyUSB0 115200
+&gt; PING
+&lt; OK PONG ...
+&gt; INFER
+&lt; RESULT seq=... cls32_state=s...
+
+# 4. 雨検知トリガ: P3_4 を GND に短絡
+# debug + ESP の両方の UART に下記がほぼ同時に出る
+EVENT RAIN_DETECTED
+RESULT seq=... cls32_state=s... baseline=live ...
+</code></pre>
+
+<h2>設計判断メモ</h2>
+
+<ul>
+  <li>
+    <b>ESP UART を broadcast 専用にしなかった理由</b>: ホームオートメーションのコマンド
+    (OPEN/CLOSE/INFER on demand) を ESP 側から自然に投げられるようにしたかった。
+    MCU を完全な daemon にしておけば ESP 側のロジック (notification, scheduling, scene control)
+    を MCU の再フラッシュなしで反復開発できる。
+  </li>
+  <li>
+    <b>雨検知後に自動 CLOSE しない理由</b>: 「雨 → 窓閉めるべき」判定は人間の意思決定
+    (在宅か外出か、洗濯物干してたか) を含むので MCU 側ではやらない。MCU は
+    「いま雨が降り始めた + 窓は s10010 (a だけ開いてる)」事実を吐くだけ。
+    閉めるかどうか・誰に通知するかは ESP/クラウド側で決める。
+  </li>
+  <li>
+    <b>クールダウン 5 秒の根拠</b>: INFER 一回 (capture 2 s + Welch ~50 ms + invoke ~2 ms ≈ 2.1 s)
+    が走り切る時間 + 雨センサのチャタリングが収まる時間。連続発火させても CPU を取り合う
+    だけで価値が無いので抑制。
+  </li>
+</ul>
+
+<h2>既知の制約 / TODO</h2>
+
+<ul>
+  <li>
+    <b>P1_16/17 の pin alt は要 datasheet 確認</b>。<code>kPORT_MuxAlt2</code> 仮置きで通している。
+    動かなかったら FRDM-MCXN947 datasheet で FC5 の物理ピン Alt を確認 →
+    <code>pin_mux.c::LPUART5_InitPins</code> と当文書の表を同時更新
+  </li>
+  <li>
+    ESP 側ファーム (M5Stamp Pico 上の MicroPython or Arduino スケッチ) は未実装。
+    少なくとも「MCU からの <code>RESULT</code> を Slack / IFTTT に転送する」最小スクリプトは
+    別途用意する
+  </li>
+  <li>
+    雨センサのキャリブレーションは GPIO レベル判定のみ (アナログ閾値は使っていない)。
+    誤検知が多ければ YL-83 基板側のポテンショ調整で済むはず
+  </li>
+  <li>
+    <code>s_infer_busy</code> フラグでガードしているが、INFER 中の rain edge は単に捨てている。
+    本来は queue に入れて INFER 終了後にもう一回回すべき (現状は次回エッジまで待つ)
+  </li>
+  <li>
+    起動時の自動 <code>CLOSE ALL</code> (10 から継承) はサーボへの突入電流が大きいので、
+    PCA9685 V+ の電源が貧弱だと boot 時に MCU 側もリセットがかかる場合がある。
+    10 で確認済みだが本ファームでも症状出たら 5V 容量を増やす方向で
+  </li>
+</ul>
+
+</main>
+</body>
+</html>

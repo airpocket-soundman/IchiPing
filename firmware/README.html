@@ -142,13 +142,14 @@
 │   ├── 07_speaker_test/                  MAX98357A 単体疎通（SAI1 TX, 5 種テスト音, ✅ 実機確認済）
 │   ├── 08_mic_speaker_test/              TX chirp ＋ RX キャプチャ（室内インパルス応答）
 │   ├── 09_collector/                     PC 制御ラベル付きデータ採取（v0.5 学習データ採取の本命）
-│   └── 10_inference/                     オンデバイス NN 推論デモ（capture → features → infer → TFT）
+│   ├── 10_inference/                     オンデバイス NN 推論デモ（capture → features → infer → TFT）
+│   └── 11_smart_window/                  本実装（10 + ESP32 LPUART5 + YL-83 雨センサ自動 INFER）
 ├── host_build/                          ホスト (gcc/MinGW) でビルドする足場
 │   ├── Makefile                          .so/.dll を作って ctypes 突合テストに使う
 │   └── README.md
 └── README.md / README.html</code></pre>
 
-<p>本リポは <b>10 つの独立ファーム</b>を提供する。それぞれ別 MCUXpresso プロジェクト:</p>
+<p>本リポは <b>11 つの独立ファーム</b>を提供する。それぞれ別 MCUXpresso プロジェクト:</p>
 <table>
   <thead>
     <tr><th>#</th><th>ディレクトリ</th><th>用途</th><th>SDK ベース</th></tr>
@@ -213,6 +214,12 @@
       <td><a href="projects/10_inference/README.html"><code>projects/10_inference</code></a></td>
       <td>オンデバイス NN 推論デモ（capture → features → infer → TFT 結果表示, v0.5 後段）</td>
       <td><code>sai/sai_*</code> + <code>lpspi</code></td>
+    </tr>
+    <tr>
+      <td>11</td>
+      <td><a href="projects/11_smart_window/README.html"><code>projects/11_smart_window</code></a></td>
+      <td>本実装ファーム（10 + ESP32 LPUART5 双方向 + YL-83 雨センサ自動 INFER + TFT 下部 status strip）</td>
+      <td>10 と同じ + <code>lpuart</code> (FC5) + GPIO P3_4</td>
     </tr>
   </tbody>
 </table>
@@ -343,6 +350,12 @@
       <td>PC スクリプト不要。SW3 起動 → audio 取込 → NN 推論 → TFT に結果表示（現状 STUB 推論）</td>
     </tr>
     <tr>
+      <td>11_smart_window</td>
+      <td><a href="projects/11_smart_window/README.html">README.html</a></td>
+      <td><a href="projects/11_smart_window/README.md">README.md</a></td>
+      <td>10 と同じ手順で起動。追加で USB-TTL を P1_16/17 に挿せば ESP UART も叩ける。P3_4 を GND short で雨検知トリガ → 両 UART に <code>RESULT</code> broadcast</td>
+    </tr>
+    <tr>
       <td>host_build</td>
       <td><a href="host_build/README.html">README.html</a></td>
       <td><a href="host_build/README.md">README.md</a></td>
@@ -418,9 +431,15 @@
     </tr>
     <tr>
       <td>10_inference</td>
-      <td><b>115200 bps</b></td>
-      <td>テキスト（推論デバッグログ）、8N1</td>
-      <td>TeraTerm 等（オプション、本体は TFT で完結）</td>
+      <td><b>921600 bps</b></td>
+      <td>ASCII コマンド/応答（<code>ichp_cmd</code> 一式 + <code>RESULT</code> 行）</td>
+      <td><a href="../pc/inference_client.py">pc/inference_client.py</a></td>
+    </tr>
+    <tr>
+      <td>11_smart_window</td>
+      <td>OpenSDA: <b>921600 bps</b> ／ ESP UART (LPUART5): <b>115200 bps</b></td>
+      <td>両 UART とも ASCII <code>ichp_cmd</code> 双方向 + <code>RESULT</code> broadcast</td>
+      <td>OpenSDA 側: <a href="../pc/inference_client.py">inference_client.py</a> ／ ESP 側: USB-TTL + TeraTerm 等</td>
     </tr>
   </tbody>
 </table>

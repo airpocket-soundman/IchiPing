@@ -49,14 +49,15 @@ firmware/
 │   ├── 07_speaker_test/                  MAX98357A 単体疎通（SAI1 TX, 5 種テスト音, ✅ 実機確認済）
 │   ├── 08_mic_speaker_test/              TX chirp ＋ RX キャプチャ（室内インパルス応答）
 │   ├── 09_collector/                     PC 制御ラベル付きデータ採取（v0.5 学習データ採取の本命）
-│   └── 10_inference/                     オンデバイス NN 推論デモ（capture → features → infer → TFT）
+│   ├── 10_inference/                     オンデバイス NN 推論デモ（capture → features → infer → TFT）
+│   └── 11_smart_window/                  本実装（10 + ESP32 LPUART5 + YL-83 雨センサ自動 INFER）
 ├── host_build/                          ホスト (gcc/MinGW) でビルドする足場
 │   ├── Makefile                          .so/.dll を作って ctypes 突合テストに使う
 │   └── README.md
 └── README.md / README.html
 ```
 
-本リポは **10 つの独立ファーム**を提供する。それぞれ別 MCUXpresso プロジェクト:
+本リポは **11 つの独立ファーム**を提供する。それぞれ別 MCUXpresso プロジェクト:
 
 | # | ディレクトリ | 用途 | SDK ベース |
 |---|---|---|---|
@@ -70,6 +71,7 @@ firmware/
 | 8 | [`projects/08_mic_speaker_test`](projects/08_mic_speaker_test/README.md) | TX chirp ＋ RX キャプチャの閉ループ（インパルス応答, 単発デモ） | `sai/sai_*` + `lpuart` |
 | 9 | [`projects/09_collector`](projects/09_collector/README.html) | PC 制御ラベル付きデータ採取（08 + 02 + ILI9341 統合, ASCII コマンド + ICHP 多重） | `sai/sai_*` + `lpi2c` + `lpspi` + `lpuart` |
 | 10 | [`projects/10_inference`](projects/10_inference/README.html) | オンデバイス NN 推論デモ（capture → features → infer → TFT 結果表示, v0.5 後段） | `sai/sai_*` + `lpspi` |
+| 11 | [`projects/11_smart_window`](projects/11_smart_window/README.html) | 本実装ファーム（10 + ESP32 LPUART5 双方向 + YL-83 雨センサ自動 INFER + TFT 下部 status strip） | 10 と同じ + `lpuart` (FC5) + GPIO P3_4 |
 
 詳細なインポート手順は **各プロジェクトの README.md** を参照。
 
@@ -110,6 +112,7 @@ Servo test は **PCA9685（NXP, 16 ch）** と **LU9685-20CU（中国製, 20 ch�
 | 08_mic_speaker_test | [README.md](projects/08_mic_speaker_test/README.md) | [README.html](projects/08_mic_speaker_test/README.html) | **`receiver.py` 起動必須**。captures に room IR WAV（単発デモ） |
 | 09_collector | [README.md](projects/09_collector/README.md) | [README.html](projects/09_collector/README.html) | **`collector_client.py` 起動必須**。PC↔MCU 双方向、`captures/<label>/` に振り分け保存、TFT に servo パネル表示 |
 | 10_inference | [README.md](projects/10_inference/README.md) | [README.html](projects/10_inference/README.html) | PC スクリプト不要。SW3 起動 → audio 取込 → NN 推論 → TFT に結果表示（現状 STUB 推論） |
+| 11_smart_window | [README.md](projects/11_smart_window/README.md) | [README.html](projects/11_smart_window/README.html) | 10 と同じ手順で起動。追加で USB-TTL を P1_16/17 に挿せば ESP UART も叩ける。P3_4 を GND short で雨検知トリガ → 両 UART に RESULT broadcast |
 | host_build | [README.md](host_build/README.md) | [README.html](host_build/README.html) | ファームではない。`python -m unittest test_ctypes_packer` で C↔Python 突合 |
 
 > **配線必須:** ハードを繋ぐ前に [../hardware/wiring.html](../hardware/wiring.html) §2 を一通り確認。
@@ -128,7 +131,8 @@ Servo test は **PCA9685（NXP, 16 ch）** と **LU9685-20CU（中国製, 20 ch�
 | 07_speaker_test | **115200 bps** | テキスト（フェーズ表示）、8N1 | TeraTerm 等 |
 | 08_mic_speaker_test | **921600 bps** | バイナリ ICHP フレーム、8N1 | [../pc/receiver.py](../pc/receiver.py) |
 | 09_collector | **921600 bps** | ASCII コマンド／応答 ＋ バイナリ ICHP フレーム多重 | [../pc/collector_client.py](../pc/collector_client.py) |
-| 10_inference | **115200 bps** | テキスト（推論デバッグログ）、8N1 | TeraTerm 等（オプション、本体は TFT で完結） |
+| 10_inference | **921600 bps** | ASCII コマンド/応答（`ichp_cmd` 一式 + RESULT 行） | [../pc/inference_client.py](../pc/inference_client.py) |
+| 11_smart_window | OpenSDA: **921600 bps** ／ ESP UART (LPUART5): **115200 bps** | 両 UART とも ASCII `ichp_cmd` 双方向 + RESULT broadcast | OpenSDA 側: `inference_client.py` ／ ESP 側: USB-TTL + TeraTerm 等 |
 
 ## 動作シーケンス（Dummy emitter）
 
