@@ -149,8 +149,6 @@ IchiPing は、**「<span style="font-size:1.8em;font-weight:900;">1</span> 個�
 
 しかし、v12345 検証 (MCU 実機 8 モデル × 32 状態 sweep) で **当初予言は経験的に否定** されました。実機計測の結果、**32 真状態すべてが 100% 識別可能** だったのです。
 
-![ドア開閉と実測結果の対照](https://raw.githubusercontent.com/airpocket-soundman/IchiPing/main/docs/img/door_state_inference_area.svg)
-
 | モデル | 32 cls 正解率 | 14 cls 正解率 |
 |---|---|---|
 | **v12345_BLJIT_live** | **32 / 32 = 100%** | 32 / 32 = 100% |
