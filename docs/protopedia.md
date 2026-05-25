@@ -80,20 +80,30 @@ https://github.com/airpocket-soundman/IchiPing
 
 ![システム構成図](https://raw.githubusercontent.com/airpocket-soundman/IchiPing/main/docs/img/system_overview.svg)
 
-機材は **コントローラ筐体**（MCU / 表示 / トグル / アンプ / サーボドライバ）と **House 模型**（マイク / スピーカ / サーボ ×5）の 2 箱に分かれ、ケーブルで結ぶ構成。模型側のトグルスイッチ ×5 は窓・扉の真値ラベルとして学習データに付与される。
+機材は **コントローラ筐体**（MCU / 表示 / トグル / アンプ / サーボドライバ / Wi-Fi モジュール）と **House 模型**（マイク / スピーカ / サーボ ×5 / 降雨センサ）の 2 箱に分かれ、ケーブルで結ぶ構成。模型側のトグルスイッチ ×5 は窓・扉の真値ラベルとして学習データに付与される。クラウドとスマホは筐体外の外部システム。
 
 **筐体ごとの中身**
 
 | 場所 | 入っているもの |
 |---|---|
-| コントローラ筐体 | FRDM-MCXN947 / ILI9341 TFT / トグルスイッチ ×5 + EXEC ボタン / MAX98357A アンプ / PCA9685 サーボドライバ |
-| House 模型 | INMP441 マイク / 8 Ω スピーカ / SG90 サーボ ×5（窓 a/b/c + 扉 AB/BC） |
+| コントローラ筐体 | FRDM-MCXN947 / ILI9341 TFT / トグルスイッチ ×5 + EXEC ボタン / MAX98357A アンプ / PCA9685 サーボドライバ / **M5Stamp Pico (ESP32)** |
+| House 模型 | INMP441 マイク / 8 Ω スピーカ / SG90 サーボ ×5（窓 a/b/c + 扉 AB/BC） / **降雨センサ（屋外設置）** |
+| 外部システム | スマートホームクラウド (Home Assistant 等の MQTT broker) / ユーザのスマホ |
 
 **筐体間ケーブル**
 
 - I²S mic 3 線（BCLK / WS / SD）+ 電源: コントローラ → 模型内 INMP441
 - スピーカ 2 線: コントローラ内 MAX98357A → 模型内 スピーカ
 - PWM ×5: コントローラ内 PCA9685 → 模型内 SG90 ×5
+- **GPIO 1 線: コントローラ内 MCU → 模型内 降雨センサ（雨検出デジタル入力）**
+
+**コントローラ筐体内の局所配線**
+
+- **UART (LPUART): MCU ↔ M5Stamp Pico**（推論結果送信 + 「閉めて」コマンド受信）
+
+**筐体外 (Wi-Fi)**
+
+- **M5Stamp Pico ↔ スマートホームクラウド ↔ スマホ** (MQTT / HTTP)
 
 **信号の流れ（v1 構成）**
 
@@ -112,25 +122,20 @@ https://github.com/airpocket-soundman/IchiPing
 
 **主要部品（v1 BOM、約 $254）**
 
-| 役割 | 部品 |
-|---|---|
-| MCU | NXP **FRDM-MCXN947** |
-| マイク | InvenSense **INMP441** I²S MEMS |
-| アンプ | **MAX98357A** I²S Class-D |
-| サーボ駆動 | **PCA9685** + SG90 ×5 (オチ 2 の「窓自動閉」を担当) |
-| 表示 | **ILI9341** 2.4" TFT 240×320（RGB565, LVGL） |
-| 操作入力 | パネルトグル ×5（窓 a/b/c + 扉 AB/BC 真値） + EXEC タクトスイッチ ×1 |
-| PC 連携 | OpenSDA UART 921600 bps（学習データ収集用）／ USB CDC |
-
-**デモ用追加機器（雨検出 → スマホ通知シナリオ）**
-
-| 役割 | 部品 | 接続 |
+| 役割 | 部品 | 配置 |
 |---|---|---|
-| 降雨センサ | YL-83 等の安価モジュール | GPIO デジタル入力、屋外設置 |
-| Wi-Fi モジュール | **M5Stamp Pico**（ESP32-PICO-D4） | IchiPing と **UART (LPUART)** 接続、降雨センサを **GPIO** で読む、**Wi-Fi** でクラウド送信 |
-| スマートホーム連携 | クラウド (Home Assistant 等の MQTT broker) | M5Stamp から push、スマホアプリで受信 |
+| MCU | NXP **FRDM-MCXN947** | コントローラ筐体 |
+| マイク | InvenSense **INMP441** I²S MEMS | House 模型 |
+| アンプ | **MAX98357A** I²S Class-D | コントローラ筐体 |
+| サーボ駆動 | **PCA9685** + SG90 ×5 (オチ 2「窓自動閉」担当) | PCA9685 = コントローラ / SG90 = 模型 |
+| 表示 | **ILI9341** 2.4" TFT 240×320（RGB565, LVGL） | コントローラ筐体 |
+| 操作入力 | パネルトグル ×5（窓 a/b/c + 扉 AB/BC 真値） + EXEC タクトスイッチ ×1 | コントローラ筐体 |
+| **Wi-Fi モジュール** | **M5Stamp Pico**（ESP32-PICO-D4） | **コントローラ筐体内に統合**、MCU と UART (LPUART) で接続 |
+| **降雨センサ** | YL-83 等の安価モジュール | **House 模型に統合（屋外設置）**、MCU の GPIO に直接入力 |
+| スマートホーム連携 | クラウド (Home Assistant 等の MQTT broker) | 筐体外 (Wi-Fi 経由) |
+| PC 連携 | OpenSDA UART 921600 bps（学習データ収集用）／ USB CDC | コントローラ筐体 |
 
-降雨センサと M5Stamp Pico は IchiPing 本体 (FRDM-MCXN947) には不要で、**雨検出 → 通知 → 自動閉までの完全自動化デモを成立させるための周辺機器**として後付けします。M5Stamp Pico は親指サイズの ESP32 モジュールで筐体内に収まり、デモ装置の見た目を損ねません。
+M5Stamp Pico (ESP32) は親指サイズの Wi-Fi モジュールでコントローラ筐体内に収まり、降雨センサは安価な抵抗式モジュールで House 模型の屋外面に貼り付けるだけ。**デモ装置一式でクラウド連携まで完結**します。
 
 
 ===== ストーリー（Markdown 可・長文。記事の本体） =====

@@ -379,12 +379,41 @@
       <!-- システム構成 -->
       <article class="pp-card">
         <h2>システム構成</h2>
-        <img class="pp-sys-img" src="img/system_overview.svg" alt="システム構成図（コントローラ筐体 + House 模型）">
+        <img class="pp-sys-img" src="img/system_overview.svg" alt="システム構成図（コントローラ筐体 + House 模型 + 外部スマートホーム）">
         <p style="font-size:13px;color:var(--pp-muted);margin:8px 0 18px;">
-          機材は <b>コントローラ筐体</b>（MCU / 表示 / トグル / アンプ / サーボドライバ）と
-          <b>House 模型</b>（マイク / スピーカ / サーボ ×5）の 2 箱に分かれ、ケーブルで結ぶ構成。
+          機材は <b>コントローラ筐体</b>（MCU / 表示 / トグル / アンプ / サーボドライバ / Wi-Fi モジュール）と
+          <b>House 模型</b>（マイク / スピーカ / サーボ ×5 / 降雨センサ）の 2 箱に分かれ、ケーブルで結ぶ構成。
           模型側のトグルスイッチ ×5 は窓・扉の真値ラベルとして学習データに付与される。
+          クラウドとスマホは筐体外の外部システム。
         </p>
+
+        <h3>筐体ごとの中身</h3>
+        <table>
+          <thead><tr><th>場所</th><th>入っているもの</th></tr></thead>
+          <tbody>
+            <tr><td>コントローラ筐体</td><td>FRDM-MCXN947 / ILI9341 TFT / トグルスイッチ ×5 + EXEC ボタン / MAX98357A アンプ / PCA9685 サーボドライバ / <b>M5Stamp Pico (ESP32)</b></td></tr>
+            <tr><td>House 模型</td><td>INMP441 マイク / 8 Ω スピーカ / SG90 サーボ ×5（窓 a/b/c + 扉 AB/BC） / <b>降雨センサ（屋外設置）</b></td></tr>
+            <tr><td>外部システム</td><td>スマートホームクラウド (Home Assistant 等の MQTT broker) / ユーザのスマホ</td></tr>
+          </tbody>
+        </table>
+
+        <h3>筐体間ケーブル</h3>
+        <ul>
+          <li>I²S mic 3 線（BCLK / WS / SD）+ 電源: コントローラ → 模型内 INMP441</li>
+          <li>スピーカ 2 線: コントローラ内 MAX98357A → 模型内 スピーカ</li>
+          <li>PWM ×5: コントローラ内 PCA9685 → 模型内 SG90 ×5</li>
+          <li><b>GPIO 1 線: コントローラ内 MCU → 模型内 降雨センサ（雨検出デジタル入力）</b></li>
+        </ul>
+
+        <h3>コントローラ筐体内の局所配線</h3>
+        <ul>
+          <li><b>UART (LPUART): MCU ↔ M5Stamp Pico</b>（推論結果送信 + 「閉めて」コマンド受信）</li>
+        </ul>
+
+        <h3>筐体外 (Wi-Fi)</h3>
+        <ul>
+          <li><b>M5Stamp Pico ↔ スマートホームクラウド ↔ スマホ</b> (MQTT / HTTP)</li>
+        </ul>
 
         <h3>信号の流れ（v1 構成）</h3>
         <table>
@@ -410,31 +439,24 @@
 
         <h3>主要部品（v1 BOM、約 $252）</h3>
         <table>
-          <thead><tr><th>役割</th><th>部品</th></tr></thead>
+          <thead><tr><th>役割</th><th>部品</th><th>配置</th></tr></thead>
           <tbody>
-            <tr><td>MCU</td><td>NXP <b>FRDM-MCXN947</b></td></tr>
-            <tr><td>マイク</td><td>InvenSense <b>INMP441</b> I²S MEMS</td></tr>
-            <tr><td>アンプ</td><td><b>MAX98357A</b> I²S Class-D</td></tr>
-            <tr><td>サーボ駆動</td><td><b>PCA9685</b> + SG90 ×5（オチ 2「窓自動閉」担当）</td></tr>
-            <tr><td>表示</td><td><b>ILI9341</b> 2.4" TFT 240×320（RGB565, LVGL）</td></tr>
-            <tr><td>操作入力</td><td>パネルトグル ×5（窓 a/b/c + 扉 AB/BC 真値）+ EXEC タクトスイッチ ×1</td></tr>
-            <tr><td>PC 連携</td><td>OpenSDA UART 921600 bps（学習データ収集用）／ USB CDC</td></tr>
-          </tbody>
-        </table>
-
-        <h3>デモ用追加機器（雨検出 → スマホ通知シナリオ）</h3>
-        <table>
-          <thead><tr><th>役割</th><th>部品</th><th>接続</th></tr></thead>
-          <tbody>
-            <tr><td>降雨センサ</td><td>YL-83 等の安価モジュール</td><td>GPIO デジタル入力、屋外設置</td></tr>
-            <tr><td>Wi-Fi モジュール</td><td><b>M5Stamp Pico</b>（ESP32-PICO-D4）</td><td>IchiPing と <b>UART (LPUART)</b> 接続、降雨センサを <b>GPIO</b> で読む、<b>Wi-Fi</b> でクラウド送信</td></tr>
-            <tr><td>スマートホーム連携</td><td>クラウド (Home Assistant 等の MQTT broker)</td><td>M5Stamp から push、スマホアプリで受信</td></tr>
+            <tr><td>MCU</td><td>NXP <b>FRDM-MCXN947</b></td><td>コントローラ筐体</td></tr>
+            <tr><td>マイク</td><td>InvenSense <b>INMP441</b> I²S MEMS</td><td>House 模型</td></tr>
+            <tr><td>アンプ</td><td><b>MAX98357A</b> I²S Class-D</td><td>コントローラ筐体</td></tr>
+            <tr><td>サーボ駆動</td><td><b>PCA9685</b> + SG90 ×5（オチ 2「窓自動閉」担当）</td><td>PCA9685 = コントローラ / SG90 = 模型</td></tr>
+            <tr><td>表示</td><td><b>ILI9341</b> 2.4" TFT 240×320（RGB565, LVGL）</td><td>コントローラ筐体</td></tr>
+            <tr><td>操作入力</td><td>パネルトグル ×5（窓 a/b/c + 扉 AB/BC 真値）+ EXEC タクトスイッチ ×1</td><td>コントローラ筐体</td></tr>
+            <tr><td><b>Wi-Fi モジュール</b></td><td><b>M5Stamp Pico</b>（ESP32-PICO-D4）</td><td><b>コントローラ筐体内に統合</b>、MCU と UART (LPUART) で接続</td></tr>
+            <tr><td><b>降雨センサ</b></td><td>YL-83 等の安価モジュール</td><td><b>House 模型に統合（屋外設置）</b>、MCU の GPIO に直接入力</td></tr>
+            <tr><td>スマートホーム連携</td><td>クラウド (Home Assistant 等の MQTT broker)</td><td>筐体外 (Wi-Fi 経由)</td></tr>
+            <tr><td>PC 連携</td><td>OpenSDA UART 921600 bps（学習データ収集用）／ USB CDC</td><td>コントローラ筐体</td></tr>
           </tbody>
         </table>
         <p style="font-size:13px;color:var(--pp-muted);">
-          降雨センサと M5Stamp Pico は IchiPing 本体 (FRDM-MCXN947) には不要で、
-          <b>雨検出 → 通知 → 自動閉までの完全自動化デモを成立させるための周辺機器</b>として後付けします。
-          M5Stamp Pico は親指サイズの ESP32 モジュールで筐体内に収まり、デモ装置の見た目を損ねません。
+          M5Stamp Pico (ESP32) は親指サイズの Wi-Fi モジュールでコントローラ筐体内に収まり、
+          降雨センサは安価な抵抗式モジュールで House 模型の屋外面に貼り付けるだけ。
+          <b>デモ装置一式でクラウド連携まで完結</b>します。
         </p>
       </article>
 
