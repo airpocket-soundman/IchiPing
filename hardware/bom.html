@@ -75,7 +75,7 @@
     価格は 2026-05 時点の <b>参考値</b>。発注前に DigiKey で再確認。
   </div>
   <div class="meta">
-    <span class="meta-stat done"><span class="num">~$215</span> Required 部品計（試算）</span>
+    <span class="meta-stat done"><span class="num">~$223</span> Required 部品計（試算）</span>
     <span class="meta-stat"><span class="num">stock</span> 主要部品在庫あり</span>
   </div>
 </header>
@@ -176,7 +176,37 @@
   </tbody>
 </table>
 
-<h3>1.5 受動部品・ケーブル</h3>
+<h3>1.5 Wi-Fi / 環境センサ系（デモ完全自動化）</h3>
+<table>
+  <thead><tr><th>カテゴリ</th><th>部品</th><th>数</th><th>単価</th><th>Vendor / 型番</th><th>備考</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Wi-Fi モジュール</td>
+      <td><b>M5Stamp Pico</b>（ESP32-PICO-D4）</td>
+      <td>1</td>
+      <td>$6.50</td>
+      <td>M5Stack / Switch Science 等</td>
+      <td>
+        親指サイズの ESP32 モジュール。<b>コントローラ筐体内に統合</b>。
+        MCU と LPUART で接続し、推論結果を <b>MQTT / HTTP</b> でクラウド送信。
+        スマホからの「閉めて」コマンドも同経路で受信して MCU へ転送。
+      </td>
+    </tr>
+    <tr>
+      <td>降雨センサ</td>
+      <td>YL-83 抵抗式 降雨検出モジュール</td>
+      <td>1</td>
+      <td>$1.50</td>
+      <td>汎用</td>
+      <td>
+        <b>House 模型に屋外設置</b>。MCU の GPIO に直接接続し、
+        雨検出で推論をトリガ。デモ時は水滴を垂らして検出を再現可能。
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>1.6 受動部品・ケーブル</h3>
 <table>
   <thead><tr><th>カテゴリ</th><th>部品</th><th>数</th><th>単価</th><th>用途</th></tr></thead>
   <tbody>
@@ -197,8 +227,9 @@
     <tr><td>必須電子部品 §1.2 サーボ系（PCA9685 + SG90 ×5）</td><td>~$47</td></tr>
     <tr><td>必須電子部品 §1.3 表示（ILI9341）</td><td>~$13</td></tr>
     <tr><td>必須電子部品 §1.4 ユーザー入力・表示（トグル + EXEC + LED）</td><td>~$10</td></tr>
-    <tr><td>必須電子部品 §1.5 受動部品・ケーブル</td><td>~$24</td></tr>
-    <tr><td><b>応募 v1 必須計</b></td><td><b>~$215</b></td></tr>
+    <tr><td>必須電子部品 §1.5 Wi-Fi / 環境センサ（M5Stamp Pico + 降雨センサ）</td><td>~$8</td></tr>
+    <tr><td>必須電子部品 §1.6 受動部品・ケーブル</td><td>~$24</td></tr>
+    <tr><td><b>応募 v1 必須計</b></td><td><b>~$223</b></td></tr>
   </tbody>
 </table>
 

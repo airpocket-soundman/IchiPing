@@ -105,16 +105,11 @@ https://github.com/airpocket-soundman/IchiPing
 
 - **M5Stamp Pico ↔ スマートホームクラウド ↔ スマホ** (MQTT / HTTP)
 
-**信号の流れ（v1 構成）**
+**信号の流れ — システム処理フローチャート**
 
-| 段 | 担当 | 内容 |
-|---|---|---|
-| ① 励振 | MCU → MAX98357A → スピーカ | 200 Hz – 6 kHz の ESS（指数掃引）または可変周波数 chirp を I²S DAC から放射 |
-| ② 観測 | INMP441（I²S MEMS マイク, 24-bit） | 同期して 16 kHz で取り込み、SAI1 DMA で MCU に転送 |
-| ③ 整合 | PowerQuad FFT + 整合フィルタ | 1024 bin の log-magnitude スペクトルに圧縮 |
-| ④ 推論 | MCXN947 内蔵 NPU で 1D CNN | 窓 a/b/c + 扉 AB/BC の開閉 5 ビット（真状態 32 通り / 実効区別 14 通り、後述）を同時出力 |
-| ⑤ 表示 | ILI9341 TFT（LVGL）| 推定結果をフロアプランに重ねて可視化 |
-| ⑥ 収集 | PC（`pc/collector_client.py`）| OpenSDA UART 921600 bps で WAV + ラベル CSV を吸い上げ、PyTorch で学習 → ONNX → eIQ Toolkit で MCU へ |
+![信号フロー](https://raw.githubusercontent.com/airpocket-soundman/IchiPing/main/docs/img/signal_flow.svg)
+
+雨検出 → 1 Ping 励振 → マイク観測 → 信号処理 → NPU 推論 → ローカル表示 + スマホ通知 → ユーザのアクションでサーボ自動閉まで、runtime の処理経路を 1 枚で示しています。学習データ収集モードでは ③〜④ の間で WAV を PC に送出し、PyTorch 学習 → ONNX → Neutron 変換 → MCU 戻しのサイクルを回します。
 
 **3 部屋アクリル模型（Phase 4 デモ）**
 
@@ -150,13 +145,57 @@ M5Stamp Pico (ESP32) は親指サイズの Wi-Fi モジュールでコントロ�
 
 ## IchiPing の解決 — 1 マイク 1 Ping で 32 状態を当てる
 
-IchiPing は、**「<span style="font-size:1.8em;font-weight:900;">1</span> 個のマイクと <span style="font-size:1.8em;font-weight:900;">1</span> 発の Ping だけで、家中の窓と扉の開閉 32 通りを当てる」** ことを実現したエッジ AI デバイスです。これに **降雨センサ + M5Stamp Pico (ESP32)** をデモ用周辺機器として追加することで、次のフローが成立します:
+IchiPing は、**「<span style="font-size:1.8em;font-weight:900;">1</span> 個のマイクと <span style="font-size:1.8em;font-weight:900;">1</span> 発の Ping だけで、家中の窓と扉の開閉 32 通りを当てる」** ことを実現したエッジ AI デバイスです。窓 3 個 + 扉 2 個 = 5 bit → **32 通りの組合せ状態**を 1 ショット推論で特定します。
+
+これに **降雨センサ + M5Stamp Pico (ESP32)** をデモ用周辺機器として追加することで、次のフローが成立します:
 
 1. 屋外の降雨センサが雨を検出 (GPIO 入力)
 2. M5Stamp Pico → UART で IchiPing コントローラに推論トリガを送る
 3. IchiPing が 1 Ping → MCU 上の Neutron NPU で **1.89 ms 推論** → 窓・扉 32 状態のうちどれかを特定
 4. M5Stamp Pico が Wi-Fi 経由でスマートホームクラウドに結果を送信
 5. ユーザのスマホに通知「窓 a が開いてます！」
+
+### 理論的観測限界 — 14 クラスのはずだった
+
+![ドア開閉による推論有効エリア](https://raw.githubusercontent.com/airpocket-soundman/IchiPing/main/docs/img/door_state_inference_area.svg)
+
+ところが、設計開始時には **「32 状態のうち 14 状態しか区別できないはず」** と予想していました。マイクと SPK は Room A の中央にあり、扉 AB が閉まれば Room B / C は音響的に遮断され、向こう側の窓状態は観測不能になる — これが「観測等価性」の物理的予言です。
+
+| 扉条件 | 真状態数 | 観測可能なクラス |
+|---|---|---|
+| 扉 AB 閉 (BC は問わず) | 16 配置 | 2 クラス (窓 a の開閉のみ) |
+| 扉 AB 開, BC 閉 | 8 配置 | 4 クラス (窓 a, b の組合せ) |
+| 扉 AB 開, BC 開 | 8 配置 | 8 クラス (窓 a, b, c の組合せ) |
+| **合計** | **32 配置** | **2 + 4 + 8 = 14 クラス (理論)** |
+
+### 実測 — 32 クラス全て分類成功
+
+しかし、v12345 検証 (MCU 実機 8 モデル × 32 状態 sweep) で **当初予言は経験的に否定** されました。実機計測の結果、**32 真状態すべてが 100% 識別可能** だったのです。
+
+| モデル | 32 cls 正解率 | 14 cls 正解率 |
+|---|---|---|
+| **v12345_BLJIT_live** | **32 / 32 = 100%** | 32 / 32 = 100% |
+| v12345_BLJIT_factory (校正不要) | 28 / 32 = 88% | 32 / 32 = 100% |
+| v12345_50f_live_noiselow (騒音下) | **32 / 32 = 100%** | 32 / 32 = 100% |
+
+理由は **実扉が完全遮音ではなく -20〜-30 dB の漏れがあった** こと。同じ等価クラスに属する状態のサブ状態にも、扉を透過した微弱な音響シグナルが残っていました。これを学習側で拾うために **Baseline Jittering Augmentation** という手法を開発: 各録音を 5 種類の baseline で diff して 5 サンプル分に増殖させ、「baseline 環境に依存しないラベル決定境界」を獲得させたのです。
+
+結果、**閉鎖扉を透過した微弱な信号も NN が捉え、観測等価性の理論限界を突破して 32 クラス全分類に成功** しました。詳細: [v12345 検証レポート](https://github.com/airpocket-soundman/IchiPing/blob/main/docs/v12345_report.html) / [nn_methods_compare §1](https://github.com/airpocket-soundman/IchiPing/blob/main/docs/nn_methods_compare.html)。
+
+## 技術の原理 — 潜水艦ソナー・蝙蝠・鯨類エコーロケーションと同じ仕組み
+
+IchiPing の **「Ping を撃って返ってきた音から環境を推定する」** という基本原理は、まったく新しい発明ではありません。自然界と軍事技術にすでに数億年〜数十年の蓄積があります。
+
+| 主体 | 原理 | 用途 |
+|---|---|---|
+| 🦇 **蝙蝠** | 20-200 kHz の超音波 chirp を口/鼻から発射 → 反射音を耳で聞き分けて飛翔中の昆虫や障害物の位置・大きさ・動きを把握 | 暗闇飛翔 / 狩り |
+| 🐬 **鯨類 (イルカ・ハクジラ類)** | クリック音や FM スイープを噴気孔下のメロン器官から発射 → 下顎の脂肪体で受波して魚群や海底地形を 3D 再構成 | 索餌 / 仲間との通信 |
+| 🚢 **潜水艦のアクティブソナー** | 低周波 ping を水中に放射 → 反射エコーから対象艦の位置・距離・速度を計算 | 索敵 / 海図作成 |
+| 🔊 **IchiPing** | スピーカから 1 Ping (200-6000 Hz 掃引) → マイクで室内インパルス応答を録音 → NPU が窓・扉の開閉状態を推定 | 家中の窓状態モニタリング |
+
+**共通する 4 ステップ**: ① 既知の探査音を発射 → ② 反射・伝搬の応答を観測 → ③ 環境固有の特徴 (反射時間 / 周波数応答 / モード) を抽出 → ④ 環境状態を推定。
+
+IchiPing はこの **アクティブ音響センシング** の原理を、$50 の MCU + $8 のマイク・スピーカで、家庭環境というスケールに落とし込んだ実装です。**蝙蝠が暗闇の昆虫を「聴いて」捕まえるのと同じことを、開いたままの窓に対してやっている** と言えます。
 
 ## 2 段オチ
 
@@ -186,24 +225,6 @@ IchiPing は、**「<span style="font-size:1.8em;font-weight:900;">1</span> 個�
 - 窓が開くと放射損失で Q が落ち、ピーク幅が広がる
 
 このような物理的に裏付けのある変化を **1D CNN** に学習させ、組合せ状態を一発で当てに行きます。CNN backbone は ~14K パラメータの軽量設計で、MCXN947 内蔵の **NPU + PowerQuad DSP** で INT8 推論まで完結します。
-
-## 当初の理論的限界 → 実測で覆された
-
-設計開始時、私たちは「窓 3 + 扉 2 = 5 ビット → 真状態 32 通りだが、扉が閉まると向こう側は遮断され **14 等価クラスが情報量上限** になる」と予想していました。物理的に妥当に見えるこの予想は、しかし v12345 検証で **経験的に否定されました**。
-
-実扉は完全遮音ではなく **-20〜-30 dB 減衰程度**であり、同じ等価クラスに見える状態にもサブ状態を区別できるシグナルが残っていたのです（[nn_methods_compare §1](https://github.com/airpocket-soundman/IchiPing/blob/main/docs/nn_methods_compare.html)）。
-
-**v12345 検証 (8 モデル × 32 状態 × MCU 実機 sweep) の結果**:
-
-| モデル | 32 cls (5-bit 状態) | 14 cls (等価クラス) | 校正 |
-|---|---|---|---|
-| v12345_BLJIT_live | **100%** | **100%** | LIVE 25 秒 |
-| v12345_BLJIT_factory | **88%** | **100%** | なし (即時起動) |
-| v12345_50f_live_noiselow | **100%** | **100%** | LIVE (騒音下) |
-
-**32 真状態すべてが MCU 実機で識別可能**。詳細: [v12345 検証レポート](https://github.com/airpocket-soundman/IchiPing/blob/main/docs/v12345_report.html)。
-
-決め手は **Baseline jittering augmentation** — 各録音を 5 種類の baseline で diff して 5 サンプル分に増殖させる学習手法で、これにより「baseline 環境に依存しないラベル決定境界」を獲得しました。
 
 ## <span style="font-size:1.8em;font-weight:900;">1</span> 個のセンサに賭ける根拠
 

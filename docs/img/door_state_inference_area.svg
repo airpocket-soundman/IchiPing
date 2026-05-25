@@ -1,0 +1,279 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 740" font-family="Hiragino Sans, Yu Gothic UI, Segoe UI, sans-serif">
+  <defs>
+    <marker id="arrDsa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#c2185b"/>
+    </marker>
+    <style>
+      .panel-box  { fill: #f8fafa; stroke: #1a1d23; stroke-width: 1.6; }
+      .room-on    { fill: #cfe8d9; stroke: #2ec4b6; stroke-width: 2; }
+      .room-off   { fill: #e5e7eb; stroke: #94a3b8; stroke-width: 1.4; }
+      .room-on-w  { fill: #2a8c5c; stroke: #1a6b46; stroke-width: 1.6; }
+      .room-off-w { fill: #94a3b8; stroke: #64748b; stroke-width: 1.2; }
+      .door-open  { fill: #fff; stroke: #2ec4b6; stroke-width: 3; stroke-dasharray: 4 3; }
+      .door-closed{ fill: #1a1d23; stroke: #1a1d23; stroke-width: 2; }
+      .ping-wave  { fill: none; stroke: #ff9f1c; stroke-width: 1.4; opacity: 0.8; }
+      .ping-wave-weak { fill: none; stroke: #ff9f1c; stroke-width: 0.8; opacity: 0.4; stroke-dasharray: 3 2; }
+      .panel-title { font-size: 14px; font-weight: 800; fill: #1a1d23; }
+      .panel-sub   { font-size: 11px; fill: #4b5563; }
+      .room-label  { font-size: 13px; font-weight: 700; fill: #1a1d23; }
+      .room-label-off { font-size: 13px; font-weight: 700; fill: #64748b; }
+      .mic-icon    { fill: #006b6b; stroke: #fff; stroke-width: 0.8; }
+      .spk-icon    { fill: #ffb454; stroke: #1a1d23; stroke-width: 0.8; }
+      .summary-box { fill: #fffced; stroke: #cbd5e1; stroke-width: 1.4; }
+      .theory-box  { fill: #f0e6ff; stroke: #6c5ce7; stroke-width: 2; }
+      .reality-box { fill: #e6fff0; stroke: #2ec4b6; stroke-width: 2.4; }
+      .big-num     { font-size: 36px; font-weight: 900; }
+      .arrow-vs    { stroke: #c2185b; stroke-width: 2.8; fill: none; }
+    </style>
+  </defs>
+
+  <text x="550" y="28" text-anchor="middle" font-size="18" font-weight="800" fill="#1a1d23">
+    ドア開閉による推論有効エリア — 理論 14 クラス vs 実測 32 クラス
+  </text>
+  <text x="550" y="46" text-anchor="middle" font-size="11" fill="#6b7280">
+    扉 AB / BC の開閉で音響的に観測可能な部屋が変化する。当初の理論限界を実機で突破した経緯。
+  </text>
+
+  <!-- ============ Panel 1: AB closed ============ -->
+  <g transform="translate(30,75)">
+    <rect class="panel-box" width="340" height="305" rx="8"/>
+    <text class="panel-title" x="170" y="28" text-anchor="middle">① 扉 AB = 閉</text>
+    <text class="panel-sub"   x="170" y="46" text-anchor="middle">向こう側 (Room B / C) は音響的に遮断</text>
+
+    <!-- 3 rooms layout: A | B | C (horizontal) -->
+    <g transform="translate(30,75)">
+      <rect class="room-on" x="0"   y="0" width="90" height="120" rx="4"/>
+      <rect class="room-off" x="100" y="0" width="90" height="120" rx="4"/>
+      <rect class="room-off" x="200" y="0" width="80" height="120" rx="4"/>
+
+      <text class="room-label" x="45" y="64" text-anchor="middle">Room A</text>
+      <text class="panel-sub"  x="45" y="80" text-anchor="middle" font-weight="700">(active)</text>
+      <text class="room-label-off" x="145" y="64" text-anchor="middle">Room B</text>
+      <text class="panel-sub" x="145" y="80" text-anchor="middle" fill="#94a3b8">遮蔽</text>
+      <text class="room-label-off" x="240" y="64" text-anchor="middle">Room C</text>
+      <text class="panel-sub" x="240" y="80" text-anchor="middle" fill="#94a3b8">遮蔽</text>
+
+      <!-- Door AB: closed (between Room A and B) -->
+      <rect class="door-closed" x="92" y="40" width="6" height="40"/>
+      <text class="panel-sub" x="95" y="106" text-anchor="middle" font-weight="700" fill="#1a1d23">AB ✕</text>
+
+      <!-- Door BC: any (drawn closed) -->
+      <rect class="door-closed" x="192" y="40" width="6" height="40"/>
+      <text class="panel-sub" x="195" y="106" text-anchor="middle" font-weight="700" fill="#1a1d23">BC ?</text>
+
+      <!-- mic + speaker in Room A -->
+      <circle class="mic-icon" cx="22" cy="100" r="6"/>
+      <text class="panel-sub" x="22" y="115" text-anchor="middle" fill="#006b6b" font-weight="700">M</text>
+      <circle class="spk-icon" cx="68" cy="100" r="6"/>
+      <text class="panel-sub" x="68" y="115" text-anchor="middle" fill="#b87900" font-weight="700">S</text>
+
+      <!-- Ping waves stopped by AB door -->
+      <path class="ping-wave" d="M 56 60 Q 70 50 80 60"/>
+      <path class="ping-wave" d="M 56 60 Q 70 45 84 60"/>
+      <text class="panel-sub" x="62" y="34" text-anchor="middle" fill="#ff9f1c" font-weight="700">Ping</text>
+    </g>
+
+    <text class="panel-sub" x="170" y="215" text-anchor="middle" font-weight="700" fill="#1a1d23">
+      観測可能領域: Room A のみ
+    </text>
+    <text class="panel-sub" x="170" y="235" text-anchor="middle">
+      区別できる状態: 窓 a の開 / 閉 = <b>2 クラス</b>
+    </text>
+    <text class="panel-sub" x="170" y="255" text-anchor="middle">
+      集約される真状態: <b>16 配置</b> (扉 AB 閉 × 残り 4 ビット)
+    </text>
+    <text class="panel-sub" x="170" y="277" text-anchor="middle" fill="#c2185b" font-weight="700">
+      16 真状態 → 2 観測クラス
+    </text>
+  </g>
+
+  <!-- ============ Panel 2: AB open, BC closed ============ -->
+  <g transform="translate(380,75)">
+    <rect class="panel-box" width="340" height="305" rx="8"/>
+    <text class="panel-title" x="170" y="28" text-anchor="middle">② 扉 AB = 開, 扉 BC = 閉</text>
+    <text class="panel-sub"   x="170" y="46" text-anchor="middle">Room A + B が観測可能、C は遮断</text>
+
+    <g transform="translate(30,75)">
+      <rect class="room-on" x="0"   y="0" width="90" height="120" rx="4"/>
+      <rect class="room-on" x="100" y="0" width="90" height="120" rx="4"/>
+      <rect class="room-off" x="200" y="0" width="80" height="120" rx="4"/>
+
+      <text class="room-label" x="45" y="64" text-anchor="middle">Room A</text>
+      <text class="panel-sub"  x="45" y="80" text-anchor="middle" font-weight="700">(active)</text>
+      <text class="room-label" x="145" y="64" text-anchor="middle">Room B</text>
+      <text class="panel-sub"  x="145" y="80" text-anchor="middle" font-weight="700">(active)</text>
+      <text class="room-label-off" x="240" y="64" text-anchor="middle">Room C</text>
+      <text class="panel-sub" x="240" y="80" text-anchor="middle" fill="#94a3b8">遮蔽</text>
+
+      <!-- Door AB: open -->
+      <rect class="door-open" x="92" y="40" width="6" height="40"/>
+      <text class="panel-sub" x="95" y="106" text-anchor="middle" font-weight="700" fill="#2ec4b6">AB ○</text>
+
+      <!-- Door BC: closed -->
+      <rect class="door-closed" x="192" y="40" width="6" height="40"/>
+      <text class="panel-sub" x="195" y="106" text-anchor="middle" font-weight="700" fill="#1a1d23">BC ✕</text>
+
+      <!-- mic + speaker in Room A -->
+      <circle class="mic-icon" cx="22" cy="100" r="6"/>
+      <text class="panel-sub" x="22" y="115" text-anchor="middle" fill="#006b6b" font-weight="700">M</text>
+      <circle class="spk-icon" cx="68" cy="100" r="6"/>
+      <text class="panel-sub" x="68" y="115" text-anchor="middle" fill="#b87900" font-weight="700">S</text>
+
+      <!-- Ping waves pass through AB into B -->
+      <path class="ping-wave" d="M 56 60 Q 90 50 130 60"/>
+      <path class="ping-wave" d="M 56 60 Q 90 45 140 55"/>
+      <text class="panel-sub" x="62" y="34" text-anchor="middle" fill="#ff9f1c" font-weight="700">Ping</text>
+    </g>
+
+    <text class="panel-sub" x="170" y="215" text-anchor="middle" font-weight="700" fill="#1a1d23">
+      観測可能領域: Room A + B
+    </text>
+    <text class="panel-sub" x="170" y="235" text-anchor="middle">
+      区別できる状態: 窓 a, b の組合せ = <b>4 クラス</b>
+    </text>
+    <text class="panel-sub" x="170" y="255" text-anchor="middle">
+      集約される真状態: <b>8 配置</b> (AB 開 × BC 閉 × 窓 c は遮蔽)
+    </text>
+    <text class="panel-sub" x="170" y="277" text-anchor="middle" fill="#c2185b" font-weight="700">
+      8 真状態 → 4 観測クラス
+    </text>
+  </g>
+
+  <!-- ============ Panel 3: AB open, BC open ============ -->
+  <g transform="translate(730,75)">
+    <rect class="panel-box" width="340" height="305" rx="8"/>
+    <text class="panel-title" x="170" y="28" text-anchor="middle">③ 扉 AB = 開, 扉 BC = 開</text>
+    <text class="panel-sub"   x="170" y="46" text-anchor="middle">3 部屋すべて観測可能</text>
+
+    <g transform="translate(30,75)">
+      <rect class="room-on" x="0"   y="0" width="90" height="120" rx="4"/>
+      <rect class="room-on" x="100" y="0" width="90" height="120" rx="4"/>
+      <rect class="room-on" x="200" y="0" width="80" height="120" rx="4"/>
+
+      <text class="room-label" x="45" y="64" text-anchor="middle">Room A</text>
+      <text class="panel-sub"  x="45" y="80" text-anchor="middle" font-weight="700">(active)</text>
+      <text class="room-label" x="145" y="64" text-anchor="middle">Room B</text>
+      <text class="panel-sub"  x="145" y="80" text-anchor="middle" font-weight="700">(active)</text>
+      <text class="room-label" x="240" y="64" text-anchor="middle">Room C</text>
+      <text class="panel-sub"  x="240" y="80" text-anchor="middle" font-weight="700">(active)</text>
+
+      <!-- Door AB: open -->
+      <rect class="door-open" x="92" y="40" width="6" height="40"/>
+      <text class="panel-sub" x="95" y="106" text-anchor="middle" font-weight="700" fill="#2ec4b6">AB ○</text>
+
+      <!-- Door BC: open -->
+      <rect class="door-open" x="192" y="40" width="6" height="40"/>
+      <text class="panel-sub" x="195" y="106" text-anchor="middle" font-weight="700" fill="#2ec4b6">BC ○</text>
+
+      <!-- mic + speaker in Room A -->
+      <circle class="mic-icon" cx="22" cy="100" r="6"/>
+      <text class="panel-sub" x="22" y="115" text-anchor="middle" fill="#006b6b" font-weight="700">M</text>
+      <circle class="spk-icon" cx="68" cy="100" r="6"/>
+      <text class="panel-sub" x="68" y="115" text-anchor="middle" fill="#b87900" font-weight="700">S</text>
+
+      <!-- Ping waves pass through both doors -->
+      <path class="ping-wave" d="M 56 60 Q 120 50 220 60"/>
+      <path class="ping-wave" d="M 56 60 Q 120 45 240 55"/>
+      <text class="panel-sub" x="62" y="34" text-anchor="middle" fill="#ff9f1c" font-weight="700">Ping</text>
+    </g>
+
+    <text class="panel-sub" x="170" y="215" text-anchor="middle" font-weight="700" fill="#1a1d23">
+      観測可能領域: Room A + B + C
+    </text>
+    <text class="panel-sub" x="170" y="235" text-anchor="middle">
+      区別できる状態: 窓 a, b, c の組合せ = <b>8 クラス</b>
+    </text>
+    <text class="panel-sub" x="170" y="255" text-anchor="middle">
+      集約される真状態: <b>8 配置</b> (各組合せが 1 対 1 対応)
+    </text>
+    <text class="panel-sub" x="170" y="277" text-anchor="middle" fill="#c2185b" font-weight="700">
+      8 真状態 → 8 観測クラス
+    </text>
+  </g>
+
+  <!-- ============ Bottom: Theory vs Reality ============ -->
+  <g transform="translate(40,410)">
+    <rect class="theory-box" width="500" height="150" rx="10"/>
+    <text x="250" y="28" text-anchor="middle" font-size="14" font-weight="800" fill="#6c5ce7">
+      当初の理論 — 観測可能性予言
+    </text>
+    <text x="40" y="60" font-size="12" fill="#1a1d23">
+      扉が閉まれば向こうは遮断 → 観測クラス数:
+    </text>
+    <text x="40" y="80" font-size="12" font-weight="700" fill="#1a1d23">
+      2 (Panel ①) + 4 (Panel ②) + 8 (Panel ③) = <tspan class="big-num" fill="#6c5ce7">14</tspan>
+    </text>
+    <text x="40" y="115" font-size="11" fill="#4b5563">
+      32 真状態を 14 観測クラスに集約する設計が情報理論的に
+    </text>
+    <text x="40" y="130" font-size="11" fill="#4b5563">
+      最適、と予想していた (詳細: nn_design.html)
+    </text>
+  </g>
+
+  <!-- arrow vs -->
+  <line class="arrow-vs" x1="565" y1="485" x2="605" y2="485" marker-end="url(#arrDsa)"/>
+  <text x="585" y="475" text-anchor="middle" font-size="11" font-weight="800" fill="#c2185b">v12345</text>
+  <text x="585" y="505" text-anchor="middle" font-size="11" font-weight="700" fill="#c2185b">で覆る</text>
+
+  <g transform="translate(620,410)">
+    <rect class="reality-box" width="450" height="150" rx="10"/>
+    <text x="225" y="28" text-anchor="middle" font-size="14" font-weight="800" fill="#1a6b46">
+      実測結果 — 32 クラス全て分類成功
+    </text>
+    <text x="30" y="60" font-size="12" fill="#1a1d23">
+      MCU 実機で <tspan class="big-num" fill="#2ec4b6">32 / 32</tspan> 全状態を識別 (100%)
+    </text>
+    <text x="30" y="100" font-size="11" fill="#4b5563">
+      理由: 実扉は完全遮音ではなく <b>-20〜-30 dB の漏れ</b>があり、
+    </text>
+    <text x="30" y="116" font-size="11" fill="#4b5563">
+      その微弱な信号を <b>Baseline Jittering Augmentation</b> で学習に取り込んだ。
+    </text>
+    <text x="30" y="135" font-size="11" font-weight="700" fill="#1a6b46">
+      → 「閉鎖扉を透過した微弱信号」を NN が捉え、サブ状態まで分類可能に。
+    </text>
+  </g>
+
+  <!-- ============ Bottom subtable: 32 → 14 mapping ============ -->
+  <g transform="translate(40,585)">
+    <rect class="summary-box" width="1030" height="130" rx="6"/>
+    <text x="515" y="22" text-anchor="middle" font-size="13" font-weight="800" fill="#1a1d23">
+      観測等価クラス対応表 — 32 真状態 → 14 観測クラス (理論) / 32 観測クラス (実測)
+    </text>
+    <g transform="translate(20,38)">
+      <text font-size="11" fill="#1a1d23" font-weight="700">扉条件</text>
+      <text x="120" font-size="11" fill="#1a1d23" font-weight="700">真状態数</text>
+      <text x="220" font-size="11" fill="#1a1d23" font-weight="700">理論観測クラス</text>
+      <text x="360" font-size="11" fill="#1a1d23" font-weight="700">クラス記号</text>
+      <text x="600" font-size="11" fill="#1a1d23" font-weight="700">v12345 実測</text>
+      <line x1="0" y1="6" x2="990" y2="6" stroke="#cbd5e1" stroke-width="1"/>
+
+      <text y="24" font-size="11" fill="#1a1d23">扉 AB 閉 (BC は問わず)</text>
+      <text x="120" y="24" font-size="11" fill="#1a1d23">16 配置</text>
+      <text x="220" y="24" font-size="11" fill="#1a1d23">2 クラス</text>
+      <text x="360" y="24" font-size="11" fill="#1a1d23">A1 (全閉), A2 (窓 a 開)</text>
+      <text x="600" y="24" font-size="11" fill="#2ec4b6" font-weight="700">16 / 16 個別識別 ✓</text>
+
+      <text y="44" font-size="11" fill="#1a1d23">扉 AB 開, BC 閉</text>
+      <text x="120" y="44" font-size="11" fill="#1a1d23">8 配置</text>
+      <text x="220" y="44" font-size="11" fill="#1a1d23">4 クラス</text>
+      <text x="360" y="44" font-size="11" fill="#1a1d23">B1, B2, B3, B4</text>
+      <text x="600" y="44" font-size="11" fill="#2ec4b6" font-weight="700">8 / 8 個別識別 ✓</text>
+
+      <text y="64" font-size="11" fill="#1a1d23">扉 AB 開, BC 開</text>
+      <text x="120" y="64" font-size="11" fill="#1a1d23">8 配置</text>
+      <text x="220" y="64" font-size="11" fill="#1a1d23">8 クラス</text>
+      <text x="360" y="64" font-size="11" fill="#1a1d23">C1, C2, …, C8</text>
+      <text x="600" y="64" font-size="11" fill="#2ec4b6" font-weight="700">8 / 8 個別識別 ✓</text>
+
+      <line x1="0" y1="76" x2="990" y2="76" stroke="#cbd5e1" stroke-width="1"/>
+      <text y="92" font-size="11" font-weight="700" fill="#1a1d23">合計</text>
+      <text x="120" y="92" font-size="11" font-weight="700" fill="#1a1d23">32 配置</text>
+      <text x="220" y="92" font-size="11" font-weight="700" fill="#6c5ce7">14 クラス (理論)</text>
+      <text x="360" y="92" font-size="11" fill="#4b5563">A1, A2, B1-4, C1-8</text>
+      <text x="600" y="92" font-size="11" font-weight="700" fill="#2ec4b6">32 / 32 = 100% (実測)</text>
+    </g>
+  </g>
+</svg>

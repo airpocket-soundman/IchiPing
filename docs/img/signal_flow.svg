@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 920" font-family="Hiragino Sans, Yu Gothic UI, Segoe UI, sans-serif">
+  <defs>
+    <marker id="arrFlow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1a1d23"/>
+    </marker>
+    <marker id="arrRet" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#7be0a4"/>
+    </marker>
+    <style>
+      .block      { fill: #f8fafa; stroke: #1a1d23; stroke-width: 1.6; }
+      .block-trig { fill: #fff5e6; stroke: #ff9f1c; stroke-width: 2; }
+      .block-emit { fill: #e8f4ff; stroke: #1f7ae0; stroke-width: 1.8; }
+      .block-mic  { fill: #e6f7f1; stroke: #00897b; stroke-width: 1.8; }
+      .block-dsp  { fill: #f0e6ff; stroke: #6c5ce7; stroke-width: 1.8; }
+      .block-npu  { fill: #ffe8f0; stroke: #c2185b; stroke-width: 2; }
+      .block-out  { fill: #f8fafa; stroke: #1a1d23; stroke-width: 1.6; }
+      .block-cloud{ fill: #f0eaff; stroke: #6c5ce7; stroke-width: 1.6; stroke-dasharray: 5 3; }
+      .block-act  { fill: #e6fff0; stroke: #2ec4b6; stroke-width: 2; }
+      .ttl        { font-size: 14px; font-weight: 800; fill: #1a1d23; }
+      .sub        { font-size: 11px; fill: #4b5563; }
+      .step-num   { font-size: 22px; font-weight: 900; fill: #fff; }
+      .step-circle{ fill: #1a1d23; }
+      .arrow-line { stroke: #1a1d23; stroke-width: 2; fill: none; }
+      .arrow-line-ret { stroke: #7be0a4; stroke-width: 2; fill: none; stroke-dasharray: 6 3; }
+      .arrow-label { font-size: 10px; fill: #4b5563; font-weight: 600; }
+      .annot-box  { fill: #fffced; stroke: #cbd5e1; stroke-width: 1; }
+      .annot-text { font-size: 10px; fill: #6b7280; }
+    </style>
+  </defs>
+
+  <text x="550" y="28" text-anchor="middle" font-size="18" font-weight="800" fill="#1a1d23">
+    IchiPing 信号フロー — 雨検出から自動閉まで
+  </text>
+  <text x="550" y="46" text-anchor="middle" font-size="11" fill="#6b7280">
+    runtime 処理を上から下へ追跡（return path は緑破線）
+  </text>
+
+  <!-- ============ Step 1: トリガ ============ -->
+  <g transform="translate(380,70)">
+    <rect class="block-trig" width="340" height="80" rx="10"/>
+    <circle class="step-circle" cx="28" cy="40" r="18"/>
+    <text class="step-num" x="28" y="48" text-anchor="middle">1</text>
+    <text class="ttl" x="170" y="32" text-anchor="middle">トリガ — 雨検出</text>
+    <text class="sub" x="170" y="52" text-anchor="middle">降雨センサ (YL-83) → MCU GPIO で雨を検出</text>
+    <text class="sub" x="170" y="68" text-anchor="middle">推論ループを起動</text>
+  </g>
+  <line class="arrow-line" x1="550" y1="155" x2="550" y2="180" marker-end="url(#arrFlow)"/>
+
+  <!-- ============ Step 2: 励振 ============ -->
+  <g transform="translate(380,185)">
+    <rect class="block-emit" width="340" height="80" rx="10"/>
+    <circle class="step-circle" cx="28" cy="40" r="18"/>
+    <text class="step-num" x="28" y="48" text-anchor="middle">2</text>
+    <text class="ttl" x="170" y="32" text-anchor="middle">励振 — 1 Ping を撃つ</text>
+    <text class="sub" x="170" y="52" text-anchor="middle">MCU で chirp 生成 (200-6000 Hz, 2 秒)</text>
+    <text class="sub" x="170" y="68" text-anchor="middle">→ I²S DAC → MAX98357A → スピーカ放射</text>
+  </g>
+  <line class="arrow-line" x1="550" y1="270" x2="550" y2="295" marker-end="url(#arrFlow)"/>
+
+  <!-- ============ Step 3: 観測 ============ -->
+  <g transform="translate(380,300)">
+    <rect class="block-mic" width="340" height="80" rx="10"/>
+    <circle class="step-circle" cx="28" cy="40" r="18"/>
+    <text class="step-num" x="28" y="48" text-anchor="middle">3</text>
+    <text class="ttl" x="170" y="32" text-anchor="middle">観測 — 室内インパルス応答を録る</text>
+    <text class="sub" x="170" y="52" text-anchor="middle">INMP441 マイク (I²S 16 kHz, 24-bit)</text>
+    <text class="sub" x="170" y="68" text-anchor="middle">→ SAI1 DMA → MCU メモリ</text>
+  </g>
+  <line class="arrow-line" x1="550" y1="385" x2="550" y2="410" marker-end="url(#arrFlow)"/>
+
+  <!-- ============ Step 4: 信号処理 ============ -->
+  <g transform="translate(380,415)">
+    <rect class="block-dsp" width="340" height="85" rx="10"/>
+    <circle class="step-circle" cx="28" cy="42" r="18"/>
+    <text class="step-num" x="28" y="50" text-anchor="middle">4</text>
+    <text class="ttl" x="170" y="32" text-anchor="middle">信号処理 — 特徴抽出</text>
+    <text class="sub" x="170" y="52" text-anchor="middle">CMSIS-DSP rFFT (Welch) + baseline diff</text>
+    <text class="sub" x="170" y="68" text-anchor="middle">1024 bin log-mag → INT8 量子化</text>
+    <text class="sub" x="170" y="82" text-anchor="middle">→ NN 入力テンソル (1, 1, 1024)</text>
+  </g>
+  <line class="arrow-line" x1="550" y1="505" x2="550" y2="530" marker-end="url(#arrFlow)"/>
+
+  <!-- ============ Step 5: NPU 推論 ============ -->
+  <g transform="translate(380,535)">
+    <rect class="block-npu" width="340" height="90" rx="10"/>
+    <circle class="step-circle" cx="28" cy="44" r="18"/>
+    <text class="step-num" x="28" y="52" text-anchor="middle">5</text>
+    <text class="ttl" x="170" y="32" text-anchor="middle">推論 — Neutron NPU</text>
+    <text class="sub" x="170" y="52" text-anchor="middle">Conv2D 1D-CNN, 104K params, INT8</text>
+    <text class="sub" x="170" y="68" text-anchor="middle">7/7 op NPU 化 = 100%, <b>1.89 ms</b></text>
+    <text class="sub" x="170" y="84" text-anchor="middle">→ 32 logits → argmax → state_idx</text>
+  </g>
+  <!-- 5 から分岐: 6a と 6b -->
+  <line class="arrow-line" x1="550" y1="630" x2="550" y2="660"/>
+  <line class="arrow-line" x1="250" y1="660" x2="850" y2="660"/>
+  <line class="arrow-line" x1="250" y1="660" x2="250" y2="685" marker-end="url(#arrFlow)"/>
+  <line class="arrow-line" x1="850" y1="660" x2="850" y2="685" marker-end="url(#arrFlow)"/>
+
+  <!-- ============ Step 6a: ローカル表示 ============ -->
+  <g transform="translate(80,690)">
+    <rect class="block-out" width="340" height="80" rx="10"/>
+    <circle class="step-circle" cx="28" cy="40" r="18"/>
+    <text class="step-num" x="28" y="46" text-anchor="middle" style="font-size:18px">6a</text>
+    <text class="ttl" x="170" y="32" text-anchor="middle">ローカル表示</text>
+    <text class="sub" x="170" y="52" text-anchor="middle">ILI9341 TFT (LVGL)</text>
+    <text class="sub" x="170" y="68" text-anchor="middle">フロアプランに窓・扉状態を重畳描画</text>
+  </g>
+
+  <!-- ============ Step 6b: 外部通知 ============ -->
+  <g transform="translate(680,690)">
+    <rect class="block-cloud" width="340" height="80" rx="10"/>
+    <circle class="step-circle" cx="28" cy="40" r="18"/>
+    <text class="step-num" x="28" y="46" text-anchor="middle" style="font-size:18px">6b</text>
+    <text class="ttl" x="170" y="32" text-anchor="middle">外部通知</text>
+    <text class="sub" x="170" y="52" text-anchor="middle">UART → M5Stamp Pico → Wi-Fi</text>
+    <text class="sub" x="170" y="68" text-anchor="middle">→ クラウド → スマホ「窓 a 開いてます」</text>
+  </g>
+
+  <line class="arrow-line" x1="850" y1="770" x2="850" y2="800" marker-end="url(#arrFlow)"/>
+
+  <!-- ============ Step 7: ユーザアクション → 自動閉 ============ -->
+  <g transform="translate(680,805)">
+    <rect class="block-act" width="340" height="80" rx="10"/>
+    <circle class="step-circle" cx="28" cy="40" r="18"/>
+    <text class="step-num" x="28" y="48" text-anchor="middle">7</text>
+    <text class="ttl" x="170" y="32" text-anchor="middle">アクション — サーボ自動閉</text>
+    <text class="sub" x="170" y="52" text-anchor="middle">スマホ「閉めて」→ クラウド → M5Stamp → MCU</text>
+    <text class="sub" x="170" y="68" text-anchor="middle">→ PCA9685 → SG90 ×5 → 物理的に窓を閉める</text>
+  </g>
+
+  <!-- return path: Step 7 から左下回りで Step 2 (新たな PIng) に戻る -->
+  <path class="arrow-line-ret" d="M680,840 L60,840 L60,225 L380,225" marker-end="url(#arrRet)"/>
+  <text class="arrow-label" x="80" y="830" fill="#1a9b76">return: 新たな Ping で閉確認 (任意)</text>
+
+  <!-- ============ サイド注釈 ============ -->
+  <g transform="translate(40,180)">
+    <rect class="annot-box" width="280" height="60" rx="6"/>
+    <text class="annot-text" x="14" y="20">トリガは雨検出以外にも:</text>
+    <text class="annot-text" x="14" y="34">  - EXEC ボタン (手動)</text>
+    <text class="annot-text" x="14" y="48">  - 定周期タイマ (例: 30 分毎)</text>
+  </g>
+
+  <g transform="translate(780,295)">
+    <rect class="annot-box" width="280" height="85" rx="6"/>
+    <text class="annot-text" x="14" y="20">学習データ収集モード:</text>
+    <text class="annot-text" x="14" y="34">  3 と 4 の間で PC に WAV 送信</text>
+    <text class="annot-text" x="14" y="48">  (OpenSDA UART 921600 bps)</text>
+    <text class="annot-text" x="14" y="62">  → PC で PyTorch 学習</text>
+    <text class="annot-text" x="14" y="76">  → ONNX → Neutron → MCU 戻し</text>
+  </g>
+
+  <g transform="translate(780,535)">
+    <rect class="annot-box" width="280" height="90" rx="6"/>
+    <text class="annot-text" x="14" y="20">5 の出力は 2 種類:</text>
+    <text class="annot-text" x="14" y="36">  - <tspan fill="#c2185b" font-weight="700">32 cls (5-bit state)</tspan> 1.89 ms</text>
+    <text class="annot-text" x="14" y="52">  - 14 cls = STATE_TO_EQUIV[argmax32]</text>
+    <text class="annot-text" x="14" y="68">     (firmware 側で表引きのみ、追加</text>
+    <text class="annot-text" x="14" y="80">      推論コストゼロ)</text>
+  </g>
+</svg>
