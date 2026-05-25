@@ -30,6 +30,8 @@
       <div class="sidenav-h">NN 検討</div>
       <a href="probe_sound.html">走査音考察</a>
       <a href="nn_review.html" class="current">NN 考察</a>
+      <a href="nn_methods_compare.html">head 設計比較</a>
+      <a href="v12345_report.html">v12345 検証レポート</a>
     </div>
     <div class="sidenav-group">
       <div class="sidenav-h">ハードウェア</div>
@@ -711,6 +713,133 @@ is_c_open = err_c &lt; θ_c
   <li><b>運用</b>: §3.1 / §3.2 の重量モデルで上限性能を確認した後、本番デプロイ用に
     このアーキへ落とし込むのが理想形</li>
 </ul>
+
+<h3 id="sec3-7">3.7 本番採用 — Neutron 互換 32-class Conv2D（v12345_BLJIT_XL）<span class="pill" style="background:#7be0a4;color:#0f1115;">採用</span></h3>
+
+<div class="callout">
+  <strong>これが MCXN947 に実デプロイされている本番モデル</strong>
+  (<a href="../pc/training/model_32cls_neutron.py">model_32cls_neutron.py</a>)。
+  検証結果と運用ガイドラインは <a href="v12345_report.html">v12345 検証レポート</a>。
+  §3.1〜§3.6 は <b>検討段階の候補</b>、本節は <b>その結果として何が選ばれて何が動いているか</b>を記す。
+</div>
+
+<img src="img/nn_arch_neutron_actual.svg"
+     alt="Neutron 互換アーキ: Conv2D ×4 + AvgPool2D + 1×1 Conv head, 全 op NPU 化, ~104K params"
+     style="width: 100%; max-width: 1000px; display: block; margin: 12px 0;">
+
+<h4>3.7.1 構造</h4>
+
+<table>
+  <thead><tr><th>層</th><th>op</th><th>shape</th><th>params</th><th>NPU</th></tr></thead>
+  <tbody>
+    <tr><td>入力</td><td>(log-mag spectrum)</td><td>(B, 1, 1024)</td><td>—</td><td>—</td></tr>
+    <tr><td>unsqueeze</td><td>Reshape</td><td>(B, 1, 1, 1024)</td><td>0</td><td>1 回のみ</td></tr>
+    <tr><td>conv1 + BN1 + ReLU</td><td>Conv2D k=(1,16) s=(1,4)</td><td>(B, 32, 1, 253)</td><td>544</td><td>✓</td></tr>
+    <tr><td>conv2 + BN2 + ReLU</td><td>Conv2D k=(1,8) s=(1,4)</td><td>(B, 64, 1, 62)</td><td>16,448</td><td>✓</td></tr>
+    <tr><td>conv3 + BN3 + ReLU</td><td>Conv2D k=(1,4) s=(1,4)</td><td>(B, 128, 1, 15)</td><td>32,896</td><td>✓</td></tr>
+    <tr><td>conv4 + BN4 + ReLU</td><td>Conv2D k=(1,3) s=(1,2)</td><td>(B, 128, 1, 7)</td><td>49,280</td><td>✓</td></tr>
+    <tr><td>avgpool</td><td>AvgPool2D k=(1,7)</td><td>(B, 128, 1, 1)</td><td>0</td><td>✓</td></tr>
+    <tr><td>classifier (head)</td><td>Conv2D k=(1,1)</td><td>(B, 32, 1, 1)</td><td>4,128</td><td>✓</td></tr>
+    <tr><td>squeeze</td><td>Reshape</td><td>(B, 32)</td><td>0</td><td>—</td></tr>
+    <tr><th>合計 (BN bias 込)</th><th></th><th></th><th><b>~104 K</b></th><th><b>7 / 7 = 100%</b></th></tr>
+  </tbody>
+</table>
+
+<p>
+  XL プリセット (channels = (32, 64, 128), dropout = 0.4)。S / L プリセットも同形状で
+  チャネル幅だけ変える設計（<code>SIZE_PRESETS</code>）。
+</p>
+
+<h4>3.7.2 §3.1 baseline からの設計変更点（なぜ Conv1D を捨てたか）</h4>
+
+<p>
+  §3.1 baseline (S サイズ ~13.7K params) は Conv1D + GlobalAvgPool + Linear で組まれていたが、
+  Neutron Converter にかけると <b>NPU 比率が 30% にとどまる</b>ことが判明
+  （<a href="nn_train_extra_experiments.html">nn_train_extra_experiments §7-3d</a>）。残りは
+  CPU フォールバックで、推論時間と消費電力に直撃する。
+  本番モデルでは下記 6 点を変更して <b>NPU 比率 100% (7/7 op)</b> を実現した:
+</p>
+
+<table>
+  <thead><tr><th>変更</th><th>旧 (§3.1)</th><th>新 (§3.7)</th><th>理由</th></tr></thead>
+  <tbody>
+    <tr><td>畳み込み</td><td>Conv1D</td><td>Conv2D kernel=(1, K)</td>
+      <td>Conv1D は TFLite で必ず Reshape を強制 → グラフが汚れる。Neutron は Conv2D を主役 op として扱う</td></tr>
+    <tr><td>空間集約</td><td>GlobalAveragePool (Mean op)</td><td>AvgPool2D kernel=(1, 7)</td>
+      <td>Mean op は NPU 非対応。AvgPool2D は対応。stride を 4,4,4,2 にして空間 1024 → 7 に揃え、kernel ≤ 7 制限内で 1 にまで畳む</td></tr>
+    <tr><td>分類器</td><td>Flatten + Linear (FC)</td><td>1×1 Conv2D</td>
+      <td>Linear は NPU 上の効率が悪い。1×1 Conv2D で等価実装し NPU に乗せる</td></tr>
+    <tr><td>BatchNorm</td><td>推論時も BN レイヤとして残る</td><td>export 前に Conv に fold</td>
+      <td><code>torch.nn.utils.fusion.fuse_conv_bn_eval</code> で Conv に吸収、推論グラフから消す</td></tr>
+    <tr><td>unsqueeze</td><td>各層で発生</td><td>forward 冒頭 1 回だけ</td>
+      <td>グラフ内 Reshape を最小化、Neutron Converter が op fusion しやすくなる</td></tr>
+    <tr><td>サイズ</td><td>S (~13.7 K)</td><td>XL (~104 K)</td>
+      <td>NPU が空いた分パラメータを増やして表現力を稼ぐ。INT8 量子化後でも 108 KB に収まる</td></tr>
+  </tbody>
+</table>
+
+<h4>3.7.3 出力構造と firmware 側 14cls 導出</h4>
+
+<p>
+  モデル本体の出力は <b>32 logits のみ</b>（5-bit 真状態 s00000..s11111 の softmax）。
+  14-class softmax head は NN として持たず、<b>firmware 側で
+  <code>STATE_TO_EQUIV[argmax32]</code> テーブル参照で 14 等価クラスを導出</b>する設計。
+</p>
+
+<p>
+  これにより:
+</p>
+
+<ul>
+  <li>モデルグラフを単一 head に保てる（出力 head が分岐すると Neutron Converter の op 配置が複雑化）</li>
+  <li><code>10_inference</code> firmware は <b>1 推論で cls32 / cls14 / second32 候補</b>の 3 値を併記
+    （<a href="../firmware/projects/10_inference/README.html">10_inference README</a>）</li>
+  <li>14cls 用途は cls32 の argmax を 14 クラス表で索き直すだけなので、追加 NN 推論コストはゼロ</li>
+  <li>「観測等価性で頭打ち」という当初の理論的天井は経験的に否定された
+    (<a href="v12345_report.html">v12345 §0</a>) ため、32cls を直接学習する方が情報を捨てずに済む</li>
+</ul>
+
+<h4>3.7.4 達成性能（MCU 実機）</h4>
+
+<table>
+  <thead><tr><th>指標</th><th>値</th><th>条件</th></tr></thead>
+  <tbody>
+    <tr><td>32cls accuracy</td><td><b>100%</b> (32/32)</td><td>v12345_BLJIT_live, LIVE 校正</td></tr>
+    <tr><td>14cls accuracy</td><td><b>100%</b> (32/32)</td><td>同上、校正なし (factory) でも 100%</td></tr>
+    <tr><td>32cls accuracy（校正なし）</td><td>88% (28/32)</td><td>v12345_BLJIT_factory, baseline jittering aug</td></tr>
+    <tr><td>32cls accuracy（騒音下）</td><td>100% (32/32)</td><td>v12345_50f_live_noiselow, ノイズ下で校正</td></tr>
+    <tr><td>推論時間</td><td><b>1.89 ms</b></td><td>MCXN947 Neutron NPU</td></tr>
+    <tr><td>NPU op 比率</td><td><b>7/7 = 100%</b></td><td>CPU フォールバックなし</td></tr>
+    <tr><td>モデルサイズ</td><td>108 KB</td><td>INT8 quantize 後の tflite</td></tr>
+    <tr><td>PC vs MCU 数値差</td><td>±0〜+4 pp</td><td>MCU が PC FP32 を超えるケースあり、変換劣化ゼロ</td></tr>
+  </tbody>
+</table>
+
+<h4>3.7.5 §3.6 (マルチトーン極小 MLP) との比較</h4>
+
+<p>
+  §3.6 は「ROI を絞れたら極小 MLP で十分」という理想形だったが、本番はそれとは別の道を選んだ:
+</p>
+
+<ul>
+  <li><b>§3.6 前提条件 (ROI 選定)</b> を満たさなくても <b>baseline jittering augmentation</b>
+    で外乱を吸収できることが分かったため、走査音側の事前選定を諦めて NN 側に押し付ける戦略を採用</li>
+  <li>NPU 比率 100% が達成できたため、~104K params の重量モデルでも 1.89 ms に収まる
+    → モデルを軽くするインセンティブがなくなった</li>
+  <li>§3.6 の「全推論を MCU で完結する」目標は §3.7 で達成された（NPU を含めて MCU 単独で完結）</li>
+</ul>
+
+<h4>3.7.6 成果物</h4>
+
+<table>
+  <thead><tr><th>用途</th><th>パス</th></tr></thead>
+  <tbody>
+    <tr><td>PyTorch ckpt</td><td><code>runs/neutron_v12345_BLJIT_XL/best.pt</code> (104K params, 36,800 sample 学習)</td></tr>
+    <tr><td>Neutron TFLite</td><td><code>runs/neutron_v12345_BLJIT_XL/deploy4d/pinto_neutron_sdk26_03.tflite</code> (108 KB)</td></tr>
+    <tr><td>MCU 組み込み C 配列</td><td><code>firmware/projects/10_inference/source/model_data.h</code></td></tr>
+    <tr><td>変換パイプライン</td><td><a href="../pc/quantize_pipeline_neutron.py"><code>pc/quantize_pipeline_neutron.py</code></a> (eIQ + PINTO onnx2tf 両 path 自動比較)</td></tr>
+  </tbody>
+</table>
 
 <h2>4. 出力構造の候補</h2>
 
