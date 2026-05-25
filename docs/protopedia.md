@@ -157,9 +157,11 @@ IchiPing は、**「<span style="font-size:1.8em;font-weight:900;">1</span> 個�
 
 ### 理論的観測限界 — 14 クラスのはずだった
 
-![ドア開閉による推論有効エリア](https://raw.githubusercontent.com/airpocket-soundman/IchiPing/main/docs/img/door_state_inference_area.svg)
+設計開始時には **「32 状態のうち 14 状態しか区別できないはず」** と予想していました。マイクと SPK は Room A の中央にあり、扉 AB が閉まれば Room B / C は音響的に遮断され、向こう側の窓状態は観測不能になる — これが「観測等価性」の物理的予言です。
 
-ところが、設計開始時には **「32 状態のうち 14 状態しか区別できないはず」** と予想していました。マイクと SPK は Room A の中央にあり、扉 AB が閉まれば Room B / C は音響的に遮断され、向こう側の窓状態は観測不能になる — これが「観測等価性」の物理的予言です。
+![観測可能性: 扉開閉によるフロアプラン上の有効エリア](https://raw.githubusercontent.com/airpocket-soundman/IchiPing/main/docs/img/observability.svg)
+
+3 場面で観測可能な変数 (窓) と区別できる状態数:
 
 | 扉条件 | 真状態数 | 観測可能なクラス |
 |---|---|---|
@@ -171,6 +173,8 @@ IchiPing は、**「<span style="font-size:1.8em;font-weight:900;">1</span> 個�
 ### 実測 — 32 クラス全て分類成功
 
 しかし、v12345 検証 (MCU 実機 8 モデル × 32 状態 sweep) で **当初予言は経験的に否定** されました。実機計測の結果、**32 真状態すべてが 100% 識別可能** だったのです。
+
+![ドア開閉と実測結果の対照](https://raw.githubusercontent.com/airpocket-soundman/IchiPing/main/docs/img/door_state_inference_area.svg)
 
 | モデル | 32 cls 正解率 | 14 cls 正解率 |
 |---|---|---|
