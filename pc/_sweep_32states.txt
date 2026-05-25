@@ -1,0 +1,97 @@
+# 32-state sweep (Gray code) — start: CLOSE ALL を保証
+CLOSE ALL
+# expect cls32_state=s00000 idx=0
+INFER
+# step 1: s00000 -> s10000 (idx=1, flip a)
+OPEN a
+INFER
+# step 2: s10000 -> s11000 (idx=3, flip b)
+OPEN b
+INFER
+# step 3: s11000 -> s01000 (idx=2, flip a)
+CLOSE a
+INFER
+# step 4: s01000 -> s01100 (idx=6, flip c)
+OPEN c
+INFER
+# step 5: s01100 -> s11100 (idx=7, flip a)
+OPEN a
+INFER
+# step 6: s11100 -> s10100 (idx=5, flip b)
+CLOSE b
+INFER
+# step 7: s10100 -> s00100 (idx=4, flip a)
+CLOSE a
+INFER
+# step 8: s00100 -> s00110 (idx=12, flip AB)
+OPEN AB
+INFER
+# step 9: s00110 -> s10110 (idx=13, flip a)
+OPEN a
+INFER
+# step 10: s10110 -> s11110 (idx=15, flip b)
+OPEN b
+INFER
+# step 11: s11110 -> s01110 (idx=14, flip a)
+CLOSE a
+INFER
+# step 12: s01110 -> s01010 (idx=10, flip c)
+CLOSE c
+INFER
+# step 13: s01010 -> s11010 (idx=11, flip a)
+OPEN a
+INFER
+# step 14: s11010 -> s10010 (idx=9, flip b)
+CLOSE b
+INFER
+# step 15: s10010 -> s00010 (idx=8, flip a)
+CLOSE a
+INFER
+# step 16: s00010 -> s00011 (idx=24, flip BC)
+OPEN BC
+INFER
+# step 17: s00011 -> s10011 (idx=25, flip a)
+OPEN a
+INFER
+# step 18: s10011 -> s11011 (idx=27, flip b)
+OPEN b
+INFER
+# step 19: s11011 -> s01011 (idx=26, flip a)
+CLOSE a
+INFER
+# step 20: s01011 -> s01111 (idx=30, flip c)
+OPEN c
+INFER
+# step 21: s01111 -> s11111 (idx=31, flip a)
+OPEN a
+INFER
+# step 22: s11111 -> s10111 (idx=29, flip b)
+CLOSE b
+INFER
+# step 23: s10111 -> s00111 (idx=28, flip a)
+CLOSE a
+INFER
+# step 24: s00111 -> s00101 (idx=20, flip AB)
+CLOSE AB
+INFER
+# step 25: s00101 -> s10101 (idx=21, flip a)
+OPEN a
+INFER
+# step 26: s10101 -> s11101 (idx=23, flip b)
+OPEN b
+INFER
+# step 27: s11101 -> s01101 (idx=22, flip a)
+CLOSE a
+INFER
+# step 28: s01101 -> s01001 (idx=18, flip c)
+CLOSE c
+INFER
+# step 29: s01001 -> s11001 (idx=19, flip a)
+OPEN a
+INFER
+# step 30: s11001 -> s10001 (idx=17, flip b)
+CLOSE b
+INFER
+# step 31: s10001 -> s00001 (idx=16, flip a)
+CLOSE a
+INFER

@@ -1,0 +1,60 @@
+- label: s01011
+  pattern: 4
+  repeats: 15
+  volume: 3
+  doors:
+    a: CLOSE
+    b: OPEN
+    c: CLOSE
+    AB: OPEN
+    BC: OPEN
+- label: s11011
+  pattern: 4
+  repeats: 40
+  volume: 3
+  doors:
+    a: OPEN
+    b: OPEN
+    c: CLOSE
+    AB: OPEN
+    BC: OPEN
+- label: s00111
+  pattern: 4
+  repeats: 40
+  volume: 3
+  doors:
+    a: CLOSE
+    b: CLOSE
+    c: OPEN
+    AB: OPEN
+    BC: OPEN
+- label: s10111
+  pattern: 4
+  repeats: 40
+  volume: 3
+  doors:
+    a: OPEN
+    b: CLOSE
+    c: OPEN
+    AB: OPEN
+    BC: OPEN
+- label: s01111
+  pattern: 4
+  repeats: 40
+  volume: 3
+  doors:
+    a: CLOSE
+    b: OPEN
+    c: OPEN
+    AB: OPEN
+    BC: OPEN
+- label: s11111
+  pattern: 4
+  repeats: 40
+  volume: 3
+  doors:
+    a: OPEN
+    b: OPEN
+    c: OPEN
+    AB: OPEN
+    BC: OPEN
