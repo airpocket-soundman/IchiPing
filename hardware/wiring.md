@@ -1,6 +1,29 @@
-# IchiPing 配線テーブル（v1, FRDM-MCXN947 / INMP441 想定）
+# IchiPing 配線図（v1, FRDM-MCXN947 + M5Stamp Pico + INMP441 想定）
 
-主要な配線図は [wiring.svg](wiring.svg)、機械可読ネットリストは [netlist.csv](netlist.csv)。本ドキュメントは **MCU ピン → 接続先デバイス端子** の関係を表形式で整理したもの。
+主要な配線図は [wiring.svg](wiring.svg)、システム構成図は [system_overview.svg](../docs/img/system_overview.svg)、機械可読ネットリストは [netlist.csv](netlist.csv)。本ドキュメントは **MCU ピン → 接続先デバイス端子** の関係を表形式で整理したもの。
+
+## 0. 全デバイス ピン接続 早見表
+
+IchiPing v1 で使うすべてのデバイスと、それぞれが接続される MCU ピン（または周辺チップ経由）の対応を 1 表にまとめたもの。
+
+| デバイス | 役割 | 接続バス / 経路 | MCU 直結ピン (Arduino 表記) | アドレス / ch | 電源 | 配置 |
+|---|---|---|---|---|---|---|
+| **FRDM-MCXN947** | MCU (NPU + PowerQuad + I²S 多系統) | — | — | — | USB-C 5V / 3.3V LDO | コントローラ筐体 |
+| **ILI9341** TFT 240×320 | 状態表示 (LVGL) | SPI (LPSPI1 / FC1) + GPIO ×4 | D11/D12/D13 + A2(CS)/A3(RST)/A4(DC)/A5(BL) | — | 3.3V | コントローラ筐体 |
+| **MAX98357A** | I²S Class-D アンプ | I²S (SAI1 TX) | PIO3_16/17/20 (BCLK/FS/TXD0) | — | 5V (GAIN=GND) | コントローラ筐体 |
+| **SPK 8Ω 0.25W** | 音響放射 (1 Ping) | アナログ 2 線 | MAX98357A 出力 | — | (MAX98357A から) | House 模型 |
+| **INMP441** | I²S MEMS マイク 24-bit | I²S (SAI1 RX) | PIO3_16/17/21 (BCLK/FS/RXD0) | L/R=GND | 3.3V (SD=3.3V) | House 模型 |
+| **PCA9685** | 16ch PWM サーボドライバ | I²C (LPI2C2 / FC2) | D18 (SDA) / D19 (SCL) | I²C 0x40 | VCC=3.3V, V+=5V | コントローラ筐体 |
+| **SG90 ×5** | 窓 a/b/c + 扉 AB/BC 開閉 | PWM (PCA9685 ch 0-4) | PCA9685 経由 | ch 0 / 1 / 2 / 3 / 4 | 5V V+ | House 模型 |
+| **トグル ×5** | 窓・扉 真値入力 | GPIO IN (プルアップ) | D3, D4, D5, D6, D7 | SPST → GND | — | コントローラ筐体 |
+| **EXEC ボタン** | 手動推論トリガ | GPIO IN (プルアップ) | D8 | モーメンタリ → GND | — | コントローラ筐体 |
+| **LED 推論中** 橙 | 推論サイクル中点灯 | GPIO OUT (330Ω 直列) | D2 | — | 3.3V → GPIO | コントローラ筐体 |
+| **LED PWR** 緑 | 電源 ON 表示 | (電源直結、GPIO 不要) | — | — | 3.3V 直 + 330Ω | コントローラ筐体 |
+| **M5Stamp Pico** (ESP32-PICO-D4) | Wi-Fi モジュール (MQTT/HTTP) | UART (LPUART2 / FC2) | D0 (RX) / D1 (TX) | — | 5V (内蔵 LDO → 3.3V) | コントローラ筐体内に統合 |
+| **降雨センサ** YL-83 | 雨検出 → 推論トリガ | GPIO IN (デジタル) | D9 (P3_4 想定) | HIGH=乾燥 / LOW=雨 | 3.3V | House 模型に屋外設置 |
+| **OpenSDA UART** | デバッグ / PC 連携 | UART (LPUART4 / FC4) | オンボード MCU-Link | 921600 bps | USB-Micro | コントローラ筐体 |
+
+**注**: 「Arduino 表記」は FRDM-MCXN947 ボード上の Arduino ヘッダ刻印 (D0-D19, A0-A5)。実際の MCU P-port 番号は **MCUXpresso Config Tools の Pins ツール**で確定し、各 firmware project の `pin_mux.c` に反映している。詳細マッピングは §2 参照。
 
 ## 1. バス割り当てサマリ
 
@@ -10,11 +33,11 @@
 | I²C | LPI2C2（FC2） | PCA9685 / LU9685 / BMP585 | 0x40 / 0x1F (jumper 0x00–0x1F) / 0x47 | **D18 (SDA, PIO4_0), D19 (SCL, PIO4_1)** |
 | SPI | LPSPI1（FC1） | ILI9341 TFT | CS=A2 (GPIO 駆動) | D11/D12/D13 (J2.8/10/12), A2/A3/A4/A5 (J4.6/8/10/12) |
 | UART | LPUART4（FC4） | OpenSDA 仮想 COM（v0.1 デバッグ／フレーム送信） | — | オンボード MCU-Link |
-| UART | LPUART2（FC2） | ESP32-WROOM（任意, 将来） | — | D0, D1 |
+| UART | LPUART2（FC2） | **M5Stamp Pico** (ESP32-PICO-D4, Wi-Fi) | — | D0 (RX), D1 (TX) |
 | USB | USB0 | PC（CDC データ転送） | — | オンボード USB-C |
 | PWM | （PCA9685 経由） | SG90 ×5 | PCA ch 0–4 | — |
-| GPIO IN | — | トグル ×5 + EXEC ×1 + BMP INT | 内蔵プルアップ | D2–D9 |
-| GPIO OUT | — | LED ×2 | 330Ω 直列 | A0, A1 |
+| GPIO IN | — | トグル ×5 + EXEC ×1 + **降雨センサ** | 内蔵プルアップ / デジタル直結 | D3–D9 |
+| GPIO OUT | — | LED 推論中 (1) | 330Ω 直列 | D2 |
 
 ## 2. MCU ピン → デバイス端子 マップ
 

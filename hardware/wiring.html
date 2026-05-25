@@ -22,6 +22,7 @@
     <div class="sidenav-group">
       <div class="sidenav-h">設計 / 仕様</div>
       <a href="../docs/spec.html">仕様書 (spec)</a>
+      <a href="wiring.html">配線図</a>
       <a href="../docs/nn_design.html">NN 設計</a>
       <a href="../docs/mcu_deployment.html">MCU デプロイ</a>
       <a href="../docs/bringup.html">実機ブリングアップ</a>
@@ -65,14 +66,147 @@
     ／ <a href="../tasks.html">タスクボード</a>
     ／ <a href="../docs/spec.html">仕様書</a>
   </div>
-  <h1>IchiPing 配線テーブル <span class="pill">v1, FRDM-MCXN947 / INMP441 想定</span></h1>
+  <h1>IchiPing 配線図 <span class="pill">v1, FRDM-MCXN947 + M5Stamp Pico + INMP441 想定</span></h1>
   <div class="sub">
-    主要な配線図は <a href="wiring.svg">wiring.svg</a>、機械可読ネットリストは <a href="netlist.csv">netlist.csv</a>。
+    主要な配線図は <a href="wiring.svg">wiring.svg</a>、システム構成図は <a href="../docs/img/system_overview.svg">system_overview.svg</a>、機械可読ネットリストは <a href="netlist.csv">netlist.csv</a>。
     本ドキュメントは <b>MCU ピン → 接続先デバイス端子</b> の関係を表形式で整理。
   </div>
 </header>
 
 <main>
+
+<h2>0. 全デバイス ピン接続 早見表</h2>
+
+<p>
+  IchiPing v1 で使うすべてのデバイスと、それぞれが接続される MCU ピン（または周辺チップ経由）の対応を 1 つの表にまとめたもの。
+  詳細な信号名・代替機能・ジャンパ設定は §2 以降に分離して記載。
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>デバイス</th><th>役割</th><th>接続バス / 経路</th><th>MCU 直結ピン (Arduino 表記)</th><th>アドレス / ch</th><th>電源</th><th>配置</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>FRDM-MCXN947</b></td>
+      <td>MCU (NPU + PowerQuad + I²S 多系統)</td>
+      <td>—</td><td>—</td><td>—</td><td>USB-C 5V / 3.3V LDO</td>
+      <td>コントローラ筐体</td>
+    </tr>
+    <tr>
+      <td><b>ILI9341</b> TFT 240×320</td>
+      <td>状態表示 (LVGL)</td>
+      <td>SPI (LPSPI1 / FC1) + GPIO ×4</td>
+      <td>D11/D12/D13 + A2(CS)/A3(RST)/A4(DC)/A5(BL)</td>
+      <td>—</td><td>3.3V</td>
+      <td>コントローラ筐体</td>
+    </tr>
+    <tr>
+      <td><b>MAX98357A</b></td>
+      <td>I²S Class-D アンプ</td>
+      <td>I²S (SAI1 TX)</td>
+      <td>PIO3_16/17/20 (BCLK/FS/TXD0)</td>
+      <td>—</td><td>5V (GAIN=GND)</td>
+      <td>コントローラ筐体</td>
+    </tr>
+    <tr>
+      <td><b>SPK 8Ω 0.25W</b></td>
+      <td>音響放射 (1 Ping)</td>
+      <td>アナログ 2 線</td>
+      <td>MAX98357A 出力</td>
+      <td>—</td><td>(MAX98357A から)</td>
+      <td>House 模型</td>
+    </tr>
+    <tr>
+      <td><b>INMP441</b></td>
+      <td>I²S MEMS マイク 24-bit</td>
+      <td>I²S (SAI1 RX)</td>
+      <td>PIO3_16/17/21 (BCLK/FS/RXD0)</td>
+      <td>L/R=GND</td><td>3.3V (SD=3.3V)</td>
+      <td>House 模型</td>
+    </tr>
+    <tr>
+      <td><b>PCA9685</b></td>
+      <td>16ch PWM サーボドライバ</td>
+      <td>I²C (LPI2C2 / FC2)</td>
+      <td>D18 (SDA) / D19 (SCL)</td>
+      <td>I²C 0x40</td><td>VCC=3.3V, V+=5V</td>
+      <td>コントローラ筐体</td>
+    </tr>
+    <tr>
+      <td><b>SG90 ×5</b></td>
+      <td>窓 a/b/c + 扉 AB/BC 開閉</td>
+      <td>PWM (PCA9685 ch 0-4)</td>
+      <td>PCA9685 経由</td>
+      <td>ch 0 / 1 / 2 / 3 / 4</td><td>5V V+</td>
+      <td>House 模型</td>
+    </tr>
+    <tr>
+      <td><b>トグル ×5</b></td>
+      <td>窓・扉 真値入力 (学習データ用)</td>
+      <td>GPIO IN (プルアップ)</td>
+      <td>D3, D4, D5, D6, D7</td>
+      <td>SPST → GND</td><td>—</td>
+      <td>コントローラ筐体</td>
+    </tr>
+    <tr>
+      <td><b>EXEC ボタン</b></td>
+      <td>手動推論トリガ</td>
+      <td>GPIO IN (プルアップ)</td>
+      <td>D8</td>
+      <td>モーメンタリ → GND</td><td>—</td>
+      <td>コントローラ筐体</td>
+    </tr>
+    <tr>
+      <td><b>LED 推論中</b> 橙</td>
+      <td>推論サイクル中点灯</td>
+      <td>GPIO OUT (330Ω 直列)</td>
+      <td>D2</td>
+      <td>—</td><td>3.3V → GPIO</td>
+      <td>コントローラ筐体</td>
+    </tr>
+    <tr>
+      <td><b>LED PWR</b> 緑</td>
+      <td>電源 ON 表示</td>
+      <td>(電源直結、GPIO 不要)</td>
+      <td>—</td>
+      <td>—</td><td>3.3V 直 + 330Ω</td>
+      <td>コントローラ筐体</td>
+    </tr>
+    <tr style="background:rgba(194,24,91,0.10);">
+      <td><b>M5Stamp Pico</b><br>(ESP32-PICO-D4)</td>
+      <td>Wi-Fi モジュール (MQTT/HTTP)</td>
+      <td>UART (LPUART2 / FC2)</td>
+      <td>D0 (RX) / D1 (TX)</td>
+      <td>—</td><td>5V (内蔵 LDO → 3.3V)</td>
+      <td>コントローラ筐体内に統合</td>
+    </tr>
+    <tr style="background:rgba(31,93,153,0.10);">
+      <td><b>降雨センサ</b> YL-83</td>
+      <td>雨検出 → 推論トリガ</td>
+      <td>GPIO IN (デジタル)</td>
+      <td>D9 (P3_4 想定)</td>
+      <td>HIGH=乾燥 / LOW=雨</td><td>3.3V</td>
+      <td>House 模型に屋外設置</td>
+    </tr>
+    <tr>
+      <td><b>OpenSDA UART</b></td>
+      <td>デバッグ / PC 連携 (学習データ収集)</td>
+      <td>UART (LPUART4 / FC4)</td>
+      <td>オンボード MCU-Link</td>
+      <td>921600 bps</td><td>USB-Micro</td>
+      <td>コントローラ筐体</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <b>注</b>: 「Arduino 表記」は FRDM-MCXN947 ボード上の Arduino ヘッダ刻印 (D0-D19, A0-A5)。
+  実際の MCU P-port 番号は <b>MCUXpresso Config Tools の Pins ツール</b>で確定し、
+  各 firmware project の <code>pin_mux.c</code> に反映している。詳細マッピングは §2 参照。
+</div>
 
 <h2>1. バス割り当てサマリ</h2>
 <table>
@@ -84,11 +218,11 @@
     <tr><td>I²C</td><td>LPI2C2 (FC2)</td><td>PCA9685 / LU9685 / BMP585</td><td>0x40 / 0x1F (jumper 0x00–0x1F) / 0x47</td><td><b>D18 (SDA, PIO4_0), D19 (SCL, PIO4_1)</b></td></tr>
     <tr><td>SPI</td><td>LPSPI1 (FC1)</td><td>ILI9341 TFT</td><td>CS=A2 (GPIO 駆動)</td><td>D11/D12/D13 (J2.8/10/12), A2/A3/A4/A5 (J4.6/8/10/12)</td></tr>
     <tr><td>UART</td><td>LPUART4 (FC4)</td><td>OpenSDA 仮想 COM（v0.1 デバッグ／フレーム送信）</td><td>—</td><td>オンボード MCU-Link</td></tr>
-    <tr><td>UART</td><td>LPUART2 (FC2)</td><td>ESP32-WROOM（任意, 将来）</td><td>—</td><td>D0, D1</td></tr>
+    <tr><td>UART</td><td>LPUART2 (FC2)</td><td><b>M5Stamp Pico</b> (ESP32-PICO-D4, Wi-Fi)</td><td>—</td><td>D0 (RX), D1 (TX)</td></tr>
     <tr><td>USB</td><td>USB0</td><td>PC（CDC データ転送）</td><td>—</td><td>オンボード USB-C</td></tr>
     <tr><td>PWM</td><td>（PCA9685 経由）</td><td>SG90 ×5</td><td>PCA ch 0–4</td><td>—</td></tr>
-    <tr><td>GPIO IN</td><td>—</td><td>トグル ×5 + EXEC ×1 + BMP INT</td><td>内蔵プルアップ</td><td>D2–D9</td></tr>
-    <tr><td>GPIO OUT</td><td>—</td><td>LED ×2</td><td>330Ω 直列</td><td>A0, A1</td></tr>
+    <tr><td>GPIO IN</td><td>—</td><td>トグル ×5 + EXEC ×1 + <b>降雨センサ</b></td><td>内蔵プルアップ / デジタル直結</td><td>D3–D9</td></tr>
+    <tr><td>GPIO OUT</td><td>—</td><td>LED 推論中 (1)</td><td>330Ω 直列</td><td>D2</td></tr>
   </tbody>
 </table>
 
@@ -167,16 +301,28 @@
 
 <p>全体ピン配置とコンフリクト解析は <a href="pin_plan.html">pin_plan.html</a> に集約。</p>
 
-<h3>2.4 UART（ESP32, FC2）</h3>
+<h3>2.4 UART（M5Stamp Pico, LPUART2 / FC2）</h3>
+<p>
+  Wi-Fi 連携の <b>M5Stamp Pico (ESP32-PICO-D4)</b> はコントローラ筐体内に組み込まれ、
+  LPUART2 経由で MCU と通信する。推論結果送信（MCU → M5Stamp → クラウド）と
+  「閉めて」コマンド受信（クラウド → M5Stamp → MCU）が同じ経路で双方向に流れる。
+</p>
 <table>
   <thead>
-    <tr><th>Arduino</th><th>MCU 機能</th><th>ESP32 ピン</th></tr>
+    <tr><th>Arduino</th><th>MCU pin</th><th>MCU 機能</th><th>M5Stamp Pico ピン</th><th>方向</th></tr>
   </thead>
   <tbody>
-    <tr><td>D0</td><td><code>FC2_UART_RX</code></td><td>U0TXD</td></tr>
-    <tr><td>D1</td><td><code>FC2_UART_TX</code></td><td>U0RXD</td></tr>
+    <tr><td>D0</td><td>PIO4_2</td><td><code>LP_FLEXCOMM2_P2</code> (LPUART2 RX)</td><td>G1 (TX)</td><td>M5Stamp → MCU</td></tr>
+    <tr><td>D1</td><td>PIO4_3</td><td><code>LP_FLEXCOMM2_P3</code> (LPUART2 TX)</td><td>G3 (RX)</td><td>MCU → M5Stamp</td></tr>
+    <tr><td>—</td><td>—</td><td>5V 給電</td><td>5V</td><td>—</td></tr>
+    <tr><td>—</td><td>—</td><td>GND 共通</td><td>GND</td><td>—</td></tr>
   </tbody>
 </table>
+<div class="callout">
+  <b>注</b>: I²C と LPUART は同じ LPI2C2/LPFLEXCOMM2 を別 pin で使い分けるのが MCXN947 の作法。
+  ボード上で PCA9685 (D18/D19, FC2 P0/P1) と M5Stamp (D0/D1, FC2 P2/P3) は同じ Flexcomm2 を
+  チャネル分離して使う。pin_mux.c 設定で衝突しないよう注意。
+</div>
 
 <h3>2.5 PWM サーボ（PCA9685 / LU9685 経由）</h3>
 <table>
@@ -214,7 +360,24 @@
     <tr><td>D6</td><td>トグル: 扉 AB</td><td>SPST → GND</td></tr>
     <tr><td>D7</td><td>トグル: 扉 BC</td><td>SPST → GND</td></tr>
     <tr><td>D8</td><td>EXEC ボタン</td><td>モーメンタリ SPST → GND</td></tr>
-    <tr><td>D9</td><td>BMP585 INT（任意）</td><td>センサからのイベント割込（v0.3 以降）</td></tr>
+    <tr style="background:rgba(31,93,153,0.10);"><td><b>D9</b></td><td><b>降雨センサ</b> (YL-83) デジタル出力</td><td>House 模型に屋外設置、HIGH=乾燥 / LOW=雨。3.3V/GND 給電</td></tr>
+  </tbody>
+</table>
+
+<h3>2.6.1 降雨センサ YL-83 配線詳細</h3>
+<p>
+  抵抗式降雨検出モジュール。基板の電極パターンに水滴が付くと抵抗値が下がり、
+  オンボードコンパレータがデジタル出力 D0 を LOW にする (調整 VR で閾値可変)。
+</p>
+<table>
+  <thead>
+    <tr><th>YL-83 ピン</th><th>接続先</th><th>備考</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>VCC</td><td>FRDM 3.3V (J5.4 等)</td><td>5V でも動くが 3.3V を選択 (MCU と同電圧)</td></tr>
+    <tr><td>GND</td><td>FRDM GND</td><td>—</td></tr>
+    <tr><td>D0 (デジタル出力)</td><td>MCU D9 (PIO3_4 想定)</td><td>HIGH=乾燥 / LOW=雨。MCU 側で立下りエッジ割込</td></tr>
+    <tr><td>A0 (アナログ出力)</td><td>未接続</td><td>本構成ではデジタル D0 のみ使用</td></tr>
   </tbody>
 </table>
 
