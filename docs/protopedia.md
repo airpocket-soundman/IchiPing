@@ -191,14 +191,16 @@ NN に渡す入力は **生の FFT スペクトルではなく、「baseline (s0
 
 ### クラスごとの FFT diff 形状
 
-![FFT diff (state − s00000) クラス別平均](https://raw.githubusercontent.com/airpocket-soundman/IchiPing/main/docs/img/fft_diff_by_class.svg)
+![FFT diff from baseline s00000 (dB) — sorted by equivalence class](https://raw.githubusercontent.com/airpocket-soundman/IchiPing/main/docs/img/fft_diff_heatmap_by_class.png)
 
-14 観測等価クラスそれぞれで FFT diff の **形状が独自のパターン** を持ちます:
+32 状態を等価クラス順 (A1 → A2 → B1..B4 → C1..C8) に縦に並べ、横軸を周波数 (50-5000 Hz log) として diff を **色 (赤 = +dB / 青 = -dB)** で示したヒートマップ。クラスごとに独自のパターンが目視で確認できます:
 
-- **A1 (全閉)** は ±0 dB 近傍に張り付く（baseline と同じなので diff = 0）
-- **A2 (窓 a のみ開)** は低域 200-400 Hz で大きな +diff（部屋 A の壁面振動が窓開で軽くなる）
-- **B 系列 (扉 AB 開, BC 閉)** は中域 1-2 kHz で隣室 B のモードが結合し独自パターン
-- **C 系列 (両扉開)** は全帯域に広がる複雑な diff（3 部屋カップリング）
+- **A1 (全閉, 一番下のブロック)** はほぼ無色 (±0 dB) — baseline と同じなので diff = 0
+- **A2 (窓 a のみ開)** は 200-400 Hz と 600-800 Hz に強い赤帯 — 部屋 A の壁面振動が窓開で軽くなる
+- **B 系列 (扉 AB 開, BC 閉)** は中域 400-1000 Hz に独特の赤/青パターン — 部屋 A+B の結合モード
+- **C 系列 (両扉開, 上部 8 行)** は全帯域に広がる複雑な diff — 3 部屋カップリングで多数の共鳴ピーク
+
+クラス境界ではっきり色パターンが切り替わるのが見え、これが **14 等価クラスへのマッピングが NN にとって学習可能** な根拠です。さらに同じクラス内 (例: A1 の 16 サンプル) でも微妙な色差があり、これが **32 真状態すべて識別可能** だった理由 (扉漏れによるサブクラス情報の残存)。
 
 NN はこの「**形状の違い**」を Conv1D / Conv2D で学習し、状態を識別します。生 FFT 直接学習では「窓 a 開」と「室温が下がった」を区別できませんが、**diff にすれば環境変化はキャンセル**されて窓状態だけが残る、というのが本手法の本質です。
 
