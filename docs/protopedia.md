@@ -82,29 +82,6 @@ https://github.com/airpocket-soundman/IchiPing
 
 機材は **コントローラ筐体**（MCU / 表示 / トグル / アンプ / サーボドライバ / Wi-Fi モジュール）と **House 模型**（マイク / スピーカ / サーボ ×5 / 降雨センサ）の 2 箱に分かれ、ケーブルで結ぶ構成。模型側のトグルスイッチ ×5 は窓・扉の真値ラベルとして学習データに付与される。クラウドとスマホは筐体外の外部システム。
 
-**筐体ごとの中身**
-
-| 場所 | 入っているもの |
-|---|---|
-| コントローラ筐体 | FRDM-MCXN947 / ILI9341 TFT / トグルスイッチ ×5 + EXEC ボタン / MAX98357A アンプ / PCA9685 サーボドライバ / **M5Stamp Pico (ESP32)** |
-| House 模型 | INMP441 マイク / 8 Ω スピーカ / SG90 サーボ ×5（窓 a/b/c + 扉 AB/BC） / **降雨センサ（屋外設置）** |
-| 外部システム | スマートホームクラウド (Home Assistant 等の MQTT broker) / ユーザのスマホ |
-
-**筐体間ケーブル**
-
-- I²S mic 3 線（BCLK / WS / SD）+ 電源: コントローラ → 模型内 INMP441
-- スピーカ 2 線: コントローラ内 MAX98357A → 模型内 スピーカ
-- PWM ×5: コントローラ内 PCA9685 → 模型内 SG90 ×5
-- **GPIO 1 線: コントローラ内 MCU → 模型内 降雨センサ（雨検出デジタル入力）**
-
-**コントローラ筐体内の局所配線**
-
-- **UART (LPUART): MCU ↔ M5Stamp Pico**（推論結果送信 + 「閉めて」コマンド受信）
-
-**筐体外 (Wi-Fi)**
-
-- **M5Stamp Pico ↔ スマートホームクラウド ↔ スマホ** (MQTT / HTTP)
-
 **信号の流れ — システム処理フローチャート**
 
 ![信号フロー](https://raw.githubusercontent.com/airpocket-soundman/IchiPing/main/docs/img/signal_flow.svg)
