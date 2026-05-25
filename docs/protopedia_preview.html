@@ -338,7 +338,7 @@
   <div class="pp-container">
     <h1 class="pp-title">IchiPing — <span class="bigone">1</span> 個のセンサで家中の窓と扉を「聴く」エッジ AI</h1>
     <p class="pp-tagline">
-      <span class="bigone">1</span> 個のセンサと <span class="bigone">1</span> 発の Ping で、家のすべての窓を聴く ─ 物理 Ping + RIR + 1D CNN による室内状態推定
+      「雨降ってきた、窓大丈夫？」を <span class="bigone">1</span> マイク <span class="bigone">1</span> Ping のエッジ AI で解決 ─ 雨検出 → 32 状態推定 → スマホ通知 → サーボ自動閉まで完結
     </p>
     <div class="pp-status-row">
       <span class="pp-status">開発中</span>
@@ -365,12 +365,14 @@
       <article class="pp-card">
         <h2>概要</h2>
         <p>
-          スピーカから <b>物理 Ping</b>（能動的に放つ掃引音）を撃ち、たった
-          <span class="bigone">1</span> 個のセンサで返ってくる室内インパルス応答を 1D CNN で
-          解析することで、<b>家中の窓・扉の開閉状態を同時推定</b>するエッジ AI デバイスです。
-          部屋ごとにセンサを置く従来発想を
-          「<span class="bigone">1</span> 個のセンサ × <span class="bigone">1</span> 発の <b>Ping</b>」
-          で置き換えるのが狙いで、NXP <b>FRDM-MCXN947</b>（NPU + PowerQuad DSP 内蔵）上で完結します。
+          <b>「雨降ってきた、窓大丈夫？」</b> 外出先での不安を解消するエッジ AI デモ。
+          スピーカから <b>1 発の物理 Ping</b>（能動掃引音）を撃ち、たった
+          <span class="bigone">1</span> 個のマイクで返ってくる室内インパルス応答を
+          NPU 上の CNN で解析、<b>家中の窓・扉 32 通りの組合せ状態を同時推定</b>します。
+          降雨センサ + ESP32 を追加して、雨検出 → 推論 → スマホ通知まで完結。
+          さらに <b>サーボで自動的に窓を閉める</b> ところまでデモします。
+          NXP <b>FRDM-MCXN947</b>（Neutron NPU + PowerQuad DSP 内蔵）上で 1.89 ms 推論、
+          32 状態とも MCU 実機で 100% 正解を達成しました。
         </p>
       </article>
 
@@ -413,28 +415,82 @@
             <tr><td>MCU</td><td>NXP <b>FRDM-MCXN947</b></td></tr>
             <tr><td>マイク</td><td>InvenSense <b>INMP441</b> I²S MEMS</td></tr>
             <tr><td>アンプ</td><td><b>MAX98357A</b> I²S Class-D</td></tr>
-            <tr><td>サーボ駆動</td><td><b>PCA9685</b> + SG90 ×5</td></tr>
+            <tr><td>サーボ駆動</td><td><b>PCA9685</b> + SG90 ×5（オチ 2「窓自動閉」担当）</td></tr>
             <tr><td>表示</td><td><b>ILI9341</b> 2.4" TFT 240×320（RGB565, LVGL）</td></tr>
             <tr><td>操作入力</td><td>パネルトグル ×5（窓 a/b/c + 扉 AB/BC 真値）+ EXEC タクトスイッチ ×1</td></tr>
-            <tr><td>通信</td><td>OpenSDA UART 921600 bps（v0.1）→ USB CDC（v0.3〜）</td></tr>
+            <tr><td>PC 連携</td><td>OpenSDA UART 921600 bps（学習データ収集用）／ USB CDC</td></tr>
           </tbody>
         </table>
+
+        <h3>デモ用追加機器（雨検出 → スマホ通知シナリオ）</h3>
+        <table>
+          <thead><tr><th>役割</th><th>部品</th><th>接続</th></tr></thead>
+          <tbody>
+            <tr><td>降雨センサ</td><td>YL-83 等の安価モジュール</td><td>GPIO デジタル入力、屋外設置</td></tr>
+            <tr><td>Wi-Fi モジュール</td><td><b>ESP32-WROOM</b></td><td>IchiPing と UART 接続、MQTT/HTTP でクラウド送信</td></tr>
+            <tr><td>スマートホーム連携</td><td>クラウド (Home Assistant 等の MQTT broker)</td><td>ESP32 から push、スマホアプリで受信</td></tr>
+          </tbody>
+        </table>
+        <p style="font-size:13px;color:var(--pp-muted);">
+          降雨センサと ESP32 は IchiPing 本体 (FRDM-MCXN947) には不要で、
+          <b>雨検出 → 通知 → 自動閉までの完全自動化デモを成立させるための周辺機器</b>として後付けします。
+        </p>
       </article>
 
       <!-- ストーリー -->
       <article class="pp-card">
         <h2>ストーリー</h2>
 
-        <h3><span class="bigone">1</span> 個のセンサと <span class="bigone">1</span> 発の Ping で、家のすべての窓を聴く</h3>
+        <h3>シーン — 「雨降ってきた、窓大丈夫？」</h3>
         <p>
-          IchiPing は、<b>「<span class="bigone">1</span> 個のセンサと <span class="bigone">1</span> 発の物理 Ping（能動的な掃引音）だけで、家中の窓と扉の開閉を当てる」</b>
-          ことを目指したエッジ AI デバイスです。
+          外出中に空が暗くなり、雨がポツポツと降り出した。スマホを取り出して —
+          <b>「あれ、窓閉めてきたっけ…？」</b>
         </p>
+        <p>
+          家まで戻る時間も余裕もない。誰もが一度は経験する、地味だけど落ち着かない不安です。
+        </p>
+        <img class="pp-sys-img" src="img/demo_use_case.svg" alt="IchiPing デモシナリオ全体図: 雨検出 → 1 Ping 推論 → スマホ通知 → サーボ自動閉">
+
+        <h3>IchiPing の解決 — <span class="bigone">1</span> マイク <span class="bigone">1</span> Ping で 32 状態を当てる</h3>
+        <p>
+          IchiPing は <b>「<span class="bigone">1</span> 個のマイクと <span class="bigone">1</span> 発の Ping だけで、家中の窓と扉の開閉 32 通りを当てる」</b>
+          ことを実現したエッジ AI デバイスです。これに <b>降雨センサ + ESP32</b> をデモ用周辺機器として追加することで、次のフローが成立します:
+        </p>
+        <ol>
+          <li>屋外の降雨センサが雨を検出</li>
+          <li>ESP32 → IchiPing コントローラに推論トリガを送る</li>
+          <li>IchiPing が 1 Ping → MCU 上の Neutron NPU で <b>1.89 ms 推論</b> → 窓・扉 32 状態のうちどれかを特定</li>
+          <li>ESP32 が結果をスマートホームクラウドに送信</li>
+          <li>ユーザのスマホに通知「窓 a が開いてます！」</li>
+        </ol>
+
+        <h3>2 段オチ</h3>
+        <p style="background:rgba(232,154,61,0.10);border-left:3px solid #e89a3d;padding:10px 14px;margin:10px 0;">
+          <b>オチ 1</b> — 通知が来ても外出中だと…
+        </p>
+        <ul>
+          <li>「閉まってる」なら → 安心 ✓</li>
+          <li>「開いてる」なら → 知らされても何もできない 😞</li>
+        </ul>
+        <p>通知だけのソリューションには <b>「情報があっても手が届かない悲しさ」</b> がある。</p>
+        <p style="background:rgba(123,224,164,0.10);border-left:3px solid #7be0a4;padding:10px 14px;margin:10px 0;">
+          <b>オチ 2 — でも安心してください。</b>
+          このデモ装置は窓を <b>サーボで自動開閉できます</b>。
+          スマホから「閉めて」をタップ → ESP32 → IchiPing → PCA9685 → SG90 ×5 →
+          <b style="color:#7be0a4">物理的に窓を閉める ✓</b>
+        </p>
+        <p>
+          「聴く（推論）→ 通知 → <b>閉める（アクション）</b>」の往復が、
+          <span class="bigone">1</span> 個のセンサと <span class="bigone">1</span> 発の Ping から始まる
+          小さな AI デバイスで全部完結します。
+        </p>
+
+        <h3>なぜ「<span class="bigone">1</span> マイク <span class="bigone">1</span> Ping」が成立するのか</h3>
         <p>
           家中にセンサを散らす方式は配線・電池交換・通信の地獄を抱えるのが常ですが、
           室内の音響インパルス応答（RIR: Room Impulse Response）は
           <b>窓 1 枚が開くだけでも全体のモードと残響が変わる</b>という性質を持ちます。
-          なら、<b>部屋を丸ごと共振器とみなして 1 点で全部聴く</b>ほうが筋がいいのではないか
+          <b>部屋を丸ごと共振器とみなして 1 点で全部聴く</b>ほうが筋がいい
           — それが IchiPing の出発点です。
         </p>
 
@@ -455,32 +511,35 @@
           内蔵の <b>NPU + PowerQuad DSP</b> で INT8 推論まで完結します。
         </p>
 
-        <h3>観測の限界 — 扉の向こうは「聞こえない」</h3>
+        <h3>当初の理論的限界 → 実測で覆された</h3>
         <p>
-          ただし、ここには物理的な情報量の上限があります。窓 3 + 扉 2 = 5 ビットで真の状態は
-          2⁵ = <b>32 通り</b>ありますが、<b>扉が閉まるとその先の部屋は音響的に遮断</b>され、
-          向こう側の窓・扉の状態は区別不能になります。
+          設計開始時、私たちは「窓 3 + 扉 2 = 5 ビット → 真状態 32 通りだが、扉が閉まると向こう側は遮断され
+          <b>14 等価クラスが情報量上限</b>になる」と予想していました。物理的に妥当に見えるこの予想は、
+          しかし v12345 検証で <b>経験的に否定されました</b>。
         </p>
-        <img class="pp-sys-img" src="img/observability.svg" alt="扉開閉と観測可能性の関係">
-        <p style="margin-top:14px;">
-          扉の開閉状態で 3 つの計測条件に場合分けすると、IchiPing が実効的に区別できる状態数は
-          次の通り:
+        <p>
+          実扉は完全遮音ではなく <b>-20〜-30 dB 減衰程度</b>であり、同じ等価クラスに見える状態にも
+          サブ状態を区別できるシグナルが残っていたのです
+          （<a href="https://github.com/airpocket-soundman/IchiPing/blob/main/docs/nn_methods_compare.html">nn_methods_compare §1</a>）。
         </p>
+        <p><b>v12345 検証 (8 モデル × 32 状態 × MCU 実機 sweep) の結果</b>:</p>
         <table>
           <thead>
-            <tr><th>扉 AB</th><th>扉 BC</th><th>可聴な部屋</th><th>区別できる状態数</th><th>真状態のうち何配置が集約されるか</th></tr>
+            <tr><th>モデル</th><th>32 cls (5-bit 状態)</th><th>14 cls (等価クラス)</th><th>校正</th></tr>
           </thead>
           <tbody>
-            <tr><td>閉</td><td>(問わず)</td><td>Room A のみ</td><td><b>2</b>（窓 a）</td><td>16 配置</td></tr>
-            <tr><td>開</td><td>閉</td><td>Room A + B</td><td><b>4</b>（窓 a, b）</td><td>8 配置</td></tr>
-            <tr><td>開</td><td>開</td><td>Room A + B + C</td><td><b>8</b>（窓 a, b, c）</td><td>8 配置</td></tr>
+            <tr><td>v12345_BLJIT_live</td><td><b>100%</b></td><td><b>100%</b></td><td>LIVE 25 秒</td></tr>
+            <tr><td>v12345_BLJIT_factory</td><td><b>88%</b></td><td><b>100%</b></td><td>なし (即時起動)</td></tr>
+            <tr><td>v12345_50f_live_noiselow</td><td><b>100%</b></td><td><b>100%</b></td><td>LIVE (騒音下)</td></tr>
           </tbody>
         </table>
         <p>
-          <b>実効的に区別できるのは 2 + 4 + 8 = 14 状態 / 32 状態</b>。残りは扉閉鎖により
-          情報が遮断される領域です。これは欠陥ではなく <b>物理的な事実</b> で、推論モデルも
-          この構造を踏まえた設計にします（扉状態を先に判定 → 可聴領域内の窓・扉だけを
-          枝分かれで分類）。
+          <b>32 真状態すべてが MCU 実機で識別可能</b>。詳細:
+          <a href="https://github.com/airpocket-soundman/IchiPing/blob/main/docs/v12345_report.html">v12345 検証レポート</a>。
+        </p>
+        <p>
+          決め手は <b>Baseline jittering augmentation</b> — 各録音を 5 種類の baseline で diff して
+          5 サンプル分に増殖させる学習手法で、これにより「baseline 環境に依存しないラベル決定境界」を獲得しました。
         </p>
 
         <h3><span class="bigone">1</span> 個のセンサに賭ける根拠</h3>
@@ -538,12 +597,11 @@
 
         <h3>ロードマップ</h3>
         <ul class="checklist">
-          <li class="done"><b>v0.1</b> シリアル疎通 + ダミー chirp/残響データ保存（達成済）</li>
-          <li class="done"><b>v0.2</b> I²S DAC chirp 放射 + INMP441 同期取り込み（達成済）</li>
-          <li class="done"><b>v0.3</b> PCA9685 + SG90 ×5 の励振パターン制御、SAVE HOME（達成済）</li>
-          <li><b>v0.4</b> 3 部屋アクリル模型での自動データ収集</li>
-          <li><b>v0.5</b> 1D CNN（INT8 量子化）で全閉/開状態の二値分類 → 32 状態分類へ拡張</li>
-          <li><b>v1.0</b> TFT (ILI9341) でフロアプラン表示 + EXEC ボタンによる手動デモモード</li>
+          <li class="done"><b>v0.1〜v0.4</b> シリアル疎通 → I²S 放射/受信 → サーボ制御 → 3 部屋模型自動データ収集（達成済）</li>
+          <li class="done"><b>v0.5〜v0.7</b> 14cls/32cls 両 head Neutron 互換モデル → INT8 量子化 → Neutron 変換 (NPU 比率 7/7 = 100%, 108 KB, 1.89 ms)（達成済）</li>
+          <li class="done"><b>v1.0</b> MCU 実機検証 v12345 sweep (8 モデル × 32 状態、<b>32cls / 14cls とも 100% 達成</b>)（達成済）</li>
+          <li><b>v1.5</b> TFT (ILI9341) でフロアプラン表示 + EXEC ボタンによる手動デモモード</li>
+          <li><b>デモ拡張</b> 降雨センサ + ESP32 を接続して雨検出 → スマホ通知 → サーボ自動閉まで完結</li>
           <li><b>v2.0</b> ROHM <b>ML63Q2557 + Solist-AI</b> への移植（ROHM EDGE HACK 2026 提出版）</li>
         </ul>
 

@@ -85,20 +85,57 @@
 <main>
 
 <div class="callout" style="border-left: 4px solid #ffd166;">
-  <strong>作品コンセプト — 「雨降ってきた、窓大丈夫？」</strong><br>
-  <b>1 個のセンサで家全体の窓・扉の状態を聴き分ける</b> 技術検証 + スマートホーム PoC。
-  <ul style="margin: 8px 0 0 18px;">
-    <li><b>技術検証として</b>: 単一マイク + 単一スピーカで 14 等価クラス (窓 a/b/c 推定) が当初目標、
-        実測で <b>32 真状態すべてが識別可能</b>と判明 (MCU 実機 32cls / 14cls とも 100%, XL モデル 104K params)。
-        「閉扉の向こうは観測不能」という理論的限界を超えた発見が研究の中核。
-        詳細: <a href="v12345_report.html">v12345 検証レポート</a>。</li>
-    <li><b>ソリューションとして</b>: 降雨センサ (追加予定) で雨検出 → IchiPing が窓状態を推論 →
-        サーバ経由でスマホ通知。「外出中に雨が降って窓が心配」をワンセンサで解決。</li>
-    <li><b>PoC ユーモア (2 段オチ)</b>: 通知が来ても外出中で何もできない悲しさ →
-        <b>でも安心してください。このおうちでは窓を閉めることもできます。</b>
-        (サーボ駆動で自動閉まで完結)</li>
-  </ul>
+  <strong>作品コンセプト — 「雨降ってきた、窓大丈夫？」</strong>
 </div>
+
+<img src="img/demo_use_case.svg" alt="IchiPing デモシナリオ全体図: 雨検出 → 1 Ping 推論 → スマホ通知 → サーボ自動閉" style="width: 100%; max-width: 980px; display: block; margin: 12px 0;">
+
+<h3>シーン</h3>
+<p>
+  外出中に空が暗くなり、雨が降り出した。スマホを取り出して「あれ、窓閉めてきたっけ…？」と不安になる。
+  <b>家まで戻る時間も余裕もない</b>。
+</p>
+
+<h3>IchiPing のソリューション</h3>
+<p>
+  <b>1 個のマイクと 1 発の Ping（能動音響）だけで、家中の窓・扉 32 通りの組合せ状態を一発推定する</b>
+  エッジ AI デバイス。これに <b>降雨センサ + ESP32</b> をデモ用周辺機器として追加することで、次のフローが成立する:
+</p>
+
+<ol>
+  <li>屋外の降雨センサが雨を検出</li>
+  <li>ESP32 → IchiPing コントローラに推論トリガを送る</li>
+  <li>IchiPing が 1 Ping → MCU 上の Neutron NPU で <b>1.89 ms 推論</b> → 窓・扉 32 状態のうちどれかを特定</li>
+  <li>ESP32 が結果をスマートホームクラウドに送信</li>
+  <li>ユーザのスマホに通知「窓 a が開いてます！」</li>
+</ol>
+
+<h3>2 段オチ</h3>
+<div class="callout" style="border-left: 4px solid #e89a3d;">
+  <strong>オチ 1</strong> — 通知が来ても外出中だと…
+  <ul style="margin: 6px 0 0 18px;">
+    <li>「閉まってる」なら → 安心 ✓</li>
+    <li>「開いてる」なら → 知らされても何もできない 😞</li>
+  </ul>
+  通知だけのソリューションには情報不足からの「悲しさ」がある。
+</div>
+
+<div class="callout" style="border-left: 4px solid #7be0a4;">
+  <strong>オチ 2 — でも安心してください</strong>。
+  このデモ装置は窓を <b>サーボで自動開閉できます</b>。
+  スマホから「閉めて」をタップ → ESP32 → IchiPing → PCA9685 → SG90 ×5 →
+  <b style="color:#7be0a4">物理的に窓を閉める ✓</b>
+</div>
+
+<h3>技術検証 (これまでに達成したこと)</h3>
+<ul>
+  <li>単一マイク + 単一スピーカで <b>32 真状態すべてが識別可能</b> と判明
+    (MCU 実機 32cls / 14cls とも 100%, XL モデル 104K params)</li>
+  <li>当初想定した「閉扉の向こうは観測不能 → 14 等価クラスが理論上限」は、
+    実扉の漏れ (-20〜-30 dB 減衰) により否定された。詳細:
+    <a href="v12345_report.html">v12345 検証レポート</a></li>
+  <li>推論は <b>MCXN947 内蔵 Neutron NPU で 7/7 op = 100% NPU 化、1.89 ms</b> で完結</li>
+</ul>
 
 <div class="callout">
   <strong>母プロジェクト:</strong>
@@ -115,10 +152,22 @@
     <tr><td>MCU</td><td><b>FRDM-MCXN947</b></td><td>NPU + PowerQuad + I²S 多系統</td></tr>
     <tr><td>マイク</td><td><b>INMP441</b></td><td>I²S MEMS, 24-bit。DC オフセット問題なしで chirp/RIR に好適</td></tr>
     <tr><td>スピーカ駆動</td><td>MAX98357A I²S DAC</td><td>Class-D 3.2 W</td></tr>
-    <tr><td>サーボ駆動</td><td>PCA9685 + SG90 ×5</td><td>I²C, 16ch PWM</td></tr>
-    <tr><td>表示</td><td>ILI9341 2.4" TFT 240×320</td><td>SPI (FC3 LPSPI), RGB565。SH1106/SSD1306 OLED から差替え（<a href="../hardware/display_options.html">採用根拠</a>）</td></tr>
-    <tr><td>UI</td><td>トグル ×5 + EXEC + LED ×2</td><td>—</td></tr>
-    <tr><td>通信</td><td>USB-C CDC（第一案）／ ESP32-WROOM UART（任意）</td><td>v0.1 は OpenSDA UART 921600bps</td></tr>
+    <tr><td>サーボ駆動</td><td>PCA9685 + SG90 ×5</td><td>I²C, 16ch PWM (オチ 2 の「自動閉」を担当)</td></tr>
+    <tr><td>表示</td><td>ILI9341 2.4" TFT 240×320</td><td>SPI (FC3 LPSPI), RGB565（<a href="../hardware/display_options.html">採用根拠</a>）</td></tr>
+    <tr><td>UI</td><td>トグル ×5 + EXEC + LED ×2</td><td>真値ラベル入力 / 推論トリガ</td></tr>
+    <tr><td>PC 連携通信</td><td>USB-C CDC ／ OpenSDA UART 921600 bps</td><td>学習データ収集・実機検証用</td></tr>
+  </tbody>
+</table>
+
+<h3>デモ用追加機器（雨検出 → スマホ通知シナリオ）</h3>
+<table>
+  <thead>
+    <tr><th>役割</th><th>部品</th><th>接続</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>降雨センサ</td><td>YL-83 等の安価モジュール</td><td>GPIO デジタル入力、屋外設置</td></tr>
+    <tr><td>Wi-Fi モジュール</td><td><b>ESP32-WROOM</b></td><td>IchiPing と UART 接続、MQTT/HTTP でクラウド送信</td></tr>
+    <tr><td>スマートホーム連携</td><td>クラウド (Home Assistant / 任意の MQTT broker)</td><td>ESP32 から push、スマホアプリで受信</td></tr>
   </tbody>
 </table>
 <p>詳細仕様は <a href="spec.html">docs/spec.html</a>（正本 <code>digikey_project/details/C4-IchiPing.html</code> の完全コピー）参照。</p>

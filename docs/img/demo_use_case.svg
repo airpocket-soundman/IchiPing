@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 800" role="img"
+     aria-label="IchiPing デモシナリオ: 雨検出 → 32 状態推定 → スマホ通知 → サーボ自動閉">
+  <title>IchiPing デモシナリオ — 雨が降ってきた、窓大丈夫？</title>
+  <defs>
+    <marker id="arrU" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#6ea8fe"/>
+    </marker>
+    <marker id="arrG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#7be0a4"/>
+    </marker>
+    <linearGradient id="boxGrU" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1f242d"/>
+      <stop offset="100%" stop-color="#181b22"/>
+    </linearGradient>
+    <linearGradient id="rainGr" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4a5566"/>
+      <stop offset="100%" stop-color="#2a323d"/>
+    </linearGradient>
+    <linearGradient id="happyGr" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2a4a3a"/>
+      <stop offset="100%" stop-color="#1a3a2a"/>
+    </linearGradient>
+  </defs>
+  <style>
+    .box       { fill: url(#boxGrU); stroke: #6ea8fe; stroke-width: 1.6; }
+    .box-rain  { fill: url(#rainGr); stroke: #8b95a7; stroke-width: 1.2; }
+    .box-add   { fill: url(#boxGrU); stroke: #ff7ab6; stroke-width: 1.8; }
+    .box-key   { fill: url(#boxGrU); stroke: #7be0a4; stroke-width: 2.2; }
+    .box-cloud { fill: url(#boxGrU); stroke: #c678dd; stroke-width: 1.4; }
+    .box-oti1  { fill: url(#rainGr); stroke: #e89a3d; stroke-width: 1.4; }
+    .box-oti2  { fill: url(#happyGr); stroke: #7be0a4; stroke-width: 2.0; }
+    .ttl       { fill: #e5e9f0; font-family: 'Hiragino Sans','Yu Gothic UI',sans-serif; font-size: 14px; font-weight: 700; }
+    .ttl-s     { fill: #e5e9f0; font-family: 'Hiragino Sans','Yu Gothic UI',sans-serif; font-size: 12px; font-weight: 600; }
+    .sub       { fill: #b8c1d0; font-family: 'Hiragino Sans','Yu Gothic UI',sans-serif; font-size: 11px; }
+    .sub-s     { fill: #8b95a7; font-family: 'Hiragino Sans','Yu Gothic UI',sans-serif; font-size: 10px; }
+    .ping      { fill: #ffb454; font-family: 'JetBrains Mono',Consolas,monospace; font-size: 11px; font-weight: 700; }
+    .arrow     { stroke: #6ea8fe; stroke-width: 2.0; fill: none; }
+    .arrow-r   { stroke: #7be0a4; stroke-width: 2.0; fill: none; }
+    .arrow-d   { stroke: #8b95a7; stroke-width: 1.4; fill: none; stroke-dasharray: 5 3; }
+    .raindrop  { fill: #6ea8fe; opacity: 0.7; }
+    .oti-t-sad { fill: #ffb454; font-family: 'Hiragino Sans','Yu Gothic UI',sans-serif; font-size: 13px; font-weight: 700; }
+    .oti-t-ok  { fill: #7be0a4; font-family: 'Hiragino Sans','Yu Gothic UI',sans-serif; font-size: 13px; font-weight: 700; }
+    .num       { fill: #ff7ab6; font-family: 'Hiragino Sans','Yu Gothic UI',sans-serif; font-size: 28px; font-weight: 900; }
+  </style>
+
+  <!-- Title -->
+  <text x="550" y="24" text-anchor="middle" class="ttl" style="font-size:17px">
+    IchiPing デモシナリオ — 「雨降ってきた、窓大丈夫？」
+  </text>
+  <text x="550" y="44" text-anchor="middle" class="sub">
+    外出中の不安 → 1 Ping で 32 状態推定 → スマホ通知 → サーボ自動閉まで完結
+  </text>
+
+  <!-- ============== ROW 1: Scene ============== -->
+  <!-- Rain clouds -->
+  <ellipse cx="160" cy="100" rx="80" ry="22" fill="#4a5566" opacity="0.7"/>
+  <ellipse cx="200" cy="95" rx="70" ry="20" fill="#3a4555" opacity="0.7"/>
+  <!-- Raindrops -->
+  <line class="raindrop" x1="130" y1="125" x2="125" y2="140" stroke="#6ea8fe" stroke-width="2"/>
+  <line class="raindrop" x1="160" y1="125" x2="155" y2="145" stroke="#6ea8fe" stroke-width="2"/>
+  <line class="raindrop" x1="190" y1="120" x2="185" y2="138" stroke="#6ea8fe" stroke-width="2"/>
+  <line class="raindrop" x1="220" y1="125" x2="215" y2="143" stroke="#6ea8fe" stroke-width="2"/>
+  <text x="170" y="80" text-anchor="middle" class="ttl-s">☔ 突然の雨</text>
+
+  <!-- House model (left) -->
+  <rect class="box" x="350" y="85" width="220" height="100" rx="6"/>
+  <text x="460" y="108" text-anchor="middle" class="ttl-s">House 模型</text>
+  <!-- mini house diagram -->
+  <rect x="370" y="120" width="50" height="50" fill="#2a323d" stroke="#6ea8fe" stroke-width="1"/>
+  <rect x="430" y="120" width="50" height="50" fill="#2a323d" stroke="#6ea8fe" stroke-width="1"/>
+  <rect x="490" y="120" width="50" height="50" fill="#2a323d" stroke="#6ea8fe" stroke-width="1"/>
+  <text x="395" y="148" text-anchor="middle" class="sub-s">a</text>
+  <text x="455" y="148" text-anchor="middle" class="sub-s">b</text>
+  <text x="515" y="148" text-anchor="middle" class="sub-s">c</text>
+  <!-- Window a open visual -->
+  <line x1="395" y1="120" x2="395" y2="108" stroke="#ff7ab6" stroke-width="2"/>
+  <text x="460" y="183" text-anchor="middle" class="sub-s">窓 a が開いたまま (32 状態のうちの 1 つ)</text>
+
+  <!-- Person out (right) -->
+  <rect class="box" x="700" y="85" width="180" height="100" rx="6"/>
+  <text x="790" y="108" text-anchor="middle" class="ttl-s">外出中のユーザ</text>
+  <!-- person icon -->
+  <circle cx="755" cy="138" r="9" fill="none" stroke="#e5e9f0" stroke-width="1.6"/>
+  <path d="M 745 148 L 745 165 L 765 165 L 765 148" fill="none" stroke="#e5e9f0" stroke-width="1.6"/>
+  <!-- thought bubble -->
+  <ellipse cx="830" cy="138" rx="40" ry="20" fill="#2a323d" stroke="#8b95a7"/>
+  <text x="830" y="142" text-anchor="middle" class="sub-s">窓閉めて</text>
+  <text x="830" y="155" text-anchor="middle" class="sub-s">きたかな…</text>
+  <text x="790" y="183" text-anchor="middle" class="sub-s">「家まで戻れない」</text>
+
+  <!-- ============== ROW 2: System ============== -->
+
+  <!-- Rain sensor (add-on) -->
+  <rect class="box-add" x="30" y="240" width="170" height="85" rx="6"/>
+  <text x="115" y="262" text-anchor="middle" class="ttl-s">[追加] 降雨センサ</text>
+  <text x="115" y="280" text-anchor="middle" class="sub-s">YL-83 等の安価モジュール</text>
+  <text x="115" y="295" text-anchor="middle" class="sub-s">屋外設置、雨を電気的に検出</text>
+  <text x="115" y="313" text-anchor="middle" class="ping">→ 推論トリガ</text>
+
+  <!-- Arrow: rain → ichiping trigger -->
+  <line class="arrow" x1="200" y1="283" x2="245" y2="283" marker-end="url(#arrU)"/>
+
+  <!-- IchiPing controller (center, key block) -->
+  <rect class="box-key" x="250" y="220" width="320" height="200" rx="8"/>
+  <text x="410" y="245" text-anchor="middle" class="ttl">IchiPing コントローラ</text>
+  <text x="410" y="262" text-anchor="middle" class="sub-s">FRDM-MCXN947 + Neutron NPU</text>
+
+  <!-- Speaker icon -->
+  <circle cx="295" cy="305" r="18" fill="#2a323d" stroke="#ffb454" stroke-width="1.5"/>
+  <polygon points="285,300 295,300 305,290 305,320 295,310 285,310" fill="#ffb454" opacity="0.7"/>
+  <text x="295" y="338" text-anchor="middle" class="sub-s">SPK</text>
+
+  <!-- Mic icon -->
+  <rect x="345" y="290" width="20" height="30" rx="4" fill="#2a323d" stroke="#7be0a4" stroke-width="1.5"/>
+  <line x1="355" y1="325" x2="355" y2="335" stroke="#7be0a4" stroke-width="1.5"/>
+  <text x="355" y="358" text-anchor="middle" class="sub-s">MIC</text>
+
+  <!-- Ping waves -->
+  <path d="M 313 305 Q 330 300 340 305" fill="none" stroke="#ffb454" stroke-width="1.5"/>
+  <path d="M 313 305 Q 330 295 340 305" fill="none" stroke="#ffb454" stroke-width="1.2" opacity="0.7"/>
+  <text x="327" y="288" text-anchor="middle" class="ping" style="font-size:10px">1 Ping</text>
+
+  <!-- NPU box inside -->
+  <rect class="box" x="410" y="285" width="140" height="55" rx="4"/>
+  <text x="480" y="305" text-anchor="middle" class="sub" style="font-weight:700;fill:#e5e9f0">NPU 推論</text>
+  <text x="480" y="320" text-anchor="middle" class="sub-s">32 cls softmax</text>
+  <text x="480" y="334" text-anchor="middle" class="sub-s">1.89 ms</text>
+
+  <text x="410" y="370" text-anchor="middle" class="sub-s">32 通りの窓・扉組合せから現在の状態を 1 つ特定</text>
+  <text x="410" y="388" text-anchor="middle" class="sub-s" style="fill:#7be0a4;font-weight:700">→ "s10000 = 窓 a 開、他全部閉"</text>
+  <text x="410" y="405" text-anchor="middle" class="sub-s">14 cls (open/close 概略) も同時出力</text>
+
+  <!-- Arrow: ichiping → ESP32 -->
+  <line class="arrow" x1="572" y1="320" x2="615" y2="320" marker-end="url(#arrU)"/>
+
+  <!-- ESP32 (add-on) -->
+  <rect class="box-add" x="620" y="275" width="160" height="95" rx="6"/>
+  <text x="700" y="297" text-anchor="middle" class="ttl-s">[追加] ESP32</text>
+  <text x="700" y="314" text-anchor="middle" class="sub-s">Wi-Fi モジュール</text>
+  <text x="700" y="330" text-anchor="middle" class="sub-s">UART 経由で推論結果を受信</text>
+  <text x="700" y="350" text-anchor="middle" class="sub-s">→ MQTT / HTTP で送信</text>
+
+  <!-- Arrow ESP → cloud -->
+  <line class="arrow" x1="782" y1="320" x2="820" y2="320" marker-end="url(#arrU)"/>
+
+  <!-- Cloud / smart home -->
+  <ellipse class="box-cloud" cx="900" cy="285" rx="80" ry="28"/>
+  <text x="900" y="282" text-anchor="middle" class="ttl-s">スマートホーム</text>
+  <text x="900" y="297" text-anchor="middle" class="sub-s">クラウド連携</text>
+
+  <!-- Arrow cloud → phone -->
+  <line class="arrow" x1="900" y1="315" x2="900" y2="345" marker-end="url(#arrU)"/>
+
+  <!-- Phone -->
+  <rect class="box" x="855" y="350" width="90" height="120" rx="10"/>
+  <rect x="860" y="365" width="80" height="90" fill="#0c0f14" stroke="#6ea8fe" stroke-width="0.8"/>
+  <text x="900" y="385" text-anchor="middle" class="sub-s" style="fill:#7be0a4;font-weight:700">通知</text>
+  <text x="900" y="403" text-anchor="middle" class="sub-s" style="font-size:9px">「雨です。</text>
+  <text x="900" y="416" text-anchor="middle" class="sub-s" style="font-size:9px">窓 a が</text>
+  <text x="900" y="429" text-anchor="middle" class="sub-s" style="font-size:9px">開いてます」</text>
+  <circle cx="900" cy="460" r="5" fill="#2a323d" stroke="#6ea8fe"/>
+
+  <!-- ============== Punchline 1 ============== -->
+  <rect class="box-oti1" x="30" y="510" width="500" height="100" rx="8"/>
+  <text x="50" y="535" class="oti-t-sad">オチ 1 — 通知が来ても外出中だと…</text>
+  <text x="50" y="558" class="sub" style="fill:#e5e9f0">「閉まってる」なら → 安心 ✓</text>
+  <text x="50" y="578" class="sub" style="fill:#e5e9f0">「開いてる」なら → 知らされても何もできない 😞</text>
+  <text x="50" y="600" class="sub-s">通知だけのソリューションには情報不足からの「悲しさ」がある。</text>
+
+  <!-- ============== Punchline 2 ============== -->
+  <rect class="box-oti2" x="560" y="510" width="510" height="100" rx="8"/>
+  <text x="580" y="535" class="oti-t-ok">オチ 2 — でも安心してください</text>
+  <text x="580" y="558" class="sub" style="fill:#e5e9f0">このデモ装置は窓を <b>サーボで自動開閉</b> できます。</text>
+  <text x="580" y="578" class="sub" style="fill:#e5e9f0">スマホから「閉めて」をタップ → ESP32 → IchiPing → PCA9685 → SG90 ×5</text>
+  <text x="580" y="600" class="sub-s" style="fill:#7be0a4">→ "窓を閉めました ✓"</text>
+
+  <!-- Arrow from phone down + left to servo (return path) -->
+  <path class="arrow-d" d="M 900 480 Q 900 660 410 670 Q 200 670 115 660 Q 70 650 70 620" fill="none" marker-end="url(#arrG)"/>
+
+  <!-- Servo cluster icon -->
+  <rect class="box-key" x="250" y="640" width="320" height="100" rx="8"/>
+  <text x="410" y="665" text-anchor="middle" class="ttl-s">サーボ自動閉 (return path)</text>
+  <text x="410" y="685" text-anchor="middle" class="sub-s">PCA9685 (I²C 16ch PWM) → SG90 ×5</text>
+  <!-- 5 mini servos -->
+  <g transform="translate(310, 700)">
+    <circle cx="0" cy="0" r="8" fill="#2a323d" stroke="#7be0a4" stroke-width="1.4"/>
+    <text x="0" y="22" text-anchor="middle" class="sub-s">a</text>
+    <circle cx="30" cy="0" r="8" fill="#2a323d" stroke="#7be0a4" stroke-width="1.4"/>
+    <text x="30" y="22" text-anchor="middle" class="sub-s">b</text>
+    <circle cx="60" cy="0" r="8" fill="#2a323d" stroke="#7be0a4" stroke-width="1.4"/>
+    <text x="60" y="22" text-anchor="middle" class="sub-s">c</text>
+    <circle cx="100" cy="0" r="8" fill="#2a323d" stroke="#7be0a4" stroke-width="1.4"/>
+    <text x="100" y="22" text-anchor="middle" class="sub-s">AB</text>
+    <circle cx="140" cy="0" r="8" fill="#2a323d" stroke="#7be0a4" stroke-width="1.4"/>
+    <text x="140" y="22" text-anchor="middle" class="sub-s">BC</text>
+  </g>
+
+  <!-- Arrow servo → house (close) -->
+  <line class="arrow-r" x1="572" y1="690" x2="640" y2="690" marker-end="url(#arrG)"/>
+  <line class="arrow-r" x1="640" y1="690" x2="640" y2="195" marker-end="url(#arrG)"/>
+  <text x="660" y="450" class="sub-s" style="fill:#7be0a4">物理的に窓を閉める</text>
+
+  <!-- Legend -->
+  <rect x="30" y="755" width="14" height="14" fill="url(#boxGrU)" stroke="#7be0a4" stroke-width="2.2"/>
+  <text x="50" y="767" class="sub-s" style="fill:#e5e9f0">IchiPing 本体 (FRDM-MCXN947 + サーボ)</text>
+
+  <rect x="320" y="755" width="14" height="14" fill="url(#boxGrU)" stroke="#ff7ab6" stroke-width="1.8"/>
+  <text x="340" y="767" class="sub-s" style="fill:#e5e9f0">[追加] デモ用周辺 (降雨センサ + ESP32)</text>
+
+  <rect x="640" y="755" width="14" height="14" fill="url(#boxGrU)" stroke="#c678dd" stroke-width="1.4"/>
+  <text x="660" y="767" class="sub-s" style="fill:#e5e9f0">外部システム (クラウド / スマホ)</text>
+</svg>
