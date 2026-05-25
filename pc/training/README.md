@@ -1,8 +1,9 @@
 # pc/training — IchiPing v1 学習パイプライン
 
-DigiKey v1 用の 1D-CNN（[NN 設計](../../docs/nn_design.html): **14-class softmax 単ヘッド**）の訓練・エクスポート一式。
-本ドキュメントには旧 6-head 混合構成への参照が残っているが、これは実装書き換え未完了のため。
-新設計の根拠は [nn_design.html §なぜ 14-class softmax 単ヘッドなのか](../../docs/nn_design.html)。
+DigiKey v1 用の 1D / 2D-CNN（[NN 設計](../../docs/nn_design.html): **14-class + 32-class 両 head 共存**）の訓練・エクスポート一式。
+本番モデルは [`model_32cls_neutron.py`](model_32cls_neutron.py)（Neutron 互換 XL, ~104K params）で、
+MCU 実機 14cls / 32cls とも 100% 達成（[v12345 検証レポート](../../docs/v12345_report.html)）。
+本ドキュメントの旧 6-head 混合構成記述（`model.py` の `IchiPingV1`）は legacy で、本番経路では未使用。
 
 ## ファイル構成
 

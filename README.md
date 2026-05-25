@@ -10,8 +10,9 @@
 **1 個のセンサで家全体の窓・扉の状態を聴き分ける** 技術検証 + スマートホーム PoC。
 
 - **技術検証として**: 単一マイク + 単一スピーカで 14 等価クラス (窓 a/b/c 推定) が当初目標、
-  実測で **32 真状態すべてが識別可能** と判明 (acc 0.95+ @ XL モデル)。
+  実測で **32 真状態すべてが識別可能** と判明 (MCU 実機 32cls / 14cls とも 100%, XL モデル 104K params)。
   「閉扉の向こうは観測不能」という理論的限界を超えた発見が研究の中核。
+  詳細: [v12345 検証レポート](docs/v12345_report.html)。
 - **ソリューションとして**: 降雨センサ (追加予定) で雨検出 → IchiPing が窓状態を推論 →
   サーバ経由でスマホ通知。「外出中に雨が降って窓が心配」をワンセンサで解決。
 - **PoC ユーモア (2 段オチ)**: 通知が来ても外出中で何もできない悲しさ →
@@ -90,9 +91,13 @@ IchiPing/
         └── train.py             訓練 + ベスト保存 + ONNX エクスポート
 ```
 
-## 現在のステータス: **v0.1 — シリアル疎通フェーズ**
+## 現在のステータス: **v12345 完了 — MCU 実機 32cls / 14cls とも 100%**
 
-実ハード（INMP441 / MAX98357A / PCA9685 …）をまだ繋がず、**MCU 内で合成した chirp+残響データを PC に流して保存パイプラインを通す**ところまでが目標。次に I²S MIC 取り込みに置き換えていく。
+実ハード（INMP441 / MAX98357A / PCA9685 / SG90 ×5 / ILI9341 / トグル）配線・ファームウェア統合完了、
+PC で学習・量子化・Neutron 変換、MCU 上で実機推論 (1.89 ms / NPU 比率 100%) まで一気通貫で動作。
+8 モデル × 32 状態の sweep で **32cls / 14cls とも 100%** 達成 ([v12345 検証レポート](docs/v12345_report.html))。
+当初予想だった「14 等価クラスが情報理論的天井」は実扉の漏れ (-20〜-30 dB 減衰) により否定され、
+32 真状態すべてが識別可能と判明。
 
 ![v0.1 データフロー](docs/img/dataflow_v01.svg)
 
@@ -145,12 +150,16 @@ python verify.py --in ../captures/loopback.bin --strict
 
 ## ロードマップ
 
-- [x] v0.1: シリアル疎通 + ダミーデータ保存（**現状**）
-- [ ] v0.2: I²S DAC（MAX98357A）からの chirp 放射、INMP441 からの実音取り込み
-- [ ] v0.3: PowerQuad FFT で RIR 抽出、microSD への HDF5 保存
-- [ ] v0.4: PCA9685 + SG90 ×5 を実装、3 部屋模型での自動データ収集
-- [ ] v0.5: 1D CNN autoencoder（INT8）で全閉/開状態の二値分類
-- [ ] v1.0: TFT (ILI9341) 表示 + EXEC ボタンによる手動デモモード完成
+- [x] v0.1: シリアル疎通 + ダミーデータ保存
+- [x] v0.2: I²S DAC（MAX98357A）からの chirp 放射、INMP441 からの実音取り込み + 走査音方式確定 (chirp + baseline diff + Welch FFT)
+- [x] v0.3: CMSIS-DSP rFFT (Welch) で RIR 抽出パイプライン MCU 実装
+- [x] v0.4: 32 状態 × v1+v2+v3+v4+v5 (7,360 sample) 収集 + baseline jittering ×5 = 36,800 effective
+- [x] v0.5: 14cls + 32cls 両 head 共存モデル (Neutron 互換 XL, ~104K params)
+- [x] v0.6: PC FP32 で MCU 等価精度確認 (32cls / 14cls とも 100%)
+- [x] v0.7: INT8 量子化 + Neutron 変換 (NPU 比率 7/7 = 100%, 108 KB, 1.89 ms)
+- [x] **v1.0: MCU 実機 推論検証 (v12345 sweep, 8 モデル × 32 state, 32cls / 14cls とも 100%)（**現状**）**
+- [ ] v1.5: TFT (ILI9341) 表示 + EXEC ボタンによる手動デモモード完成
+- [ ] v1.6: baseline jittering 拡張 (別室 baseline 投入で更なる汎化)
 - [ ] v2.0: ML63Q2557 + Solist-AI への移植（ROHM EDGE HACK 提出版） — 技術課題まとめ: [docs/solist_porting.html](docs/solist_porting.html)
 
 ## ライセンス

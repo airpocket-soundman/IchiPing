@@ -104,27 +104,40 @@
     ／ <a href="probe_sound.html">走査音考察</a>
     ／ <a href="nn_review.html">NN 考察</a>
   </div>
-  <h1>当面の実行計画 <span class="pill">2026-05-22 時点</span></h1>
+  <h1>当面の実行計画 <span class="pill">アーカイブ — 全 DONE (2026-05-25)</span></h1>
   <div class="sub">
-    Day 0 サニティチェック直後の意思決定フェーズ。本ページは
-    <b>「次に何を計測 / 決定するか」</b> の生きた索引で、
-    決定が確定したら <a href="probe_sound.html">probe_sound</a> /
-    <a href="nn_review.html">nn_review</a> 等の正本へ反映してから旧記述を畳む。
+    本ページは <b>2026-05-22 時点</b>の意思決定インデックスとして書かれたが、
+    記載していた Step A/B/C と D-1〜D-3 の全項目は v12345 達成までに <b>すべて完了</b>。
+    現在は歴史記録として残しており、最新の実績は
+    <a href="v12345_report.html">v12345 検証レポート</a>を参照。
   </div>
   <div class="meta">
-    <span class="meta-stat done"><span class="num">32 / 32</span> 状態取得済 (chirp)</span>
-    <span class="meta-stat"><span class="num">0 / 32</span> 状態取得済 (noise)</span>
-    <span class="meta-stat"><span class="num">0 / 2</span> 雑音条件取得済</span>
-    <span class="meta-stat active"><span class="num">3</span> 未決定事項</span>
+    <span class="meta-stat done"><span class="num">32 / 32</span> 状態取得済 (chirp + noise + passive)</span>
+    <span class="meta-stat done"><span class="num">2 / 2</span> 雑音条件取得済 (静粛 + noise_low)</span>
+    <span class="meta-stat done"><span class="num">3 / 3</span> 未決定事項を解決</span>
+    <span class="meta-stat done"><span class="num">100%</span> MCU 実機 14cls / 32cls 達成</span>
   </div>
 </header>
 
 <main>
 
-<h2>1. 直近で実行する計測 (1 時間以内)</h2>
+<div class="callout">
+  <strong>完了サマリ (2026-05-25)</strong>
+  <ul>
+    <li><b>Step A 完了</b>: silence_2cond_v1 計測実施、TV 雑音影響を確認。低域 200-400 Hz が外部雑音支配域と判明。</li>
+    <li><b>Step B 完了</b>: full_32_noise_v1 計測実施。<a href="full32_noise_test.html">full32_noise_test レポート</a>。</li>
+    <li><b>Step C 完了</b>: chirp / noise / passive 3 方式を比較。<b>結論: chirp + baseline diff + Welch FFT</b> を本番採用。</li>
+    <li><b>D-1 解決</b>: 走査音 = <b>chirp + Welch FFT</b>（baseline diff で雑音床を打ち消す方式）。</li>
+    <li><b>D-2 解決</b>: マルチトーン / ゲート式は不採用。chirp 2 秒 1 ショット + baseline diff で必要十分。</li>
+    <li><b>D-3 解決</b>: ROI 帯域は固定せず、Welch スペクトル全帯域を NN に入力（特徴選択は NN が獲得）。</li>
+    <li><b>その他</b>: v1.5 雑踏適応相当は <b>baseline jittering augmentation</b> に統合され、PC 再学習なしで factory モードで実現。</li>
+  </ul>
+</div>
+
+<h2>1. 直近で実行する計測 (1 時間以内) <span class="pill">全 DONE</span></h2>
 
 <div class="step-card">
-  <h3><span class="badge now">NOW</span>Step A — 静寂 vs TV 雑音床の比較計測</h3>
+  <h3><span class="badge done">DONE</span>Step A — 静寂 vs TV 雑音床の比較計測</h3>
   <div class="when">所要 ~30 分（計測 1 分 + TV ON/OFF 切替 + 解析）</div>
   <p>
     開発環境（個室）と展示会場想定（TV 再生中）の 2 条件で SPK 駆動なしの
@@ -151,7 +164,7 @@ uv run --extra training python analyze_noise.py</pre>
 </div>
 
 <div class="step-card">
-  <h3><span class="badge next">NEXT</span>Step B — ホワイトノイズで 32 状態取得</h3>
+  <h3><span class="badge done">DONE</span>Step B — ホワイトノイズで 32 状態取得</h3>
   <div class="when">所要 ~5 分（計測のみ）</div>
   <p>
     chirp 計測と同条件（静か、volume 3、5 サーボ全配置）で、励振方式だけを
@@ -166,7 +179,7 @@ uv run --extra training python analyze_full32.py `
 </div>
 
 <div class="step-card">
-  <h3><span class="badge next">NEXT</span>Step C — chirp vs ホワイトノイズ 比較解析</h3>
+  <h3><span class="badge done">DONE</span>Step C — chirp vs ホワイトノイズ 比較解析</h3>
   <div class="when">所要 ~10 分（既存 PNG を並べて目視 + 数値比較）</div>
   <p>
     Step A + B 完了後に、両方のデータでの判別性を比較。
@@ -186,7 +199,7 @@ uv run --extra training python analyze_full32.py `
 <h2>2. 現在未決定の項目</h2>
 
 <div class="step-card decision">
-  <h3><span class="badge decide">DECIDE</span>D-1. 走査音方式 — chirp / white noise</h3>
+  <h3><span class="badge done">DONE</span>D-1. 走査音方式 — chirp / white noise</h3>
   <p>
     どちらも 200-6000 Hz 帯域をカバーできる。判断は実測比較 (Step A-C) 後に。
     現時点の仮判定:
@@ -207,10 +220,14 @@ uv run --extra training python analyze_full32.py `
     クラス内ばらつきが小さい方を採用。同等なら<b>ホワイトノイズ優位</b>
     （解析が単純、雑音と同種なので扱いやすい）。
   </p>
+  <p class="badge done" style="background:#7be0a4; color:#0f1115; padding:4px 10px; border-radius:4px; display:inline-block;">
+    解決: <b>chirp + baseline diff + Welch FFT</b> を採用（noise / passive は cross-day 汎化で劣る）。
+    詳細は <a href="full32_noise_test.html">full32_noise_test</a> / <a href="full32_passive_test.html">full32_passive_test</a>。
+  </p>
 </div>
 
 <div class="step-card decision">
-  <h3><span class="badge decide">DECIDE</span>D-2. 本番運用励振 — マルチトーン or ゲート式バースト</h3>
+  <h3><span class="badge done">DONE</span>D-2. 本番運用励振 — マルチトーン or ゲート式バースト</h3>
   <p>
     ROI 確定後の本番運用方式。現時点の見立て:
   </p>
@@ -228,14 +245,22 @@ uv run --extra training python analyze_full32.py `
     <b>現時点の仮選択</b>: <b>ゲート式バースト</b>（雑踏運用必須 + UX レイテンシ 1 s 許容）。
     マルチトーンに振るのは ROI が「2-3 周波数の狭帯域」に収束した場合のみ。
   </p>
+  <p class="badge done" style="background:#7be0a4; color:#0f1115; padding:4px 10px; border-radius:4px; display:inline-block;">
+    解決: <b>不採用</b>。chirp 2 秒 1 ショット + baseline diff で必要十分な SNR と
+    cross-day 汎化が得られたため、追加の励振工夫は不要となった。
+  </p>
 </div>
 
 <div class="step-card decision">
-  <h3><span class="badge decide">DECIDE</span>D-3. ROI 帯域の最終確定</h3>
+  <h3><span class="badge done">DONE</span>D-3. ROI 帯域の最終確定</h3>
   <p>
     現時点の仮判定: <b>500-6000 Hz</b>（400 Hz 以下は外部雑音と SPK 弱域が支配）。
     Step A の雑音床解析と Step C の判別性解析を見て確定。
     ROI 確定後にマルチトーン用の 8-16 周波数選定 (§4.4 の判別性スコア最大化) に進む。
+  </p>
+  <p class="badge done" style="background:#7be0a4; color:#0f1115; padding:4px 10px; border-radius:4px; display:inline-block;">
+    解決: ROI を固定帯域で切らず、<b>Welch スペクトル全帯域を NN 入力</b>に渡す方式に変更。
+    NN が学習で重要帯域を獲得し、baseline jittering augmentation で外乱を吸収する設計とした。
   </p>
 </div>
 
@@ -356,10 +381,10 @@ ROI = 500-6000 Hz 確定        広帯域雑音 → 物理対策 or EQ で対応
 </pre>
 
 <div class="callout">
-  <strong>本ページの更新ポリシー:</strong>
-  Step A/B/C の結果が出るたびに「2. 現在未決定の項目」セクションの該当 D-1〜D-3
-  を「3. 確定済み事項」に移動。確定した内容は <a href="probe_sound.html">probe_sound.html</a> /
-  <a href="nn_review.html">nn_review.html</a> 等の正本へ反映してから本ページから畳む。
+  <strong>本ページの位置づけ (2026-05-25 以降):</strong>
+  全項目が解決済のため <b>歴史記録としてアーカイブ</b>。inbound link 維持のため URL は残しているが、
+  最新情報は <a href="v12345_report.html">v12345 検証レポート</a> /
+  <a href="nn_design.html">NN 設計</a> / <a href="probe_sound.html">probe_sound</a> 参照。
 </div>
 
 <div class="footer-note">

@@ -89,8 +89,9 @@
   <b>1 個のセンサで家全体の窓・扉の状態を聴き分ける</b> 技術検証 + スマートホーム PoC。
   <ul style="margin: 8px 0 0 18px;">
     <li><b>技術検証として</b>: 単一マイク + 単一スピーカで 14 等価クラス (窓 a/b/c 推定) が当初目標、
-        実測で <b>32 真状態すべてが識別可能</b>と判明 (acc 0.95+ @ XL モデル)。
-        「閉扉の向こうは観測不能」という理論的限界を超えた発見が研究の中核。</li>
+        実測で <b>32 真状態すべてが識別可能</b>と判明 (MCU 実機 32cls / 14cls とも 100%, XL モデル 104K params)。
+        「閉扉の向こうは観測不能」という理論的限界を超えた発見が研究の中核。
+        詳細: <a href="v12345_report.html">v12345 検証レポート</a>。</li>
     <li><b>ソリューションとして</b>: 降雨センサ (追加予定) で雨検出 → IchiPing が窓状態を推論 →
         サーバ経由でスマホ通知。「外出中に雨が降って窓が心配」をワンセンサで解決。</li>
     <li><b>PoC ユーモア (2 段オチ)</b>: 通知が来ても外出中で何もできない悲しさ →
@@ -122,12 +123,14 @@
 </table>
 <p>詳細仕様は <a href="spec.html">docs/spec.html</a>（正本 <code>digikey_project/details/C4-IchiPing.html</code> の完全コピー）参照。</p>
 
-<h2>現在のステータス：<span class="pill warn">v0.1 — Day 0 サニティチェック合格、走査音方式選定中</span></h2>
+<h2>現在のステータス：<span class="pill" style="background:#7be0a4; color:#0f1115;">v12345 完了 — MCU 実機 32cls / 14cls とも 100%</span></h2>
 <p>
-  実ハード（INMP441 / MAX98357A / PCA9685 / SG90 ×5 / ILI9341 / トグル）配線・ファームウェア統合完了。
-  Linear chirp で全 32 状態 × 1 サンプル取得し、観測等価クラス 14 個への集約が物理予測通り
-  実測でも成立することを確認 (<a href="full32_initial_test.html">Full 32 初期計測</a>)。
-  次の意思決定は <a href="near_term_plan.html">当面の実行計画</a>。
+  実ハード（INMP441 / MAX98357A / PCA9685 / SG90 ×5 / ILI9341 / トグル）配線・ファームウェア統合完了、
+  PC で学習・量子化・Neutron 変換、MCU 上で実機推論 (1.89 ms / NPU 比率 100%) まで一気通貫で動作。
+  8 モデル × 32 状態の sweep で <b>32cls / 14cls とも 100%</b> 達成
+  (<a href="v12345_report.html">v12345 検証レポート</a>)。
+  当初予想だった「14 等価クラスが情報理論的天井」は実扉の漏れ (-20〜-30 dB 減衰) により否定され、
+  32 真状態すべてが識別可能と判明。
 </p>
 
 <img src="img/dataflow_v01.svg" alt="v0.1 データフロー: MCU 内の合成 chirp+残響を UART 921600 bps で PC に送り、WAV と CSV ラベルに保存" style="width: 100%; max-width: 760px; display: block; margin: 14px 0;">
@@ -178,15 +181,16 @@ uv run python calibrator.py compare ../captures/raw.wav ../captures/filtered.wav
     <tr><th>バージョン</th><th>内容</th><th>状態</th></tr>
   </thead>
   <tbody>
-    <tr><td>v0.1</td><td>シリアル疎通 + 実ハード統合 + Day 0 サニティチェック</td><td><span class="status-badge in_progress">現フェーズ</span></td></tr>
-    <tr><td>v0.2</td><td>走査音方式確定 (chirp vs noise) + ROI 抽出</td><td><span class="status-badge pending">次</span></td></tr>
-    <tr><td>v0.3</td><td>PowerQuad FFT で RIR 抽出パイプライン MCU 実装</td><td><span class="status-badge pending">予定</span></td></tr>
-    <tr><td>v0.4</td><td>14 等価クラス × 30 サンプル本格収集（repeats=5 中央値）</td><td><span class="status-badge pending">予定</span></td></tr>
-    <tr><td>v0.5</td><td>1D CNN autoencoder（INT8）で全閉/開状態の二値分類</td><td><span class="status-badge pending">予定</span></td></tr>
-    <tr><td>v0.6</td><td>PC FP32 で 14 状態分類モデル上限性能確認</td><td><span class="status-badge pending">予定</span></td></tr>
-    <tr><td>v0.7</td><td>INT8 量子化 + eIQ Toolkit で MCXN947 NPU デプロイ</td><td><span class="status-badge pending">予定</span></td></tr>
-    <tr><td>v1.0</td><td>TFT (ILI9341) 表示 + EXEC ボタンによる手動デモモード完成</td><td><span class="status-badge pending">予定</span></td></tr>
-    <tr><td>v1.5</td><td>配置先 PC 再学習による雑踏適応 (<a href="nn_review.html">NN 考察 §7</a>)</td><td><span class="status-badge pending">予定</span></td></tr>
+    <tr><td>v0.1</td><td>シリアル疎通 + 実ハード統合 + Day 0 サニティチェック</td><td><span class="status-badge completed">完了</span></td></tr>
+    <tr><td>v0.2</td><td>走査音方式確定 (chirp + baseline diff + Welch FFT)</td><td><span class="status-badge completed">完了</span></td></tr>
+    <tr><td>v0.3</td><td>CMSIS-DSP rFFT (Welch) で RIR 抽出パイプライン MCU 実装</td><td><span class="status-badge completed">完了</span></td></tr>
+    <tr><td>v0.4</td><td>32 状態 × v1+v2+v3+v4+v5 (7,360 sample) 収集 + baseline jittering ×5 = 36,800</td><td><span class="status-badge completed">完了</span></td></tr>
+    <tr><td>v0.5</td><td>14cls + 32cls 両 head 共存モデル (Neutron 互換 XL, ~104K params)</td><td><span class="status-badge completed">完了</span></td></tr>
+    <tr><td>v0.6</td><td>PC FP32 で MCU 等価精度確認 (32cls / 14cls とも 100%)</td><td><span class="status-badge completed">完了</span></td></tr>
+    <tr><td>v0.7</td><td>INT8 量子化 + Neutron 変換 (NPU 比率 7/7 = 100%, 108 KB, 1.89 ms)</td><td><span class="status-badge completed">完了</span></td></tr>
+    <tr><td>v1.0</td><td>MCU 実機 推論検証 (v12345 sweep, 8 モデル × 32 state)</td><td><span class="status-badge completed">完了</span></td></tr>
+    <tr><td>v1.5</td><td>TFT (ILI9341) 表示 + EXEC ボタンによる手動デモモード完成</td><td><span class="status-badge pending">予定</span></td></tr>
+    <tr><td>v1.6</td><td>baseline jittering 拡張 (別室 baseline 投入で更なる汎化)</td><td><span class="status-badge pending">予定</span></td></tr>
     <tr><td>v2.0</td><td>ML63Q2557 + Solist-AI への移植（ROHM EDGE HACK 提出版） — 技術課題まとめ: <a href="solist_porting.html">solist_porting.html</a></td><td><span class="status-badge pending">予定</span></td></tr>
   </tbody>
 </table>

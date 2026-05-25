@@ -82,11 +82,16 @@
 <main>
 
 <div class="callout warn">
-  <strong>注意 — モデル設計が更新されています</strong>:
+  <strong>注意 — 本ページは設計初期の手順書、現状は v12345 で実デプロイ完了済</strong>:
   本ページのコード例は <b>6-head 混合 (any_open / door_AB / door_BC / window_a/b/c)</b> 時代のもの。
-  最新の <a href="nn_design.html">NN 設計</a> では <b>14-class softmax 単ヘッド</b>に統一済み。
-  デプロイ時のロジックは「argmax14 → equiv_class index」に簡素化され、複数ヘッドの出力デコードは
-  不要になる。本ページの 6-head 関連の記述は v1 実装書き換え時に追従更新予定。
+  現在の本番モデルは <b>14-class + 32-class 両 head の Neutron 互換 XL アーキ</b>
+  (<code>model_32cls_neutron.py</code>, ~104K params) で、MCU 実機上で
+  <b>1.89 ms / NPU 比率 100% / 14cls 100% / 32cls 100%</b> を達成。
+  実デプロイの現状と成果物は
+  <a href="v12345_report.html">v12345 検証レポート</a> および
+  <a href="../firmware/projects/10_inference/README.html">10_inference firmware README</a> を参照。
+  実モデルバイナリは <code>firmware/projects/10_inference/source/model_data.h</code>。
+  本ページに残る 6-head 関連の記述は手順理解の参考としてのみ有効。
 </div>
 
 <h2>全体フロー</h2>

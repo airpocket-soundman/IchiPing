@@ -94,18 +94,18 @@
 <main>
 
 <div class="callout">
-  <strong>モデル構成 — 14-class softmax 単ヘッド（情報理論的に最適）</strong>
+  <strong>2026-05-25 更新 — 本計画は歴史記録、現状は v12345 で完了済</strong>
   <p>
-    出力は <b>14 観測等価クラス</b>を直接予測する softmax 単ヘッド。
-    観測情報量上限 $\log_2 14 \approx 3.81$ bit と出力エントロピーが一致するため捏造ビットがゼロ、
-    Bayes 最適分類器に直接対応する構成。詳細根拠は
-    <a href="nn_design.html">NN 設計 §なぜ 14-class softmax 単ヘッドなのか</a>。
-    32-class variant (<code>model_32cls.py</code>) は科学検証用として併走させる（§2.5 参照）。
+    本ページに記載されている Phase A-F の学習ループは v12345 で実行・完了済み。MCU 実機で
+    <b>14cls 100% / 32cls 100% を達成</b>（<a href="v12345_report.html">v12345 検証レポート</a>）。
+    本計画当初の前提だった「14-class softmax 単ヘッドが情報理論的に最適、32cls は ~0.44 で頭打ち」
+    の予想は経験的に否定され、現在は <b>14cls / 32cls 両 head 共存運用</b>（用途別使い分け）が採用されている。
   </p>
   <p>
-    <b>注</b>: <code>pc/training/model.py</code> の <code>IchiPingV1</code> は現状まだ 6-head 混合版
-    （連続サーボ角度時代の遺物）が残っている。本計画 Phase B 着手前に 14-class softmax 単ヘッドへ
-    書き換える必要がある（backbone は流用、出力ヘッドだけ <code>Linear(64, 14)</code> に置換）。
+    本ページはワークフロー設計の参照として残しているが、最新の実績は
+    <a href="v12345_report.html">v12345 検証レポート</a> /
+    <a href="nn_methods_compare.html">head 設計比較</a> /
+    <a href="nn_train_v1_result.html">v1 学習結果</a> を参照のこと。
   </p>
 </div>
 
@@ -346,28 +346,29 @@ xxd -i runs/v1/best_neutron.tflite > firmware/projects/10_inference/source/model
   </p>
 </div>
 
-<h2>2.5. 並走実験 — 32-class softmax モデル（観測可能性予言の経験的検証）</h2>
+<h2>2.5. 32-class softmax は本番モデルとして採用 (歴史記録)</h2>
 
 <div class="callout">
-  <strong>位置づけ</strong>: 本命は <b>14-class softmax</b>（情報理論的に最適）で確定。
-  32-class variant は <b>科学検証用の 1 回限りの実験</b>であり、本番モデル候補ではない。
-  目的は「観測等価性予言は経験的に成立するか？」を 32×32 confusion matrix で確認すること。
+  <strong>結論 (v12345 で確認)</strong>: 32-class softmax は MCU 実機 100% accuracy を達成し、
+  <b>本番モデルとして 14cls と並列に運用</b>される（用途別使い分け、
+  <a href="nn_design.html">NN 設計</a> 参照）。
+  当初の「観測等価性で ~0.44 が天井」予想は経験的に否定された。原因は実扉が完全遮音ではなく
+  -20〜-30 dB 減衰程度で、サブ状態にも分離可能なシグナルが残っていたこと
+  （<a href="nn_methods_compare.html">nn_methods_compare §1</a>）。
 </div>
 
 <ul>
-  <li><b>モデル</b>: <a href="../pc/training/model_32cls.py"><code>model_32cls.py</code></a> の
-    <code>IchiPingV1_32cls</code> — backbone は v1 と同一、最終ヘッドだけ
-    <code>Linear(64 → 32)</code> + cross-entropy</li>
+  <li><b>モデル</b>: <a href="../pc/training/model_32cls_neutron.py"><code>model_32cls_neutron.py</code></a>
+    — Neutron 互換アーキ (Conv2D + AvgPool + 1×1 Conv head)、XL サイズ ~104K params</li>
   <li><b>学習</b>: <a href="../pc/training/train_32cls.py"><code>train_32cls.py</code></a>
-    （dataset / augment / features は v1 と共有）</li>
-  <li><b>評価指標</b>:
+    （<code>--baseline-override-dir</code> / <code>--baseline-jitter-dirs</code> で baseline jittering aug を有効化）</li>
+  <li><b>達成精度（MCU 実機 sweep, n=32）</b>:
     <ul>
-      <li>32 クラス test accuracy: 観測可能性予言通りなら ~14/32 = 0.44 で頭打ち</li>
-      <li>32×32 confusion matrix: 等価クラス内で 4×4 ブロック構造が浮かび上がれば予言が経験的に検証される</li>
+      <li>v12345_BLJIT_live: 32cls <b>100%</b> / 14cls <b>100%</b></li>
+      <li>v12345_BLJIT_factory（校正なし）: 32cls <b>88%</b> / 14cls <b>100%</b></li>
+      <li>v12345_50f_live_noiselow（騒音下校正）: 32cls <b>100%</b> / 14cls <b>100%</b></li>
     </ul>
   </li>
-  <li><b>v1 と並走可能</b>: <code>live_infer.py --arch 32cls --ckpt runs/v1_32cls/best.pt</code>
-    で同じツールから推論可能</li>
 </ul>
 
 <h3>32 クラス学習コマンド</h3>
@@ -381,27 +382,32 @@ uv run --extra training python live_infer.py live \
     --port COM3 --ckpt runs/v1_32cls/best.pt --arch 32cls \
     --pattern chirp_200_6k</code></pre>
 
-<h3>判定</h3>
+<h3>判定 (実績)</h3>
+
+<p>
+  本表は当初予想と実測の対照（観測可能性仮説の検証記録）:
+</p>
 
 <table>
   <thead>
-    <tr><th>32 クラス test acc</th><th>解釈</th><th>次の行動</th></tr>
+    <tr><th>当初の 32cls 予想</th><th>当時の解釈</th><th>実際の結果</th></tr>
   </thead>
   <tbody>
     <tr>
       <td>≤ 0.44 (≈ 14/32)</td>
       <td>観測可能性予言通り → 等価クラス内に区別シグナルなし</td>
-      <td>予言を経験的に検証。本番は v1 (14-class softmax) で確定</td>
+      <td>—</td>
     </tr>
     <tr>
       <td>0.45 - 0.65</td>
-      <td>予言を多少超える → 弱いが等価クラス内シグナルあり</td>
-      <td>14-class が漏らしている情報源を分析。模型の物理仮定を再検討</td>
+      <td>予言を多少超える</td>
+      <td>—</td>
     </tr>
-    <tr>
+    <tr style="background:rgba(123,224,164,0.10);">
       <td>≥ 0.65</td>
       <td>予言が大きく崩れている → 観測可能性モデルが間違っている可能性</td>
-      <td>模型の物理を全面再検討。漏れ経路の存在を疑う。spec.html §2 観測可能性も見直し</td>
+      <td><b>v12345_BLJIT_live で 32cls 100%。予言は経験的に否定された。</b>
+        扉が完全遮音ではなく -20〜-30 dB 減衰程度 → サブ状態にも分離可能シグナル残存。</td>
     </tr>
   </tbody>
 </table>
@@ -460,8 +466,13 @@ uv run --extra training python live_infer.py live \
     </tr>
     <tr>
       <td><a href="../pc/training/model.py"><code>model.py</code></a></td>
-      <td>1D CNN + 14-class softmax 単ヘッド（要書き換え: 現状は legacy 6-head）</td>
+      <td>1D CNN（legacy 6-head 実装、本番経路では未使用）</td>
       <td><code>IchiPingV1</code></td>
+    </tr>
+    <tr>
+      <td><a href="../pc/training/model_32cls_neutron.py"><code>model_32cls_neutron.py</code></a></td>
+      <td><b>本番モデル</b> — Neutron 互換 (Conv2D + AvgPool + 1×1 Conv head, ~104K params, XL)</td>
+      <td><code>IchiPingV1_32cls_Neutron</code></td>
     </tr>
     <tr>
       <td><a href="../pc/training/model_32cls.py"><code>model_32cls.py</code></a></td>
@@ -569,49 +580,52 @@ uv run --extra training python live_infer.py live \
   <li>差分: v1.5 では <b>backbone を freeze</b> し FC ヘッドだけ少サンプル (~30 件) で fine-tune するモードを追加</li>
 </ul>
 
-<h2>7. 実行スケジュール案（走査音方式確定後）</h2>
+<h2>7. 実行スケジュール (歴史記録 — 全 DONE)</h2>
+
+<p>
+  本計画は v12345 達成までに実行済み。実績サマリ:
+</p>
 
 <table>
   <thead>
-    <tr><th>日数</th><th>作業</th><th>到達目標</th></tr>
+    <tr><th>段階</th><th>実績</th><th>結果</th></tr>
   </thead>
   <tbody>
     <tr>
-      <td>Day 1 午前</td>
-      <td>plans/gen32.py REPEATS=30 化 + Phase A 計測</td>
-      <td>captures/full_32_v2/ 構築完了 (960 サンプル)</td>
+      <td>Phase A データ収集</td>
+      <td>v1+v2+v3+v4 (5,760) → +v5 (50f) = 7,360 sample × 5 baseline jittering = <b>36,800 effective</b></td>
+      <td>full_32_v5 完了</td>
     </tr>
     <tr>
-      <td>Day 1 午後</td>
-      <td>Phase B-C 1 周目</td>
-      <td>初版 macro-F1 取得 (期待 0.7-0.8)</td>
+      <td>Phase B-C 学習・評価</td>
+      <td>v1.3 baseline → noise_diff → feature_aug → BLJIT augmentation の各段階で iteration</td>
+      <td>cross-day 1.000 → MCU 実機 1.000</td>
     </tr>
     <tr>
-      <td>Day 2-3</td>
-      <td>Augmentation 調整 + 再収集 / 再学習を 3-5 周</td>
-      <td>macro-F1 ≥ 0.90 達成</td>
+      <td>Phase D INT8 量子化</td>
+      <td>PINTO onnx2tf + NXP eIQ Toolkit 両 path 自動比較で確認</td>
+      <td>FP32 = INT8 (ゼロ劣化、MCU が PC を超えるケースすらあり)</td>
     </tr>
     <tr>
-      <td>Day 4 午前</td>
-      <td>Phase D 量子化 + 精度確認</td>
-      <td>INT8 で FP32 比 -2 pt 以内</td>
+      <td>Phase E Neutron 変換</td>
+      <td>pinto_neutron_sdk26_03.tflite、7/7 op NPU 化</td>
+      <td><b>NPU 比率 100%、108 KB</b></td>
     </tr>
     <tr>
-      <td>Day 4 午後</td>
-      <td>Phase E-F デプロイ + 実機推論レイテンシ計測</td>
-      <td>MCU 上で 100 ms 以内、F1 = PC と一致</td>
-    </tr>
-    <tr>
-      <td>Day 5+</td>
-      <td>v1.0 完成 → v1.5 雑踏適応の詳細設計に移行</td>
-      <td>—</td>
+      <td>Phase F MCU デプロイ</td>
+      <td>firmware/projects/10_inference に統合、CMSIS-DSP Welch + TFLite Micro</td>
+      <td><b>推論 1.89 ms / 32cls 100% / 14cls 100%</b></td>
     </tr>
   </tbody>
 </table>
 
 <p>
-  <b>走査音方式の確定 = この計画の起点</b>。
-  確定タスクは <a href="near_term_plan.html">当面の実行計画 §2 D-1</a> で進行中。
+  詳細な進化過程は
+  <a href="nn_train_v1_result.html">v1 学習結果</a> →
+  <a href="nn_train_v1v2_combined.html">v1+v2</a> →
+  <a href="nn_train_v1v2v3_combined.html">v1+v2+v3</a> →
+  <a href="nn_train_extra_experiments.html">追加実験</a> →
+  <a href="v12345_report.html">v12345 検証</a>。
 </p>
 
 <div class="footer-note">
