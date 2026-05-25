@@ -134,10 +134,10 @@
   <!-- Arrow: ichiping → ESP32 -->
   <line class="arrow" x1="572" y1="320" x2="615" y2="320" marker-end="url(#arrU)"/>
 
-  <!-- ESP32 (add-on) -->
+  <!-- M5Stamp Pico (ESP32-PICO-D4, add-on) -->
   <rect class="box-add" x="620" y="275" width="160" height="95" rx="6"/>
-  <text x="700" y="297" text-anchor="middle" class="ttl-s">[追加] ESP32</text>
-  <text x="700" y="314" text-anchor="middle" class="sub-s">Wi-Fi モジュール</text>
+  <text x="700" y="297" text-anchor="middle" class="ttl-s">[追加] M5Stamp Pico</text>
+  <text x="700" y="314" text-anchor="middle" class="sub-s">ESP32-PICO-D4 / Wi-Fi</text>
   <text x="700" y="330" text-anchor="middle" class="sub-s">UART 経由で推論結果を受信</text>
   <text x="700" y="350" text-anchor="middle" class="sub-s">→ MQTT / HTTP で送信</text>
 

@@ -1,8 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 640" font-family="Hiragino Sans, Yu Gothic UI, Segoe UI, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 880" font-family="Hiragino Sans, Yu Gothic UI, Segoe UI, sans-serif">
   <defs>
     <style>
       .enclosure { fill: #f8fafa; stroke: #2a313d; stroke-width: 2; }
+      .enclosure-demo { fill: #fff8f0; stroke: #c2185b; stroke-width: 2; stroke-dasharray: 6 3; }
       .enclosure-label { font-size: 16px; font-weight: 800; fill: #1a1d23; }
+      .enclosure-label-demo { font-size: 16px; font-weight: 800; fill: #c2185b; }
       .enclosure-sub { font-size: 11px; fill: #6b7280; }
 
       .part { stroke: #1a1d23; stroke-width: 1.2; }
@@ -29,6 +31,19 @@
       .part-servo { fill: #ff9f1c; }
       .part-servo-text { fill: #1a1d23; font-size: 9px; font-weight: 700; text-anchor: middle; }
 
+      .part-esp { fill: #c2185b; }
+      .part-esp-text { fill: #fff; font-weight: 700; font-size: 13px; }
+      .part-esp-sub  { fill: #ffd6e0; font-size: 10px; }
+
+      .part-rain { fill: #1f5d99; }
+      .part-rain-text { fill: #fff; font-weight: 700; font-size: 12px; }
+
+      .part-cloud { fill: #6c5ce7; }
+      .part-cloud-text { fill: #fff; font-weight: 700; font-size: 12px; }
+
+      .part-phone { fill: #2a313d; }
+      .part-phone-text { fill: #fff; font-weight: 700; font-size: 11px; }
+
       .label { font-size: 11px; fill: #4b5563; }
       .label-small { font-size: 10px; fill: #6b7280; }
 
@@ -38,6 +53,8 @@
       .wire-gpio   { stroke: #ff7ab6; stroke-width: 2.4; fill: none; }
       .wire-pwm    { stroke: #f8b500; stroke-width: 1.6; fill: none; }
       .wire-audio  { stroke: #1a1d23; stroke-width: 2.6; fill: none; }
+      .wire-uart   { stroke: #c2185b; stroke-width: 2.4; fill: none; }
+      .wire-wifi   { stroke: #6c5ce7; stroke-width: 2.4; fill: none; stroke-dasharray: 5 3; }
       .wire-label  { font-size: 10px; font-weight: 700; }
 
       .legend-box { fill: #fff; stroke: #cbd5e1; stroke-width: 1; }
@@ -46,10 +63,10 @@
 
   <!-- タイトル -->
   <text x="550" y="28" font-size="18" font-weight="800" text-anchor="middle" fill="#1a1d23">
-    IchiPing システム構成 — コントローラ筐体と House 模型
+    IchiPing システム構成 — コントローラ筐体 + House 模型 + デモ用追加機器
   </text>
   <text x="550" y="46" font-size="11" text-anchor="middle" fill="#6b7280">
-    1 マイク + 能動 chirp + サーボ駆動模型による窓・扉開閉状態の音響推定
+    1 マイク + 1 Ping で 32 状態推定 → ESP32 経由でスマホ通知 → サーボで自動閉まで完結
   </text>
 
   <!-- ============ コントローラ筐体 ============ -->
@@ -61,7 +78,7 @@
   <rect class="part part-mcu" x="200" y="200" width="200" height="120" rx="6"/>
   <text class="part-mcu-text" x="300" y="232" text-anchor="middle">FRDM-MCXN947</text>
   <text class="part-mcu-sub"  x="300" y="250" text-anchor="middle">Cortex-M33 + NPU + PowerQuad</text>
-  <text class="part-mcu-sub"  x="300" y="266" text-anchor="middle">SAI / I²C / LPSPI / GPIO</text>
+  <text class="part-mcu-sub"  x="300" y="266" text-anchor="middle">SAI / I²C / LPSPI / GPIO / LPUART</text>
   <!-- MCU の端子マーカ -->
   <circle cx="200" cy="240" r="3" fill="#fff"/>
   <circle cx="200" cy="265" r="3" fill="#fff"/>
@@ -128,6 +145,9 @@
     <circle cx="30" cy="20" r="10" fill="#fff" stroke="#1a1d23" stroke-width="1.2"/>
     <text x="30" y="42" font-size="9" font-weight="700" fill="#fff" text-anchor="middle">EXEC</text>
   </g>
+
+  <!-- LPUART pin marker on MCU bottom for ESP32 connection -->
+  <circle cx="320" cy="320" r="3" fill="#fff"/>
 
   <!-- コントローラ筐体内の配線 -->
   <!-- MCU -> ILI9341 (SPI) -->
@@ -215,7 +235,7 @@
     </g>
   </g>
 
-  <!-- ============ 筐体間ケーブル ============ -->
+  <!-- ============ 筐体間ケーブル (Controller ↔ House) ============ -->
 
   <!-- MAX98357A (530,185) -> スピーカ (820,165) -->
   <path class="wire-audio" d="M530,185 L670,185 L670,165 L820,165"/>
@@ -226,44 +246,137 @@
   <text class="wire-label" x="586" y="244" fill="#2ec4b6">I²S mic (BCLK/WS/SD)</text>
 
   <!-- PCA9685 -> 5 サーボ（PWM 5 線、左下から扇状に展開して交差最小化） -->
-  <!-- 窓 a (820,290) -->
   <path class="wire-pwm" d="M530,285 L660,285 L660,290 L820,290"/>
-  <!-- 窓 b (820,345) -->
   <path class="wire-pwm" d="M530,295 L655,295 L655,345 L820,345"/>
-  <!-- 窓 c (820,400) -->
   <path class="wire-pwm" d="M530,305 L650,305 L650,400 L820,400"/>
-  <!-- 扉 AB (820,455) -->
   <path class="wire-pwm" d="M530,315 L645,315 L645,455 L820,455"/>
-  <!-- 扉 BC (820,510) -->
   <path class="wire-pwm" d="M530,325 L640,325 L640,510 L820,510"/>
   <text class="wire-label" x="556" y="345" fill="#f8b500">PWM ×5</text>
 
+  <!-- ============ デモ用追加機器（Wi-Fi 連携 + 雨検出） ============ -->
+  <rect class="enclosure-demo" x="40" y="610" width="1020" height="210" rx="14"/>
+  <text class="enclosure-label-demo" x="60" y="636">デモ用追加機器（雨検出 → スマホ通知 → リモート自動閉）</text>
+  <text class="enclosure-sub" x="60" y="652">IchiPing 本体には不要。雨検出から自動閉まで完全自動化デモを成立させるための後付けユニット。</text>
+
+  <!-- 降雨センサ YL-83 -->
+  <g transform="translate(60,680)">
+    <rect class="part part-rain" width="170" height="100" rx="6"/>
+    <!-- rain-drop visual -->
+    <line x1="20" y1="20" x2="16" y2="36" stroke="#9ec4ff" stroke-width="2"/>
+    <line x1="35" y1="22" x2="31" y2="40" stroke="#9ec4ff" stroke-width="2"/>
+    <line x1="50" y1="20" x2="46" y2="36" stroke="#9ec4ff" stroke-width="2"/>
+    <line x1="22" y1="50" x2="56" y2="50" stroke="#cfe2ff" stroke-width="1.6"/>
+    <line x1="22" y1="60" x2="56" y2="60" stroke="#cfe2ff" stroke-width="1.6"/>
+    <line x1="22" y1="70" x2="56" y2="70" stroke="#cfe2ff" stroke-width="1.6"/>
+    <text class="part-rain-text" x="120" y="52" text-anchor="middle">降雨センサ</text>
+    <text x="120" y="68" text-anchor="middle" font-size="10" fill="#cfe2ff">YL-83 等</text>
+    <text x="120" y="84" text-anchor="middle" font-size="9" fill="#cfe2ff">屋外設置 / GPIO 入力</text>
+  </g>
+
+  <!-- M5Stamp Pico (ESP32-PICO-D4) -->
+  <g transform="translate(290,680)">
+    <rect class="part part-esp" width="200" height="100" rx="6"/>
+    <!-- pin headers visual -->
+    <g fill="#ffd6e0">
+      <rect x="6"  y="14" width="8" height="6"/>
+      <rect x="6"  y="28" width="8" height="6"/>
+      <rect x="6"  y="42" width="8" height="6"/>
+      <rect x="6"  y="56" width="8" height="6"/>
+      <rect x="6"  y="70" width="8" height="6"/>
+      <rect x="186" y="14" width="8" height="6"/>
+      <rect x="186" y="28" width="8" height="6"/>
+      <rect x="186" y="42" width="8" height="6"/>
+      <rect x="186" y="56" width="8" height="6"/>
+      <rect x="186" y="70" width="8" height="6"/>
+    </g>
+    <text class="part-esp-text" x="100" y="42" text-anchor="middle">M5Stamp Pico</text>
+    <text class="part-esp-sub"  x="100" y="58" text-anchor="middle">ESP32-PICO-D4 (Wi-Fi)</text>
+    <text class="part-esp-sub"  x="100" y="74" text-anchor="middle">UART ↔ MCU / GPIO ↔ 雨セン / Wi-Fi ↔ クラウド</text>
+    <!-- antenna icon -->
+    <path d="M188,90 Q196,84 188,76" fill="none" stroke="#fff" stroke-width="1.5"/>
+    <path d="M192,94 Q204,84 192,72" fill="none" stroke="#fff" stroke-width="1.5"/>
+  </g>
+
+  <!-- クラウド (Smart Home cloud) -->
+  <g transform="translate(560,680)">
+    <ellipse cx="100" cy="40" rx="100" ry="32" class="part part-cloud"/>
+    <ellipse cx="65" cy="32" rx="34" ry="22" class="part part-cloud"/>
+    <ellipse cx="135" cy="32" rx="34" ry="22" class="part part-cloud"/>
+    <text class="part-cloud-text" x="100" y="44" text-anchor="middle">スマートホーム</text>
+    <text x="100" y="58" text-anchor="middle" font-size="10" fill="#fff">クラウド (MQTT / HTTP)</text>
+    <text x="100" y="92" text-anchor="middle" font-size="10" fill="#6b7280">Home Assistant 等の任意 broker</text>
+  </g>
+
+  <!-- スマホ -->
+  <g transform="translate(890,675)">
+    <rect class="part part-phone" width="90" height="120" rx="10"/>
+    <rect x="6" y="14" width="78" height="86" fill="#1a1d23" stroke="none"/>
+    <text x="45" y="36" text-anchor="middle" font-size="10" font-weight="700" fill="#7be0a4">通知</text>
+    <text x="45" y="54" text-anchor="middle" font-size="9" fill="#fff">「雨です。</text>
+    <text x="45" y="66" text-anchor="middle" font-size="9" fill="#fff">窓 a が</text>
+    <text x="45" y="78" text-anchor="middle" font-size="9" fill="#fff">開いてます」</text>
+    <text x="45" y="93" text-anchor="middle" font-size="8" fill="#ff7ab6">[ 閉める ]</text>
+    <circle cx="45" cy="110" r="5" fill="#2a313d" stroke="#fff" stroke-width="0.8"/>
+  </g>
+
+  <!-- 降雨センサ → M5Stamp Pico (GPIO) -->
+  <path class="wire-gpio" d="M230,720 L260,720 L260,720 L290,720"/>
+  <text class="wire-label" x="240" y="714" fill="#ff7ab6">GPIO</text>
+
+  <!-- M5Stamp Pico → MCU (UART, クロスドメイン: デモ筐体 → コントローラ筐体) -->
+  <path class="wire-uart" d="M390,680 L390,580 L390,500 L320,500 L320,320"/>
+  <text class="wire-label" x="396" y="540" fill="#c2185b">UART (LPUART)</text>
+
+  <!-- M5Stamp Pico → クラウド (Wi-Fi) -->
+  <path class="wire-wifi" d="M490,712 L530,712 L530,720 L560,720"/>
+  <text class="wire-label" x="498" y="706" fill="#6c5ce7">Wi-Fi</text>
+
+  <!-- クラウド → スマホ -->
+  <path class="wire-wifi" d="M760,720 L800,720 L800,735 L890,735"/>
+  <text class="wire-label" x="800" y="715" fill="#6c5ce7">push</text>
+
+  <!-- スマホ → クラウド → M5Stamp → MCU (return path for "閉めて") -->
+  <path d="M935,795 L935,805 L530,805 L530,720" fill="none" stroke="#7be0a4" stroke-width="1.8" stroke-dasharray="4 2"/>
+  <text class="wire-label" x="700" y="800" fill="#7be0a4">「閉めて」コマンド (return path)</text>
+
   <!-- ============ 凡例 ============ -->
-  <g transform="translate(40,594)">
+  <g transform="translate(40,834)">
     <rect class="legend-box" x="0" y="0" width="1020" height="38" rx="4"/>
     <g transform="translate(14,22)">
       <line x1="0" y1="0" x2="22" y2="0" class="wire-i2s"/>
-      <text x="28" y="4" font-size="11" fill="#1a1d23">I²S（mic / DAC）</text>
+      <text x="28" y="4" font-size="11" fill="#1a1d23">I²S</text>
     </g>
-    <g transform="translate(180,22)">
+    <g transform="translate(80,22)">
       <line x1="0" y1="0" x2="22" y2="0" class="wire-i2c"/>
-      <text x="28" y="4" font-size="11" fill="#1a1d23">I²C（PCA9685）</text>
+      <text x="28" y="4" font-size="11" fill="#1a1d23">I²C</text>
     </g>
-    <g transform="translate(330,22)">
+    <g transform="translate(140,22)">
       <line x1="0" y1="0" x2="22" y2="0" class="wire-spi"/>
-      <text x="28" y="4" font-size="11" fill="#1a1d23">SPI（ILI9341）</text>
+      <text x="28" y="4" font-size="11" fill="#1a1d23">SPI</text>
     </g>
-    <g transform="translate(470,22)">
+    <g transform="translate(200,22)">
       <line x1="0" y1="0" x2="22" y2="0" class="wire-gpio"/>
-      <text x="28" y="4" font-size="11" fill="#1a1d23">GPIO（トグル / EXEC）</text>
+      <text x="28" y="4" font-size="11" fill="#1a1d23">GPIO</text>
     </g>
-    <g transform="translate(650,22)">
+    <g transform="translate(270,22)">
       <line x1="0" y1="0" x2="22" y2="0" class="wire-pwm"/>
-      <text x="28" y="4" font-size="11" fill="#1a1d23">PWM ×5（サーボ）</text>
+      <text x="28" y="4" font-size="11" fill="#1a1d23">PWM ×5</text>
     </g>
-    <g transform="translate(820,22)">
+    <g transform="translate(360,22)">
       <line x1="0" y1="0" x2="22" y2="0" class="wire-audio"/>
-      <text x="28" y="4" font-size="11" fill="#1a1d23">スピーカ線（2 線）</text>
+      <text x="28" y="4" font-size="11" fill="#1a1d23">SPK (2 線)</text>
+    </g>
+    <g transform="translate(460,22)">
+      <line x1="0" y1="0" x2="22" y2="0" class="wire-uart"/>
+      <text x="28" y="4" font-size="11" fill="#1a1d23">UART (MCU ↔ M5Stamp Pico)</text>
+    </g>
+    <g transform="translate(680,22)">
+      <line x1="0" y1="0" x2="22" y2="0" class="wire-wifi"/>
+      <text x="28" y="4" font-size="11" fill="#1a1d23">Wi-Fi (M5Stamp ↔ クラウド)</text>
+    </g>
+    <g transform="translate(890,22)">
+      <line x1="0" y1="0" x2="22" y2="0" stroke="#7be0a4" stroke-width="1.8" stroke-dasharray="4 2"/>
+      <text x="28" y="4" font-size="11" fill="#1a1d23">return cmd</text>
     </g>
   </g>
 </svg>

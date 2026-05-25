@@ -369,7 +369,7 @@
           スピーカから <b>1 発の物理 Ping</b>（能動掃引音）を撃ち、たった
           <span class="bigone">1</span> 個のマイクで返ってくる室内インパルス応答を
           NPU 上の CNN で解析、<b>家中の窓・扉 32 通りの組合せ状態を同時推定</b>します。
-          降雨センサ + ESP32 を追加して、雨検出 → 推論 → スマホ通知まで完結。
+          降雨センサ + M5Stamp Pico (ESP32) を追加して、雨検出 → 推論 → スマホ通知まで完結。
           さらに <b>サーボで自動的に窓を閉める</b> ところまでデモします。
           NXP <b>FRDM-MCXN947</b>（Neutron NPU + PowerQuad DSP 内蔵）上で 1.89 ms 推論、
           32 状態とも MCU 実機で 100% 正解を達成しました。
@@ -427,13 +427,14 @@
           <thead><tr><th>役割</th><th>部品</th><th>接続</th></tr></thead>
           <tbody>
             <tr><td>降雨センサ</td><td>YL-83 等の安価モジュール</td><td>GPIO デジタル入力、屋外設置</td></tr>
-            <tr><td>Wi-Fi モジュール</td><td><b>ESP32-WROOM</b></td><td>IchiPing と UART 接続、MQTT/HTTP でクラウド送信</td></tr>
-            <tr><td>スマートホーム連携</td><td>クラウド (Home Assistant 等の MQTT broker)</td><td>ESP32 から push、スマホアプリで受信</td></tr>
+            <tr><td>Wi-Fi モジュール</td><td><b>M5Stamp Pico</b>（ESP32-PICO-D4）</td><td>IchiPing と <b>UART (LPUART)</b> 接続、降雨センサを <b>GPIO</b> で読む、<b>Wi-Fi</b> でクラウド送信</td></tr>
+            <tr><td>スマートホーム連携</td><td>クラウド (Home Assistant 等の MQTT broker)</td><td>M5Stamp から push、スマホアプリで受信</td></tr>
           </tbody>
         </table>
         <p style="font-size:13px;color:var(--pp-muted);">
-          降雨センサと ESP32 は IchiPing 本体 (FRDM-MCXN947) には不要で、
+          降雨センサと M5Stamp Pico は IchiPing 本体 (FRDM-MCXN947) には不要で、
           <b>雨検出 → 通知 → 自動閉までの完全自動化デモを成立させるための周辺機器</b>として後付けします。
+          M5Stamp Pico は親指サイズの ESP32 モジュールで筐体内に収まり、デモ装置の見た目を損ねません。
         </p>
       </article>
 
@@ -454,13 +455,13 @@
         <h3>IchiPing の解決 — <span class="bigone">1</span> マイク <span class="bigone">1</span> Ping で 32 状態を当てる</h3>
         <p>
           IchiPing は <b>「<span class="bigone">1</span> 個のマイクと <span class="bigone">1</span> 発の Ping だけで、家中の窓と扉の開閉 32 通りを当てる」</b>
-          ことを実現したエッジ AI デバイスです。これに <b>降雨センサ + ESP32</b> をデモ用周辺機器として追加することで、次のフローが成立します:
+          ことを実現したエッジ AI デバイスです。これに <b>降雨センサ + M5Stamp Pico (ESP32)</b> をデモ用周辺機器として追加することで、次のフローが成立します:
         </p>
         <ol>
-          <li>屋外の降雨センサが雨を検出</li>
-          <li>ESP32 → IchiPing コントローラに推論トリガを送る</li>
+          <li>屋外の降雨センサが雨を検出 (GPIO 入力)</li>
+          <li>M5Stamp Pico → UART で IchiPing コントローラに推論トリガを送る</li>
           <li>IchiPing が 1 Ping → MCU 上の Neutron NPU で <b>1.89 ms 推論</b> → 窓・扉 32 状態のうちどれかを特定</li>
-          <li>ESP32 が結果をスマートホームクラウドに送信</li>
+          <li>M5Stamp Pico が Wi-Fi 経由でスマートホームクラウドに結果を送信</li>
           <li>ユーザのスマホに通知「窓 a が開いてます！」</li>
         </ol>
 
@@ -476,7 +477,7 @@
         <p style="background:rgba(123,224,164,0.10);border-left:3px solid #7be0a4;padding:10px 14px;margin:10px 0;">
           <b>オチ 2 — でも安心してください。</b>
           このデモ装置は窓を <b>サーボで自動開閉できます</b>。
-          スマホから「閉めて」をタップ → ESP32 → IchiPing → PCA9685 → SG90 ×5 →
+          スマホから「閉めて」をタップ → クラウド → M5Stamp Pico → UART → IchiPing → PCA9685 → SG90 ×5 →
           <b style="color:#7be0a4">物理的に窓を閉める ✓</b>
         </p>
         <p>
@@ -601,7 +602,7 @@
           <li class="done"><b>v0.5〜v0.7</b> 14cls/32cls 両 head Neutron 互換モデル → INT8 量子化 → Neutron 変換 (NPU 比率 7/7 = 100%, 108 KB, 1.89 ms)（達成済）</li>
           <li class="done"><b>v1.0</b> MCU 実機検証 v12345 sweep (8 モデル × 32 状態、<b>32cls / 14cls とも 100% 達成</b>)（達成済）</li>
           <li><b>v1.5</b> TFT (ILI9341) でフロアプラン表示 + EXEC ボタンによる手動デモモード</li>
-          <li><b>デモ拡張</b> 降雨センサ + ESP32 を接続して雨検出 → スマホ通知 → サーボ自動閉まで完結</li>
+          <li><b>デモ拡張</b> 降雨センサ + M5Stamp Pico を接続して雨検出 → スマホ通知 → サーボ自動閉まで完結</li>
           <li><b>v2.0</b> ROHM <b>ML63Q2557 + Solist-AI</b> への移植（ROHM EDGE HACK 2026 提出版）</li>
         </ul>
 
