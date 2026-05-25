@@ -582,27 +582,6 @@
           <b>diff にすれば環境変化はキャンセル</b>されて窓状態だけが残る、というのが本手法の本質です。
         </p>
 
-        <h3>2 段オチ</h3>
-        <p style="background:rgba(232,154,61,0.10);border-left:3px solid #e89a3d;padding:10px 14px;margin:10px 0;">
-          <b>オチ 1</b> — 通知が来ても外出中だと…
-        </p>
-        <ul>
-          <li>「閉まってる」なら → 安心 ✓</li>
-          <li>「開いてる」なら → 知らされても何もできない 😞</li>
-        </ul>
-        <p>通知だけのソリューションには <b>「情報があっても手が届かない悲しさ」</b> がある。</p>
-        <p style="background:rgba(123,224,164,0.10);border-left:3px solid #7be0a4;padding:10px 14px;margin:10px 0;">
-          <b>オチ 2 — でも安心してください。</b>
-          このデモ装置は窓を <b>サーボで自動開閉できます</b>。
-          スマホから「閉めて」をタップ → クラウド → M5Stamp Pico → UART → IchiPing → PCA9685 → SG90 ×5 →
-          <b style="color:#7be0a4">物理的に窓を閉める ✓</b>
-        </p>
-        <p>
-          「聴く（推論）→ 通知 → <b>閉める（アクション）</b>」の往復が、
-          <span class="bigone">1</span> 個のセンサと <span class="bigone">1</span> 発の Ping から始まる
-          小さな AI デバイスで全部完結します。
-        </p>
-
         <h3>なぜ「<span class="bigone">1</span> マイク <span class="bigone">1</span> Ping」が成立するのか</h3>
         <p>
           家中にセンサを散らす方式は配線・電池交換・通信の地獄を抱えるのが常ですが、

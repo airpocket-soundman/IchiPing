@@ -113,23 +113,6 @@
   <b>今回は PoC ですが、外部ネットワークへの接続用に ESP32 (M5Stamp Pico) を搭載しており、スマートホームシステムに統合する基本機能を実装しています。</b>
 </div>
 
-<h3>2 段オチ</h3>
-<div class="callout" style="border-left: 4px solid #e89a3d;">
-  <strong>オチ 1</strong> — 通知が来ても外出中だと…
-  <ul style="margin: 6px 0 0 18px;">
-    <li>「閉まってる」なら → 安心 ✓</li>
-    <li>「開いてる」なら → 知らされても何もできない 😞</li>
-  </ul>
-  通知だけのソリューションには情報不足からの「悲しさ」がある。
-</div>
-
-<div class="callout" style="border-left: 4px solid #7be0a4;">
-  <strong>オチ 2 — でも安心してください</strong>。
-  このデモ装置は窓を <b>サーボで自動開閉できます</b>。
-  スマホから「閉めて」をタップ → クラウド → M5Stamp Pico → UART → IchiPing → PCA9685 → SG90 ×5 →
-  <b style="color:#7be0a4">物理的に窓を閉める ✓</b>
-</div>
-
 <h3>技術検証 (これまでに達成したこと)</h3>
 <ul>
   <li>単一マイク + 単一スピーカで <b>32 真状態すべてが識別可能</b> と判明
