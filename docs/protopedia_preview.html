@@ -398,26 +398,36 @@
           PC に送り、教師ありデータを半自動で量産できる仕組み。
         </p>
 
-        <h3>主要部品（v1 BOM、約 $252）</h3>
+        <h3>主要部品（v1 BOM、約 $210、DigiKey 価格ベース）</h3>
         <table>
-          <thead><tr><th>役割</th><th>部品</th><th>配置</th></tr></thead>
+          <thead><tr><th>役割</th><th>部品</th><th>単価</th><th>Vendor / DigiKey リンク</th><th>配置</th></tr></thead>
           <tbody>
-            <tr><td>MCU</td><td>NXP <b>FRDM-MCXN947</b></td><td>コントローラ筐体</td></tr>
-            <tr><td>マイク</td><td>InvenSense <b>INMP441</b> I²S MEMS</td><td>House 模型</td></tr>
-            <tr><td>アンプ</td><td><b>MAX98357A</b> I²S Class-D</td><td>コントローラ筐体</td></tr>
-            <tr><td>サーボ駆動</td><td><b>PCA9685</b> + SG90 ×5（オチ 2「窓自動閉」担当）</td><td>PCA9685 = コントローラ / SG90 = 模型</td></tr>
-            <tr><td>表示</td><td><b>ILI9341</b> 2.4" TFT 240×320（RGB565, LVGL）</td><td>コントローラ筐体</td></tr>
-            <tr><td>操作入力</td><td>パネルトグル ×5（窓 a/b/c + 扉 AB/BC 真値）+ EXEC タクトスイッチ ×1</td><td>コントローラ筐体</td></tr>
-            <tr><td><b>Wi-Fi モジュール</b></td><td><b>M5Stamp Pico</b>（ESP32-PICO-D4）</td><td><b>コントローラ筐体内に統合</b>、MCU と UART (LPUART) で接続</td></tr>
-            <tr><td><b>降雨センサ</b></td><td>YL-83 等の安価モジュール</td><td><b>House 模型に統合（屋外設置）</b>、MCU の GPIO に直接入力</td></tr>
-            <tr><td>スマートホーム連携</td><td>クラウド (Home Assistant 等の MQTT broker)</td><td>筐体外 (Wi-Fi 経由)</td></tr>
-            <tr><td>PC 連携</td><td>OpenSDA UART 921600 bps（学習データ収集用）／ USB CDC</td><td>コントローラ筐体</td></tr>
+            <tr><td>MCU</td><td>NXP <b>FRDM-MCXN947</b></td><td>$49</td><td><a href="https://www.digikey.com/en/products/detail/nxp-usa-inc/FRDM-MCXN947/22036137">DigiKey: FRDM-MCXN947</a></td><td>コントローラ筐体</td></tr>
+            <tr><td>マイク</td><td>InvenSense <b>INMP441</b> I²S MEMS breakout</td><td>$2-5</td><td>汎用 (AliExpress / Amazon) ／ bare IC は <a href="https://www.digikey.com/en/products/detail/tdk-invensense/INMP441ACEZ-R7/2606606">DigiKey: INMP441ACEZ-R7</a></td><td>House 模型</td></tr>
+            <tr><td>アンプ</td><td><b>MAX98357A</b> I²S Class-D</td><td>$5.95</td><td><a href="https://www.digikey.com/en/products/detail/adafruit-industries-llc/3006/6058477">DigiKey: Adafruit 3006</a></td><td>コントローラ筐体</td></tr>
+            <tr><td>サーボドライバ</td><td><b>PCA9685</b> 16ch PWM</td><td>$14.95</td><td><a href="https://www.digikey.com/en/products/detail/adafruit-industries-llc/815/4990757">DigiKey: Adafruit 815</a></td><td>コントローラ筐体</td></tr>
+            <tr><td>サーボ</td><td><b>SG90</b> 9g micro servo ×5 （オチ「窓自動閉」担当）</td><td>$5.95×5</td><td><a href="https://www.digikey.com/en/products/detail/adafruit-industries-llc/169/5154651">DigiKey: Adafruit 169</a></td><td>House 模型</td></tr>
+            <tr><td>表示</td><td><b>ILI9341</b> 2.4" TFT 240×320（RGB565, LVGL, タッチパネル付き）</td><td>$29.95</td><td><a href="https://www.digikey.com/en/products/detail/adafruit-industries-llc/2478/5761253">DigiKey: Adafruit 2478</a></td><td>コントローラ筐体</td></tr>
+            <tr><td>操作入力</td><td>パネルトグル SPST ×5（窓 a/b/c + 扉 AB/BC 真値）</td><td>$3.50×5</td><td><a href="https://www.digikey.com/en/products/detail/e-switch/ST161D00/EG4815-ND/2116294">DigiKey: E-Switch ST161D00</a></td><td>コントローラ筐体</td></tr>
+            <tr><td>操作入力</td><td>EXEC タクトスイッチ 6×6 mm</td><td>$0.20</td><td><a href="https://www.digikey.com/en/products/filter/tactile-switches/197">DigiKey: 6mm タクト検索</a></td><td>コントローラ筐体</td></tr>
+            <tr style="background:rgba(194,24,91,0.06);"><td><b>Wi-Fi モジュール</b></td><td><b>M5Stamp Pico</b>（ESP32-PICO-D4）</td><td>$6.50</td><td><a href="https://www.digikey.com/en/products/detail/m5stack-technology-co-ltd/K051/14672117">DigiKey: M5Stack K051</a></td><td><b>コントローラ筐体内に統合</b>、MCU と UART (LPUART) で接続</td></tr>
+            <tr style="background:rgba(31,93,153,0.06);"><td><b>降雨センサ</b></td><td>YL-83 抵抗式モジュール</td><td>$1.50</td><td>汎用 (AliExpress / Amazon、DigiKey 取扱なし)</td><td><b>House 模型に統合（屋外設置）</b>、MCU の GPIO に直接入力</td></tr>
+            <tr><td>1000 µF 16 V 電解</td><td>サーボ V+ 突入電流吸収</td><td>$0.55</td><td><a href="https://www.digikey.com/en/products/detail/chemi-con/EKYB160ELL102MJ16S/4843676">DigiKey: Chemi-Con EKYB160ELL102MJ16S</a></td><td>コントローラ筐体</td></tr>
+            <tr><td>LED 緑 5mm</td><td>PWR 表示</td><td>$0.25</td><td><a href="https://www.digikey.com/en/products/detail/dialight/5500205F/350-1598-ND/808996">DigiKey: Dialight 5500205F</a></td><td>コントローラ筐体</td></tr>
+            <tr><td>スマートホーム連携</td><td>クラウド (Home Assistant 等の MQTT broker)</td><td>—</td><td>(ソフトウェア)</td><td>筐体外 (Wi-Fi 経由)</td></tr>
+            <tr><td>PC 連携</td><td>OpenSDA UART 921600 bps（学習データ収集用）／ USB CDC</td><td>—</td><td>(オンボード)</td><td>コントローラ筐体</td></tr>
           </tbody>
         </table>
         <p style="font-size:13px;color:var(--pp-muted);">
-          M5Stamp Pico (ESP32) は親指サイズの Wi-Fi モジュールでコントローラ筐体内に収まり、
-          降雨センサは安価な抵抗式モジュールで House 模型の屋外面に貼り付けるだけ。
-          <b>デモ装置一式でクラウド連携まで完結</b>します。
+          詳細な配線ピンマップは
+          <a href="https://github.com/airpocket-soundman/IchiPing/blob/main/hardware/wiring.html">hardware/wiring.html</a>、
+          完全な BOM (抵抗・コンデンサ・ジャンパ線・USB ケーブル等含む) は
+          <a href="https://github.com/airpocket-soundman/IchiPing/blob/main/hardware/bom.html">hardware/bom.html</a> を参照。
+        </p>
+        <p style="font-size:13px;color:var(--pp-muted); background:rgba(255,159,28,0.08);border-left:3px solid #ff9f1c;padding:8px 12px;">
+          <b>注</b>: 旧 BOM の「Adafruit 3421」は INMP441 ではなく SPH0645LM4H（別チップ）です。
+          本ファームウェアは INMP441 を期待するため、Adafruit 3421 では動きません。汎用 INMP441
+          ブレイクアウト（AliExpress / Amazon）または bare IC + 自作 PCB を推奨。
         </p>
       </article>
 
