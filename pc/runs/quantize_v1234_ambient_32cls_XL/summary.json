@@ -1,0 +1,65 @@
+{
+  "ckpt": "runs\\sweep_v1234_32cls_ambient\\size_XL_seed_0\\best.pt",
+  "size": "XL",
+  "onnx_fp32_size_kb": 10.1552734375,
+  "onnx_int8_size_kb": 184.501953125,
+  "results": {
+    "eval_quiet": {
+      "pytorch_fp32": {
+        "acc_32cls": 0.984375,
+        "acc_14cls": 1.0,
+        "n": 320
+      },
+      "onnx_fp32": {
+        "acc_32cls": 0.984375,
+        "acc_14cls": 1.0,
+        "n": 320
+      },
+      "onnx_int8": {
+        "acc_32cls": 0.978125,
+        "acc_14cls": 1.0,
+        "n": 320
+      },
+      "delta_14cls": 0.0,
+      "delta_32cls": -0.006249999999999978
+    },
+    "eval_noise_low": {
+      "pytorch_fp32": {
+        "acc_32cls": 1.0,
+        "acc_14cls": 1.0,
+        "n": 320
+      },
+      "onnx_fp32": {
+        "acc_32cls": 1.0,
+        "acc_14cls": 1.0,
+        "n": 320
+      },
+      "onnx_int8": {
+        "acc_32cls": 1.0,
+        "acc_14cls": 1.0,
+        "n": 320
+      },
+      "delta_14cls": 0.0,
+      "delta_32cls": 0.0
+    },
+    "eval_noise_high": {
+      "pytorch_fp32": {
+        "acc_32cls": 1.0,
+        "acc_14cls": 1.0,
+        "n": 320
+      },
+      "onnx_fp32": {
+        "acc_32cls": 1.0,
+        "acc_14cls": 1.0,
+        "n": 320
+      },
+      "onnx_int8": {
+        "acc_32cls": 1.0,
+        "acc_14cls": 1.0,
+        "n": 320
+      },
+      "delta_14cls": 0.0,
+      "delta_32cls": 0.0
+    }
+  }
+}

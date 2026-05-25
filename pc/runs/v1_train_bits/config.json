@@ -1,0 +1,19 @@
+{
+  "model": "IchiPingV1_bits",
+  "n_bits": 5,
+  "bit_order": [
+    "a",
+    "b",
+    "c",
+    "AB",
+    "BC"
+  ],
+  "n_params": 13205,
+  "epochs": 60,
+  "batch": 32,
+  "lr": 0.001,
+  "feature_mode": "noise_diff",
+  "feature_aug": true,
+  "best_val_acc_14cls": 1.0,
+  "test_acc_14cls": 0.9930555555555556
+}

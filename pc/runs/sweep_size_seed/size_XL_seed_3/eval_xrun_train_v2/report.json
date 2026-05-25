@@ -1,0 +1,93 @@
+{
+  "n_samples": 1600,
+  "split": "all",
+  "feature_mode": "noise_diff",
+  "acc_14cls": 0.875,
+  "macro_f1_14cls": 0.786287124913663,
+  "per_class_14cls": {
+    "A1": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 400
+    },
+    "A2": {
+      "precision": 0.9852216748768473,
+      "recall": 1.0,
+      "f1": 0.9925558312655086,
+      "support": 400
+    },
+    "B1": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 100
+    },
+    "B2": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 100
+    },
+    "B3": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 100
+    },
+    "B4": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 100
+    },
+    "C1": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 50
+    },
+    "C2": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 50
+    },
+    "C3": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 50
+    },
+    "C4": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 50
+    },
+    "C5": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 50
+    },
+    "C6": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 50
+    },
+    "C7": {
+      "precision": 0.3333333333333333,
+      "recall": 1.0,
+      "f1": 0.5,
+      "support": 50
+    },
+    "C8": {
+      "precision": 0.3472222222222222,
+      "recall": 1.0,
+      "f1": 0.5154639175257731,
+      "support": 50
+    }
+  }
+}

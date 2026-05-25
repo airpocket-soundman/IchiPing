@@ -1,0 +1,40 @@
+{
+  "model": "IchiPingV1_14cls",
+  "size": "M",
+  "preset": {
+    "channels": [
+      16,
+      32,
+      64
+    ],
+    "extra_conv": true,
+    "head": "gap",
+    "dropout": 0.3
+  },
+  "n_classes": 14,
+  "n_params": 30366,
+  "epochs": 60,
+  "batch": 32,
+  "lr": 0.001,
+  "feature_mode": "noise_diff",
+  "feature_aug": true,
+  "class_order": [
+    "A1",
+    "A2",
+    "B1",
+    "B2",
+    "B3",
+    "B4",
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5",
+    "C6",
+    "C7",
+    "C8"
+  ],
+  "ambient_dirs": null,
+  "best_val_acc": 1.0,
+  "test_acc_14cls": 1.0
+}

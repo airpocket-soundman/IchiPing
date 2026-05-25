@@ -1,0 +1,130 @@
+{
+  "S": {
+    "n_seeds": 1,
+    "n_params": 13790,
+    "in_dist": {
+      "full_32_train_v1": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "full_32_train_v2": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "full_32_train_v3": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "full_32_train_v4": {
+        "mean": 1.0,
+        "std": 0.0
+      }
+    },
+    "xrun_acc_mean": 1.0,
+    "xrun_acc_std": 0.0,
+    "xrun_acc_min": 1.0,
+    "xrun_acc_max": 1.0,
+    "seeds": [
+      0
+    ],
+    "xrun_per_seed": [
+      1.0
+    ]
+  },
+  "M": {
+    "n_seeds": 1,
+    "n_params": 30366,
+    "in_dist": {
+      "full_32_train_v1": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "full_32_train_v2": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "full_32_train_v3": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "full_32_train_v4": {
+        "mean": 1.0,
+        "std": 0.0
+      }
+    },
+    "xrun_acc_mean": 1.0,
+    "xrun_acc_std": 0.0,
+    "xrun_acc_min": 1.0,
+    "xrun_acc_max": 1.0,
+    "seeds": [
+      0
+    ],
+    "xrun_per_seed": [
+      1.0
+    ]
+  },
+  "L": {
+    "n_seeds": 1,
+    "n_params": 52142,
+    "in_dist": {
+      "full_32_train_v1": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "full_32_train_v2": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "full_32_train_v3": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "full_32_train_v4": {
+        "mean": 1.0,
+        "std": 0.0
+      }
+    },
+    "xrun_acc_mean": 0.96875,
+    "xrun_acc_std": 0.0,
+    "xrun_acc_min": 0.96875,
+    "xrun_acc_max": 0.96875,
+    "seeds": [
+      0
+    ],
+    "xrun_per_seed": [
+      0.96875
+    ]
+  },
+  "XL": {
+    "n_seeds": 1,
+    "n_params": 104110,
+    "in_dist": {
+      "full_32_train_v1": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "full_32_train_v2": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "full_32_train_v3": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "full_32_train_v4": {
+        "mean": 1.0,
+        "std": 0.0
+      }
+    },
+    "xrun_acc_mean": 1.0,
+    "xrun_acc_std": 0.0,
+    "xrun_acc_min": 1.0,
+    "xrun_acc_max": 1.0,
+    "seeds": [
+      0
+    ],
+    "xrun_per_seed": [
+      1.0
+    ]
+  }
+}

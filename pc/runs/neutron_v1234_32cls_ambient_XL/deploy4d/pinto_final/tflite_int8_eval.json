@@ -1,0 +1,21 @@
+{
+  "tflite": "runs\\neutron_v1234_32cls_ambient_XL\\deploy4d\\pinto_final\\model_fp32_4d_full_integer_quant.tflite",
+  "tflite_kb": 115.640625,
+  "results": {
+    "eval_quiet": {
+      "acc_32cls": 0.996875,
+      "acc_14cls": 1.0,
+      "n": 320
+    },
+    "eval_noise_low": {
+      "acc_32cls": 1.0,
+      "acc_14cls": 1.0,
+      "n": 320
+    },
+    "eval_noise_high": {
+      "acc_32cls": 1.0,
+      "acc_14cls": 1.0,
+      "n": 320
+    }
+  }
+}

@@ -1,0 +1,41 @@
+WAIT_BOOT (up to 10s)...
+NO_BOOT_BANNER - probably already running, probing PING
+SETUP CLOSE ALL (initial)
+CALIBRATE: capturing 10 frames at all-closed (silent ~25s)
+CALIB_RESULT OK BL calibrated frames=10 mode=live bl_min=-79 bl_max=-28 bl_mean=-52 (dB, int rounded)
+BL LIVE switch
+BL_LIVE OK BL mode=live
+[BEGIN 32-state sweep with LIVE baseline]
+STATE  0 truth=s00000 -> RESULT seq=1 cls32_idx=0 cls32_state=s00000 cls14=A1 second32_idx=4 second32_state=s00100 baseline=live argmax_q=127 second_q=90 margin=37 infer_us=1894 cap_ms=1963 doors a=0 b=0 c=0 AB=0 BC=0
+STATE  1 truth=s10000 -> RESULT seq=2 cls32_idx=1 cls32_state=s10000 cls14=A2 second32_idx=17 second32_state=s10001 baseline=live argmax_q=72 second_q=32 margin=40 infer_us=1893 cap_ms=1963 doors a=1 b=0 c=0 AB=0 BC=0
+STATE  2 truth=s01000 -> RESULT seq=3 cls32_idx=2 cls32_state=s01000 cls14=A1 second32_idx=6 second32_state=s01100 baseline=live argmax_q=100 second_q=54 margin=46 infer_us=1893 cap_ms=1962 doors a=0 b=1 c=0 AB=0 BC=0
+STATE  3 truth=s11000 -> RESULT seq=4 cls32_idx=3 cls32_state=s11000 cls14=A2 second32_idx=7 second32_state=s11100 baseline=live argmax_q=85 second_q=46 margin=39 infer_us=1894 cap_ms=1963 doors a=1 b=1 c=0 AB=0 BC=0
+STATE  4 truth=s00100 -> RESULT seq=5 cls32_idx=4 cls32_state=s00100 cls14=A1 second32_idx=0 second32_state=s00000 baseline=live argmax_q=87 second_q=51 margin=36 infer_us=1893 cap_ms=1963 doors a=0 b=0 c=1 AB=0 BC=0
+STATE  5 truth=s10100 -> RESULT seq=6 cls32_idx=5 cls32_state=s10100 cls14=A2 second32_idx=21 second32_state=s10101 baseline=live argmax_q=48 second_q=24 margin=24 infer_us=1893 cap_ms=1963 doors a=1 b=0 c=1 AB=0 BC=0
+STATE  6 truth=s01100 -> RESULT seq=7 cls32_idx=6 cls32_state=s01100 cls14=A1 second32_idx=2 second32_state=s01000 baseline=live argmax_q=76 second_q=35 margin=41 infer_us=1893 cap_ms=1963 doors a=0 b=1 c=1 AB=0 BC=0
+STATE  7 truth=s11100 -> RESULT seq=8 cls32_idx=7 cls32_state=s11100 cls14=A2 second32_idx=3 second32_state=s11000 baseline=live argmax_q=69 second_q=50 margin=19 infer_us=1893 cap_ms=1963 doors a=1 b=1 c=1 AB=0 BC=0
+STATE  8 truth=s00010 -> RESULT seq=9 cls32_idx=8 cls32_state=s00010 cls14=B1 second32_idx=12 second32_state=s00110 baseline=live argmax_q=73 second_q=31 margin=42 infer_us=1893 cap_ms=1963 doors a=0 b=0 c=0 AB=1 BC=0
+STATE  9 truth=s10010 -> RESULT seq=10 cls32_idx=9 cls32_state=s10010 cls14=B2 second32_idx=13 second32_state=s10110 baseline=live argmax_q=88 second_q=28 margin=60 infer_us=1893 cap_ms=1963 doors a=1 b=0 c=0 AB=1 BC=0
+STATE 10 truth=s01010 -> RESULT seq=11 cls32_idx=10 cls32_state=s01010 cls14=B3 second32_idx=14 second32_state=s01110 baseline=live argmax_q=85 second_q=27 margin=58 infer_us=1893 cap_ms=1962 doors a=0 b=1 c=0 AB=1 BC=0
+STATE 11 truth=s11010 -> RESULT seq=12 cls32_idx=11 cls32_state=s11010 cls14=B4 second32_idx=15 second32_state=s11110 baseline=live argmax_q=74 second_q=32 margin=42 infer_us=1893 cap_ms=1963 doors a=1 b=1 c=0 AB=1 BC=0
+STATE 12 truth=s00110 -> RESULT seq=13 cls32_idx=12 cls32_state=s00110 cls14=B1 second32_idx=8 second32_state=s00010 baseline=live argmax_q=81 second_q=16 margin=65 infer_us=1893 cap_ms=1963 doors a=0 b=0 c=1 AB=1 BC=0
+STATE 13 truth=s10110 -> RESULT seq=14 cls32_idx=13 cls32_state=s10110 cls14=B2 second32_idx=9 second32_state=s10010 baseline=live argmax_q=87 second_q=17 margin=70 infer_us=1893 cap_ms=1962 doors a=1 b=0 c=1 AB=1 BC=0
+STATE 14 truth=s01110 -> RESULT seq=15 cls32_idx=14 cls32_state=s01110 cls14=B3 second32_idx=10 second32_state=s01010 baseline=live argmax_q=85 second_q=32 margin=53 infer_us=1893 cap_ms=1963 doors a=0 b=1 c=1 AB=1 BC=0
+STATE 15 truth=s11110 -> RESULT seq=16 cls32_idx=15 cls32_state=s11110 cls14=B4 second32_idx=11 second32_state=s11010 baseline=live argmax_q=79 second_q=20 margin=59 infer_us=1893 cap_ms=1963 doors a=1 b=1 c=1 AB=1 BC=0
+STATE 16 truth=s00001 -> RESULT seq=17 cls32_idx=16 cls32_state=s00001 cls14=A1 second32_idx=20 second32_state=s00101 baseline=live argmax_q=64 second_q=23 margin=41 infer_us=1893 cap_ms=1962 doors a=0 b=0 c=0 AB=0 BC=1
+STATE 17 truth=s10001 -> RESULT seq=18 cls32_idx=17 cls32_state=s10001 cls14=A2 second32_idx=19 second32_state=s11001 baseline=live argmax_q=80 second_q=40 margin=40 infer_us=1893 cap_ms=1962 doors a=1 b=0 c=0 AB=0 BC=1
+STATE 18 truth=s01001 -> RESULT seq=19 cls32_idx=18 cls32_state=s01001 cls14=A1 second32_idx=16 second32_state=s00001 baseline=live argmax_q=68 second_q=32 margin=36 infer_us=1893 cap_ms=1963 doors a=0 b=1 c=0 AB=0 BC=1
+STATE 19 truth=s11001 -> RESULT seq=20 cls32_idx=19 cls32_state=s11001 cls14=A2 second32_idx=23 second32_state=s11101 baseline=live argmax_q=77 second_q=33 margin=44 infer_us=1893 cap_ms=1963 doors a=1 b=1 c=0 AB=0 BC=1
+STATE 20 truth=s00101 -> RESULT seq=21 cls32_idx=20 cls32_state=s00101 cls14=A1 second32_idx=16 second32_state=s00001 baseline=live argmax_q=58 second_q=22 margin=36 infer_us=1893 cap_ms=1963 doors a=0 b=0 c=1 AB=0 BC=1
+STATE 21 truth=s10101 -> RESULT seq=22 cls32_idx=21 cls32_state=s10101 cls14=A2 second32_idx=23 second32_state=s11101 baseline=live argmax_q=74 second_q=21 margin=53 infer_us=1893 cap_ms=1963 doors a=1 b=0 c=1 AB=0 BC=1
+STATE 22 truth=s01101 -> RESULT seq=23 cls32_idx=22 cls32_state=s01101 cls14=A1 second32_idx=18 second32_state=s01001 baseline=live argmax_q=65 second_q=36 margin=29 infer_us=1893 cap_ms=1962 doors a=0 b=1 c=1 AB=0 BC=1
+STATE 23 truth=s11101 -> RESULT seq=24 cls32_idx=23 cls32_state=s11101 cls14=A2 second32_idx=19 second32_state=s11001 baseline=live argmax_q=72 second_q=35 margin=37 infer_us=1893 cap_ms=1962 doors a=1 b=1 c=1 AB=0 BC=1
+STATE 24 truth=s00011 -> RESULT seq=25 cls32_idx=24 cls32_state=s00011 cls14=C1 second32_idx=26 second32_state=s01011 baseline=live argmax_q=69 second_q=27 margin=42 infer_us=1893 cap_ms=1963 doors a=0 b=0 c=0 AB=1 BC=1
+STATE 25 truth=s10011 -> RESULT seq=26 cls32_idx=25 cls32_state=s10011 cls14=C2 second32_idx=27 second32_state=s11011 baseline=live argmax_q=84 second_q=28 margin=56 infer_us=1893 cap_ms=1963 doors a=1 b=0 c=0 AB=1 BC=1
+STATE 26 truth=s01011 -> RESULT seq=27 cls32_idx=26 cls32_state=s01011 cls14=C3 second32_idx=30 second32_state=s01111 baseline=live argmax_q=94 second_q=40 margin=54 infer_us=1893 cap_ms=1963 doors a=0 b=1 c=0 AB=1 BC=1
+STATE 27 truth=s11011 -> RESULT seq=28 cls32_idx=27 cls32_state=s11011 cls14=C4 second32_idx=31 second32_state=s11111 baseline=live argmax_q=83 second_q=22 margin=61 infer_us=1893 cap_ms=1962 doors a=1 b=1 c=0 AB=1 BC=1
+STATE 28 truth=s00111 -> RESULT seq=29 cls32_idx=28 cls32_state=s00111 cls14=C5 second32_idx=30 second32_state=s01111 baseline=live argmax_q=91 second_q=32 margin=59 infer_us=1893 cap_ms=1963 doors a=0 b=0 c=1 AB=1 BC=1
+STATE 29 truth=s10111 -> RESULT seq=30 cls32_idx=29 cls32_state=s10111 cls14=C6 second32_idx=31 second32_state=s11111 baseline=live argmax_q=87 second_q=26 margin=61 infer_us=1893 cap_ms=1963 doors a=1 b=0 c=1 AB=1 BC=1
+STATE 30 truth=s01111 -> RESULT seq=31 cls32_idx=30 cls32_state=s01111 cls14=C7 second32_idx=26 second32_state=s01011 baseline=live argmax_q=98 second_q=35 margin=63 infer_us=1893 cap_ms=1963 doors a=0 b=1 c=1 AB=1 BC=1
+STATE 31 truth=s11111 -> RESULT seq=32 cls32_idx=31 cls32_state=s11111 cls14=C8 second32_idx=27 second32_state=s11011 baseline=live argmax_q=93 second_q=19 margin=74 infer_us=1893 cap_ms=1963 doors a=1 b=1 c=1 AB=1 BC=1
+[DONE 32-state sweep]

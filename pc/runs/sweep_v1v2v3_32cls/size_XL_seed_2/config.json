@@ -1,0 +1,16 @@
+{
+  "model": "IchiPingV1_32cls",
+  "n_classes": 32,
+  "n_params": 173248,
+  "epochs": 60,
+  "batch": 32,
+  "lr": 0.001,
+  "ambient_dirs": null,
+  "feature_mode": "noise_diff",
+  "feature_aug": true,
+  "loss_mode": "ce",
+  "hamming_alpha": null,
+  "best_val_acc": 1.0,
+  "test_acc_32cls": 1.0,
+  "test_acc_14cls": 1.0
+}

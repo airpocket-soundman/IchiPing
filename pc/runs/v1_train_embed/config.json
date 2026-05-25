@@ -1,0 +1,13 @@
+{
+  "model": "IchiPingV1_embed",
+  "embed_dim": 64,
+  "n_params": 17040,
+  "epochs": 60,
+  "batch": 64,
+  "lr": 0.001,
+  "temperature": 0.1,
+  "feature_mode": "noise_diff",
+  "feature_aug": true,
+  "best_val_acc_14cls": 1.0,
+  "test_acc_14cls": 1.0
+}

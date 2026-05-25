@@ -1,0 +1,13 @@
+size,seed,cond,baseline_from,acc_14cls,macro_f1_14cls,acc_32cls
+S,0,quiet,eval_noise_high,1.0,1.0,0.803125
+S,0,noise_low,eval_noise_high,1.0,1.0,0.859375
+S,0,noise_high,eval_noise_high,1.0,1.0,0.840625
+M,0,quiet,eval_noise_high,1.0,1.0,0.9125
+M,0,noise_low,eval_noise_high,1.0,1.0,0.896875
+M,0,noise_high,eval_noise_high,1.0,1.0,0.8625
+L,0,quiet,eval_noise_high,1.0,1.0,0.88125
+L,0,noise_low,eval_noise_high,1.0,1.0,0.9
+L,0,noise_high,eval_noise_high,1.0,1.0,0.8125
+XL,0,quiet,eval_noise_high,1.0,1.0,0.878125
+XL,0,noise_low,eval_noise_high,1.0,1.0,0.953125
+XL,0,noise_high,eval_noise_high,1.0,1.0,0.971875

@@ -1,0 +1,13 @@
+{
+  "model": "IchiPingV1_cascade",
+  "n_groups": 3,
+  "n_params": 13985,
+  "epochs": 60,
+  "batch": 32,
+  "lr": 0.001,
+  "l2_weight": 1.0,
+  "feature_mode": "noise_diff",
+  "feature_aug": true,
+  "best_val_acc_14cls": 1.0,
+  "test_acc_14cls": 1.0
+}

@@ -1,0 +1,14 @@
+{
+  "source": "captures\\eval_noise_low\\s00000",
+  "n_frames_averaged": 10,
+  "shape": [
+    1024
+  ],
+  "fp32_min": -80.0,
+  "fp32_max": -28.333953857421875,
+  "fp32_mean": -53.23014831542969,
+  "int8_scale": 0.20340963048259103,
+  "int8_offset": -54.16697692871094,
+  "max_reconstruction_error_db": 0.10163116455078125,
+  "encoding": "INT8 per-tensor (center + scale): x = q * scale + offset"
+}

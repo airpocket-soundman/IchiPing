@@ -1,0 +1,82 @@
+{
+  "S": {
+    "n_seeds": 1,
+    "n_params": 14960,
+    "in_dist": {
+      "full_32_train_v1": {
+        "mean": 1.0,
+        "std": 0.0
+      }
+    },
+    "xrun_acc_mean": 0.9375,
+    "xrun_acc_std": 0.0,
+    "xrun_acc_min": 0.9375,
+    "xrun_acc_max": 0.9375,
+    "seeds": [
+      0
+    ],
+    "xrun_per_seed": [
+      0.9375
+    ]
+  },
+  "M": {
+    "n_seeds": 1,
+    "n_params": 31536,
+    "in_dist": {
+      "full_32_train_v1": {
+        "mean": 1.0,
+        "std": 0.0
+      }
+    },
+    "xrun_acc_mean": 0.90625,
+    "xrun_acc_std": 0.0,
+    "xrun_acc_min": 0.90625,
+    "xrun_acc_max": 0.90625,
+    "seeds": [
+      0
+    ],
+    "xrun_per_seed": [
+      0.90625
+    ]
+  },
+  "L": {
+    "n_seeds": 1,
+    "n_params": 54464,
+    "in_dist": {
+      "full_32_train_v1": {
+        "mean": 1.0,
+        "std": 0.0
+      }
+    },
+    "xrun_acc_mean": 0.875,
+    "xrun_acc_std": 0.0,
+    "xrun_acc_min": 0.875,
+    "xrun_acc_max": 0.875,
+    "seeds": [
+      0
+    ],
+    "xrun_per_seed": [
+      0.875
+    ]
+  },
+  "XL": {
+    "n_seeds": 1,
+    "n_params": 173248,
+    "in_dist": {
+      "full_32_train_v1": {
+        "mean": 1.0,
+        "std": 0.0
+      }
+    },
+    "xrun_acc_mean": 0.9375,
+    "xrun_acc_std": 0.0,
+    "xrun_acc_min": 0.9375,
+    "xrun_acc_max": 0.9375,
+    "seeds": [
+      0
+    ],
+    "xrun_per_seed": [
+      0.9375
+    ]
+  }
+}

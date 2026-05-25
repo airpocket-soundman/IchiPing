@@ -1,0 +1,130 @@
+{
+  "S": {
+    "n_seeds": 5,
+    "n_params": 13790,
+    "in_dist": {
+      "full_32_train_v1": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "full_32_train_v2": {
+        "mean": 1.0,
+        "std": 0.0
+      }
+    },
+    "xrun_acc_mean": 0.9625,
+    "xrun_acc_std": 0.040745015032516554,
+    "xrun_acc_min": 0.90625,
+    "xrun_acc_max": 1.0,
+    "seeds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "xrun_per_seed": [
+      1.0,
+      1.0,
+      0.90625,
+      0.9375,
+      0.96875
+    ]
+  },
+  "M": {
+    "n_seeds": 5,
+    "n_params": 30366,
+    "in_dist": {
+      "full_32_train_v1": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "full_32_train_v2": {
+        "mean": 1.0,
+        "std": 0.0
+      }
+    },
+    "xrun_acc_mean": 0.98125,
+    "xrun_acc_std": 0.02795084971874737,
+    "xrun_acc_min": 0.9375,
+    "xrun_acc_max": 1.0,
+    "seeds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "xrun_per_seed": [
+      1.0,
+      0.9375,
+      1.0,
+      1.0,
+      0.96875
+    ]
+  },
+  "L": {
+    "n_seeds": 5,
+    "n_params": 52142,
+    "in_dist": {
+      "full_32_train_v1": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "full_32_train_v2": {
+        "mean": 1.0,
+        "std": 0.0
+      }
+    },
+    "xrun_acc_mean": 0.975,
+    "xrun_acc_std": 0.02614562582918986,
+    "xrun_acc_min": 0.9375,
+    "xrun_acc_max": 1.0,
+    "seeds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "xrun_per_seed": [
+      0.9375,
+      1.0,
+      0.96875,
+      0.96875,
+      1.0
+    ]
+  },
+  "XL": {
+    "n_seeds": 5,
+    "n_params": 104110,
+    "in_dist": {
+      "full_32_train_v1": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "full_32_train_v2": {
+        "mean": 1.0,
+        "std": 0.0
+      }
+    },
+    "xrun_acc_mean": 0.99375,
+    "xrun_acc_std": 0.013975424859373685,
+    "xrun_acc_min": 0.96875,
+    "xrun_acc_max": 1.0,
+    "seeds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "xrun_per_seed": [
+      0.96875,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ]
+  }
+}
