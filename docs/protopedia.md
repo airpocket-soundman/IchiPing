@@ -202,6 +202,40 @@ NN に渡す入力は **生の FFT スペクトルではなく、「baseline (s0
 
 NN はこの「**形状の違い**」を Conv1D / Conv2D で学習し、状態を識別します。生 FFT 直接学習では「窓 a 開」と「室温が下がった」を区別できませんが、**diff にすれば環境変化はキャンセル**されて窓状態だけが残る、というのが本手法の本質です。
 
+## MCU で動く CNN モデルの構造
+
+PC で学習させたモデルを **そのまま MCU に持っていくと NPU 比率は 30% 程度** に留まり、CPU フォールバックで推論時間と消費電力が悪化します。これを解決するために、IchiPing の本番モデルは **MCXN947 Neutron NPU が 100% 処理できる構造に op を書き換えた** 専用アーキを採用しました。
+
+![MCU 本番モデル — Neutron 互換 32-class Conv2D](https://raw.githubusercontent.com/airpocket-soundman/IchiPing/main/docs/img/nn_arch_neutron_actual.svg)
+
+**構造の特徴**:
+
+| 層 | op | 出力 shape | params | NPU |
+|---|---|---|---|---|
+| 入力 | log-mag spectrum | (B, 1, 1024) | — | — |
+| Conv2D 32ch | k=(1, 16), s=(1, 4) | (B, 32, 1, 253) | 544 | ✓ |
+| Conv2D 64ch | k=(1, 8), s=(1, 4) | (B, 64, 1, 62) | 16,448 | ✓ |
+| Conv2D 128ch | k=(1, 4), s=(1, 4) | (B, 128, 1, 15) | 32,896 | ✓ |
+| Conv2D 128ch | k=(1, 3), s=(1, 2) | (B, 128, 1, 7) | 49,280 | ✓ |
+| AvgPool2D | k=(1, 7) | (B, 128, 1, 1) | 0 | ✓ |
+| 1×1 Conv2D | classifier head | (B, 32, 1, 1) | 4,128 | ✓ |
+| 出力 | 32 logits → argmax → state | (B, 32) | — | — |
+
+合計 **~104K params / 108 KB INT8 / 7 op すべて NPU 化 = 100% NPU 比率 / 推論時間 1.89 ms**。
+
+### NPU 互換のために変えた点
+
+| 変更前 (素直な実装) | 変更後 (Neutron 互換) | 理由 |
+|---|---|---|
+| Conv1D | **Conv2D kernel=(1, K)** | Conv1D は TFLite で Reshape を強制 → fusion が崩れる |
+| GlobalAveragePool (Mean op) | **AvgPool2D k=(1, 7)** | Mean op は NPU 非対応。stride 4,4,4,2 で空間 1024→7 に揃え kernel ≤ 7 制限に収める |
+| Flatten + Linear (FC) | **1×1 Conv2D** | Linear は NPU 上で非効率。1×1 Conv2D で等価実装し NPU に載せる |
+| BatchNorm（推論時も残す） | **export 前に Conv に fold** | `fuse_conv_bn_eval` で Conv に吸収し推論グラフから消す |
+
+### 出力 — 32 logits → 14 cls 同時取得
+
+NN 本体の出力は **32 logits（5-bit 真状態の softmax）のみ**。14 観測等価クラスは firmware 側で `STATE_TO_EQUIV[argmax32]` テーブル参照だけで導出するため、**追加の NN 推論コストはゼロ**。1 推論で `cls32` / `cls14` / `second32 候補` の 3 値を併記出力できます。
+
 ## なぜ「1 マイク 1 Ping」が成立するのか
 
 家中にセンサを散らす方式は配線・電池交換・通信の地獄を抱えるのが常ですが、室内の音響インパルス応答（RIR: Room Impulse Response）は **窓 1 枚が開くだけでも全体のモードと残響が変わる** という性質を持ちます。**部屋を丸ごと共振器とみなして 1 点で全部聴く** ほうが筋がいい — それが IchiPing の出発点です。

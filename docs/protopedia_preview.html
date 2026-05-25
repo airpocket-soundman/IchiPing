@@ -577,6 +577,56 @@
           <b>diff にすれば環境変化はキャンセル</b>されて窓状態だけが残る、というのが本手法の本質です。
         </p>
 
+        <h3>MCU で動く CNN モデルの構造</h3>
+        <p>
+          PC で学習させたモデルを <b>そのまま MCU に持っていくと NPU 比率は 30% 程度</b> に留まり、
+          CPU フォールバックで推論時間と消費電力が悪化します。これを解決するために、
+          IchiPing の本番モデルは <b>MCXN947 Neutron NPU が 100% 処理できる構造に op を書き換えた</b>
+          専用アーキを採用しました。
+        </p>
+        <img class="pp-sys-img" src="img/nn_arch_neutron_actual.svg" alt="MCU 本番モデル — Neutron 互換 32-class Conv2D">
+
+        <h4>構造の特徴</h4>
+        <table>
+          <thead>
+            <tr><th>層</th><th>op</th><th>出力 shape</th><th>params</th><th>NPU</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>入力</td><td>log-mag spectrum</td><td>(B, 1, 1024)</td><td>—</td><td>—</td></tr>
+            <tr><td>Conv2D 32ch</td><td>k=(1, 16), s=(1, 4)</td><td>(B, 32, 1, 253)</td><td>544</td><td>✓</td></tr>
+            <tr><td>Conv2D 64ch</td><td>k=(1, 8), s=(1, 4)</td><td>(B, 64, 1, 62)</td><td>16,448</td><td>✓</td></tr>
+            <tr><td>Conv2D 128ch</td><td>k=(1, 4), s=(1, 4)</td><td>(B, 128, 1, 15)</td><td>32,896</td><td>✓</td></tr>
+            <tr><td>Conv2D 128ch</td><td>k=(1, 3), s=(1, 2)</td><td>(B, 128, 1, 7)</td><td>49,280</td><td>✓</td></tr>
+            <tr><td>AvgPool2D</td><td>k=(1, 7)</td><td>(B, 128, 1, 1)</td><td>0</td><td>✓</td></tr>
+            <tr><td>1×1 Conv2D</td><td>classifier head</td><td>(B, 32, 1, 1)</td><td>4,128</td><td>✓</td></tr>
+            <tr><td>出力</td><td>32 logits → argmax → state</td><td>(B, 32)</td><td>—</td><td>—</td></tr>
+          </tbody>
+        </table>
+        <p style="background:rgba(46,196,182,0.10);border-left:3px solid #2ec4b6;padding:10px 14px;">
+          合計 <b>~104K params / 108 KB INT8 / 7 op すべて NPU 化 = 100% NPU 比率 / 推論時間 1.89 ms</b>。
+        </p>
+
+        <h4>NPU 互換のために変えた点</h4>
+        <table>
+          <thead>
+            <tr><th>変更前 (素直な実装)</th><th>変更後 (Neutron 互換)</th><th>理由</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Conv1D</td><td><b>Conv2D kernel=(1, K)</b></td><td>Conv1D は TFLite で Reshape を強制 → fusion が崩れる</td></tr>
+            <tr><td>GlobalAveragePool (Mean op)</td><td><b>AvgPool2D k=(1, 7)</b></td><td>Mean op は NPU 非対応。stride 4,4,4,2 で空間 1024→7 に揃え kernel ≤ 7 制限に収める</td></tr>
+            <tr><td>Flatten + Linear (FC)</td><td><b>1×1 Conv2D</b></td><td>Linear は NPU 上で非効率。1×1 Conv2D で等価実装し NPU に載せる</td></tr>
+            <tr><td>BatchNorm（推論時も残す）</td><td><b>export 前に Conv に fold</b></td><td><code>fuse_conv_bn_eval</code> で Conv に吸収し推論グラフから消す</td></tr>
+          </tbody>
+        </table>
+
+        <h4>出力 — 32 logits → 14 cls 同時取得</h4>
+        <p>
+          NN 本体の出力は <b>32 logits（5-bit 真状態の softmax）のみ</b>。
+          14 観測等価クラスは firmware 側で <code>STATE_TO_EQUIV[argmax32]</code> テーブル参照だけで導出するため、
+          <b>追加の NN 推論コストはゼロ</b>。1 推論で <code>cls32</code> / <code>cls14</code> /
+          <code>second32 候補</code> の 3 値を併記出力できます。
+        </p>
+
         <h3>なぜ「<span class="bigone">1</span> マイク <span class="bigone">1</span> Ping」が成立するのか</h3>
         <p>
           家中にセンサを散らす方式は配線・電池交換・通信の地獄を抱えるのが常ですが、
