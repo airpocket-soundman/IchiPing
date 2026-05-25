@@ -76,7 +76,7 @@
     価格は 2026-05 時点の <b>参考値</b>。発注前に DigiKey で再確認。
   </div>
   <div class="meta">
-    <span class="meta-stat done"><span class="num">~$223</span> Required 部品計（試算）</span>
+    <span class="meta-stat done"><span class="num">~$210</span> Required 部品計（試算、DigiKey 価格ベース）</span>
     <span class="meta-stat"><span class="num">stock</span> 主要部品在庫あり</span>
   </div>
 </header>
@@ -94,23 +94,26 @@
       <td><b>FRDM-MCXN947</b></td>
       <td>1</td>
       <td>$49.00</td>
-      <td>DigiKey: FRDM-MCXN947</td>
+      <td><a href="https://www.digikey.com/en/products/detail/nxp-usa-inc/FRDM-MCXN947/22036137">DigiKey: FRDM-MCXN947</a></td>
       <td>NPU + PowerQuad DSP + I²S 多系統。本プロジェクトの中心</td>
     </tr>
     <tr>
       <td>マイク</td>
-      <td>INMP441 I²S MEMS</td>
+      <td>INMP441 I²S MEMS breakout</td>
       <td>1</td>
-      <td>$7.95</td>
-      <td>DigiKey: Adafruit 3421</td>
-      <td>24-bit、DC オフセット問題なしで chirp/RIR 用途に好適。<a href="../docs/spec.html#6">spec §6</a> 指定品</td>
+      <td>$2-5</td>
+      <td>
+        汎用 (AliExpress / Amazon の汎用ブレイクアウト)<br>
+        <span class="label-small">代替: <a href="https://www.digikey.com/en/products/detail/tdk-invensense/INMP441ACEZ-R7/2606606">DigiKey: INMP441ACEZ-R7</a> (bare IC, 自作)</span>
+      </td>
+      <td>24-bit、DC オフセット問題なしで chirp/RIR 用途に好適。<a href="../docs/spec.html#6">spec §6</a> 指定品。<b>注</b>: Adafruit 3421 は INMP441 ではなく SPH0645LM4H で、互換ではない</td>
     </tr>
     <tr>
       <td>DAC + Amp</td>
       <td>MAX98357A breakout</td>
       <td>1</td>
       <td>$5.95</td>
-      <td>DigiKey: Adafruit 3006</td>
+      <td><a href="https://www.digikey.com/en/products/detail/adafruit-industries-llc/3006/6058477">DigiKey: Adafruit 3006</a></td>
       <td>Class-D 3.2 W @ 8 Ω。<b>GAIN ピンは GND 直結 (3 dB)</b> で固定。フローティング (9 dB) のままだと 0.25 W スピーカを焼く</td>
     </tr>
     <tr>
@@ -118,7 +121,10 @@
       <td>8 Ω 0.25 W フルレンジ 45 mm</td>
       <td>1</td>
       <td>$2.50</td>
-      <td>汎用 (手持ち想定)</td>
+      <td>
+        汎用 (手持ち想定)<br>
+        <span class="label-small">代替: <a href="https://www.digikey.com/en/products/filter/speakers/156">DigiKey スピーカ 検索</a></span>
+      </td>
       <td>30 cm 模型 (v0.4 デモ) 用。実家屋スケール (v1+) は <a href="../docs/spec.html#6">spec §6</a> の 1〜3 W に戻す。chirp 振幅はファーム側で 50〜70 % にスケールし下限 300 Hz から</td>
     </tr>
   </tbody>
@@ -132,8 +138,8 @@
       <td>サーボドライバ</td>
       <td>PCA9685 16ch PWM</td>
       <td>1</td>
-      <td>$17.50</td>
-      <td>DigiKey: Adafruit 815</td>
+      <td>$14.95</td>
+      <td><a href="https://www.digikey.com/en/products/detail/adafruit-industries-llc/815/4990757">DigiKey: Adafruit 815</a></td>
       <td>I²C 0x40</td>
     </tr>
     <tr>
@@ -141,7 +147,7 @@
       <td>SG90 9g micro servo</td>
       <td>5</td>
       <td>$5.95</td>
-      <td>DigiKey: Adafruit 169</td>
+      <td><a href="https://www.digikey.com/en/products/detail/adafruit-industries-llc/169/5154651">DigiKey: Adafruit 169</a></td>
       <td>窓 a/b/c + 扉 AB/BC を駆動</td>
     </tr>
   </tbody>
@@ -153,10 +159,10 @@
   <tbody>
     <tr>
       <td><b>ディスプレイ</b></td>
-      <td>ILI9341 2.4–2.8" TFT 240×320 RGB565 (SPI)</td>
+      <td>ILI9341 2.4" TFT 240×320 RGB565 (SPI, タッチパネル付き)</td>
       <td>1</td>
-      <td>$12.95</td>
-      <td>DigiKey: Adafruit 2478 等</td>
+      <td>$29.95</td>
+      <td><a href="https://www.digikey.com/en/products/detail/adafruit-industries-llc/2478/5761253">DigiKey: Adafruit 2478</a></td>
       <td>
         <b>SH1106 から ILI9341 にアップグレード</b>。フルカラー RGB565 でデモ動画映え ◎、
         LVGL ライブラリも公式サポート。
@@ -168,12 +174,40 @@
 
 <h3>1.4 ユーザー入力・表示</h3>
 <table>
-  <thead><tr><th>カテゴリ</th><th>部品</th><th>数</th><th>単価</th><th>備考</th></tr></thead>
+  <thead><tr><th>カテゴリ</th><th>部品</th><th>数</th><th>単価</th><th>Vendor / 型番</th><th>備考</th></tr></thead>
   <tbody>
-    <tr><td>トグル SPST</td><td>パネルマウント トグル</td><td>5</td><td>$1.85</td><td>窓/扉真値（D4〜D8）</td></tr>
-    <tr><td>モーメンタリ</td><td>タクトスイッチ</td><td>1</td><td>$0.45</td><td>EXEC ボタン（D9）</td></tr>
-    <tr><td>LED 緑</td><td>5 mm</td><td>1</td><td>$0.18</td><td>PWR (A0)</td></tr>
-    <tr><td>LED 橙</td><td>5 mm</td><td>1</td><td>$0.18</td><td>推論中 (A1)</td></tr>
+    <tr>
+      <td>トグル SPST</td>
+      <td>パネルマウント トグル</td>
+      <td>5</td>
+      <td>$3.50</td>
+      <td><a href="https://www.digikey.com/en/products/detail/e-switch/ST161D00/EG4815-ND/2116294">DigiKey: E-Switch ST161D00</a></td>
+      <td>窓/扉真値（D3〜D7）</td>
+    </tr>
+    <tr>
+      <td>モーメンタリ</td>
+      <td>タクトスイッチ 6×6 mm</td>
+      <td>1</td>
+      <td>$0.20</td>
+      <td><a href="https://www.digikey.com/en/products/filter/tactile-switches/197?s=N4IgjCBcoLQRgRgKxQMyhAGhDOB7AdgC4gC6AvkA">DigiKey: 6mm タクトスイッチ 検索</a></td>
+      <td>EXEC ボタン（D8）</td>
+    </tr>
+    <tr>
+      <td>LED 緑</td>
+      <td>5 mm 拡散 緑 (Through-Hole)</td>
+      <td>1</td>
+      <td>$0.25</td>
+      <td><a href="https://www.digikey.com/en/products/detail/dialight/5500205F/350-1598-ND/808996">DigiKey: Dialight 5500205F</a></td>
+      <td>PWR (電源直結)</td>
+    </tr>
+    <tr>
+      <td>LED 橙</td>
+      <td>5 mm 拡散 橙 (Through-Hole)</td>
+      <td>1</td>
+      <td>$0.25</td>
+      <td><a href="https://www.digikey.com/en/products/filter/led-indication-discrete/through-hole/105?s=N4IgjCBcpgTBDOIDGUBmBDANgZwKYBoQBLAOygBcBHfCKgB0xLAFY68KIBfNoA">DigiKey: 5mm 橙 LED 検索</a></td>
+      <td>推論中 (D2)</td>
+    </tr>
   </tbody>
 </table>
 
@@ -186,7 +220,8 @@
       <td><b>M5Stamp Pico</b>（ESP32-PICO-D4）</td>
       <td>1</td>
       <td>$6.50</td>
-      <td>M5Stack / Switch Science 等</td>
+      <td><a href="https://www.digikey.com/en/products/detail/m5stack-technology-co-ltd/K051/14672117">DigiKey: M5Stack K051</a><br>
+        <span class="label-small">(代替: <a href="https://www.digikey.com/en/products/detail/m5stack-technology-co-ltd/K051-B/14672109">K051-B</a> ピンソケット版)</span></td>
       <td>
         親指サイズの ESP32 モジュール。<b>コントローラ筐体内に統合</b>。
         MCU と LPUART で接続し、推論結果を <b>MQTT / HTTP</b> でクラウド送信。
@@ -198,7 +233,10 @@
       <td>YL-83 抵抗式 降雨検出モジュール</td>
       <td>1</td>
       <td>$1.50</td>
-      <td>汎用</td>
+      <td>
+        汎用 (AliExpress / Amazon)<br>
+        <span class="label-small">DigiKey 取扱なし、安価な汎用品</span>
+      </td>
       <td>
         <b>House 模型に屋外設置</b>。MCU の GPIO に直接接続し、
         雨検出で推論をトリガ。デモ時は水滴を垂らして検出を再現可能。
@@ -209,14 +247,56 @@
 
 <h3>1.6 受動部品・ケーブル</h3>
 <table>
-  <thead><tr><th>カテゴリ</th><th>部品</th><th>数</th><th>単価</th><th>用途</th></tr></thead>
+  <thead><tr><th>カテゴリ</th><th>部品</th><th>数</th><th>単価</th><th>Vendor / 型番</th><th>用途</th></tr></thead>
   <tbody>
-    <tr><td>抵抗</td><td>330 Ω 1/4 W</td><td>2</td><td>$0.05</td><td>LED 電流制限</td></tr>
-    <tr><td>抵抗</td><td>4.7 kΩ 1/4 W</td><td>4</td><td>$0.05</td><td>I²C プルアップ（バス毎 1 セット）</td></tr>
-    <tr><td>電解コンデンサ</td><td>1000 µF 16 V</td><td>1</td><td>$0.55</td><td>サーボ V+ 突入電流吸収</td></tr>
-    <tr><td>ジャンパ線</td><td>F/F + F/M Dupont 40 本×2</td><td>2</td><td>$5.95</td><td>プロトタイプ配線</td></tr>
-    <tr><td>USB ケーブル</td><td>Micro-USB データ通信対応 ≥ 1 m</td><td>1</td><td>$4.95</td><td>OpenSDA（充電専用 NG）</td></tr>
-    <tr><td>USB ケーブル</td><td>USB-C データ通信対応 ≥ 1 m</td><td>1</td><td>$5.95</td><td>後で本体 USB CDC へ</td></tr>
+    <tr>
+      <td>抵抗</td>
+      <td>330 Ω 1/4 W</td>
+      <td>2</td>
+      <td>$0.10</td>
+      <td><a href="https://www.digikey.com/en/products/filter/through-hole-resistors/53?s=N4IgjCBcoLQRgRgKxQMyhAGhDOB7AdgC4gC6Avk0gKYBOAlgGYCGEAlpaZAMYAecYAJiAYwG7AHaEAtgWZkAxgGcWUUWQg14yIQDsCs%2BcvVbtu%2BgcOTpgkQwBaykg6vXzwQQHd5bAJ4AHALAA">DigiKey: 330Ω 1/4W 検索</a></td>
+      <td>LED 電流制限</td>
+    </tr>
+    <tr>
+      <td>抵抗</td>
+      <td>4.7 kΩ 1/4 W</td>
+      <td>4</td>
+      <td>$0.10</td>
+      <td><a href="https://www.digikey.com/en/products/filter/through-hole-resistors/53?s=N4IgjCBcoLQRgRgKxQMyhAGhDOB7AdgC4gC6Avk0gKYBOAlgGYCGEAlpaZAMYAecYAJiAYwG7AHaEAtgWZkAxgGcWUUWQg14yIQDsCs%2BcvVbtu%2BgcOTpgkQwBaykg6vXzwQQHd5bAJ4AHALAA">DigiKey: 4.7kΩ 1/4W 検索</a></td>
+      <td>I²C プルアップ（バス毎 1 セット）</td>
+    </tr>
+    <tr>
+      <td>電解コンデンサ</td>
+      <td>1000 µF 16 V (radial)</td>
+      <td>1</td>
+      <td>$0.55</td>
+      <td><a href="https://www.digikey.com/en/products/detail/chemi-con/EKYB160ELL102MJ16S/4843676">DigiKey: Chemi-Con EKYB160ELL102MJ16S</a></td>
+      <td>サーボ V+ 突入電流吸収</td>
+    </tr>
+    <tr>
+      <td>ジャンパ線</td>
+      <td>F/F + F/M Dupont 40 本×2</td>
+      <td>2</td>
+      <td>$5.95</td>
+      <td>汎用 (Adafruit / Amazon)</td>
+      <td>プロトタイプ配線</td>
+    </tr>
+    <tr>
+      <td>USB ケーブル</td>
+      <td>Micro-USB データ通信対応 ≥ 1 m</td>
+      <td>1</td>
+      <td>$4.95</td>
+      <td><a href="https://www.digikey.com/en/products/filter/usb-cables/471">DigiKey: USB ケーブル 検索</a></td>
+      <td>OpenSDA（充電専用 NG）</td>
+    </tr>
+    <tr>
+      <td>USB ケーブル</td>
+      <td>USB-C データ通信対応 ≥ 1 m</td>
+      <td>1</td>
+      <td>$5.95</td>
+      <td><a href="https://www.digikey.com/en/products/filter/usb-cables/471">DigiKey: USB ケーブル 検索</a></td>
+      <td>後で本体 USB CDC へ</td>
+    </tr>
   </tbody>
 </table>
 
@@ -224,13 +304,14 @@
 <table>
   <thead><tr><th>項目</th><th>小計</th></tr></thead>
   <tbody>
-    <tr><td>必須電子部品 §1.1 コア演算系（MCU + mic + amp + speaker）</td><td>~$65</td></tr>
-    <tr><td>必須電子部品 §1.2 サーボ系（PCA9685 + SG90 ×5）</td><td>~$47</td></tr>
-    <tr><td>必須電子部品 §1.3 表示（ILI9341）</td><td>~$13</td></tr>
-    <tr><td>必須電子部品 §1.4 ユーザー入力・表示（トグル + EXEC + LED）</td><td>~$10</td></tr>
-    <tr><td>必須電子部品 §1.5 Wi-Fi / 環境センサ（M5Stamp Pico + 降雨センサ）</td><td>~$8</td></tr>
-    <tr><td>必須電子部品 §1.6 受動部品・ケーブル</td><td>~$24</td></tr>
-    <tr><td><b>応募 v1 必須計</b></td><td><b>~$223</b></td></tr>
+    <tr><td>必須電子部品 §1.1 コア演算系（MCU $49 + INMP441 $3 + MAX98357A $6 + speaker $3）</td><td>~$61</td></tr>
+    <tr><td>必須電子部品 §1.2 サーボ系（PCA9685 $15 + SG90×5 $30）</td><td>~$45</td></tr>
+    <tr><td>必須電子部品 §1.3 表示（ILI9341 Adafruit 2478）</td><td>~$30</td></tr>
+    <tr><td>必須電子部品 §1.4 ユーザー入力・表示（トグル×5 $18 + EXEC $0.2 + LED×2 $0.5）</td><td>~$19</td></tr>
+    <tr><td>必須電子部品 §1.5 Wi-Fi / 環境センサ（M5Stamp Pico $6.5 + YL-83 $1.5）</td><td>~$8</td></tr>
+    <tr><td>必須電子部品 §1.6 受動部品・ケーブル（抵抗・コンデンサ・USB×2）</td><td>~$24</td></tr>
+    <tr><td>送料・税</td><td>別途</td></tr>
+    <tr><td><b>応募 v1 必須計</b></td><td><b>~$187 (本体) + ジャンパ線等 = ~$210</b></td></tr>
   </tbody>
 </table>
 
