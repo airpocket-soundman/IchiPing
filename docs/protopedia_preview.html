@@ -387,7 +387,7 @@
           クラウドとスマホは筐体外の外部システム。
         </p>
 
-        <h3>信号の流れ — システム処理フローチャート</h3>
+        <h3>システム処理フローチャート</h3>
         <img class="pp-sys-img" src="img/signal_flow.svg" alt="IchiPing 信号フロー: 雨検出 → 1 Ping → マイク観測 → 信号処理 → NPU 推論 → 表示+通知 → サーボ自動閉">
         <p style="font-size:13px;color:var(--pp-muted);">
           雨検出 → 1 Ping 励振 → マイク観測 → 信号処理 → NPU 推論 → ローカル表示 + スマホ通知 →
@@ -396,7 +396,7 @@
           Neutron 変換 → MCU 戻しのサイクルを回します。
         </p>
 
-        <h3>3 部屋アクリル模型（Phase 4 デモ）</h3>
+        <h3>3 House 模型</h3>
         <p>
           3 部屋を模した 30 cm スケールのアクリル筐体に、PCA9685 経由で SG90 ×5 が
           窓と扉を物理的に開閉する。模型側のトグルスイッチ ×5 を「真値」として
@@ -438,7 +438,6 @@
         <p>
           家まで戻る時間も余裕もない。誰もが一度は経験する、地味だけど落ち着かない不安です。
         </p>
-        <img class="pp-sys-img" src="img/demo_use_case.svg" alt="IchiPing デモシナリオ全体図: 雨検出 → 1 Ping 推論 → スマホ通知 → サーボ自動閉">
 
         <h3>IchiPing の解決 — <span class="bigone">1</span> マイク <span class="bigone">1</span> Ping で 32 状態を当てる</h3>
         <p>

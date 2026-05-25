@@ -82,13 +82,13 @@ https://github.com/airpocket-soundman/IchiPing
 
 機材は **コントローラ筐体**（MCU / 表示 / トグル / アンプ / サーボドライバ / Wi-Fi モジュール）と **House 模型**（マイク / スピーカ / サーボ ×5 / 降雨センサ）の 2 箱に分かれ、ケーブルで結ぶ構成。模型側のトグルスイッチ ×5 は窓・扉の真値ラベルとして学習データに付与される。クラウドとスマホは筐体外の外部システム。
 
-**信号の流れ — システム処理フローチャート**
+**システム処理フローチャート**
 
 ![信号フロー](https://raw.githubusercontent.com/airpocket-soundman/IchiPing/main/docs/img/signal_flow.svg)
 
 雨検出 → 1 Ping 励振 → マイク観測 → 信号処理 → NPU 推論 → ローカル表示 + スマホ通知 → ユーザのアクションでサーボ自動閉まで、runtime の処理経路を 1 枚で示しています。学習データ収集モードでは ③〜④ の間で WAV を PC に送出し、PyTorch 学習 → ONNX → Neutron 変換 → MCU 戻しのサイクルを回します。
 
-**3 部屋アクリル模型（Phase 4 デモ）**
+**3 House 模型**
 
 3 部屋を模した 30 cm スケールのアクリル筐体に、PCA9685 経由で SG90 ×5 が窓と扉を物理的に開閉する。模型側のトグルスイッチ ×5 を「真値」として PC に送り、教師ありデータを半自動で量産できる仕組み。
 
@@ -117,8 +117,6 @@ M5Stamp Pico (ESP32) は親指サイズの Wi-Fi モジュールでコントロ�
 外出中に空が暗くなり、雨がポツポツと降り出した。スマホを取り出して — **「あれ、窓閉めてきたっけ…？」**
 
 家まで戻る時間も余裕もない。誰もが一度は経験する、地味だけど落ち着かない不安です。
-
-![デモシナリオ全体図](https://raw.githubusercontent.com/airpocket-soundman/IchiPing/main/docs/img/demo_use_case.svg)
 
 ## IchiPing の解決 — 1 マイク 1 Ping で 32 状態を当てる
 
