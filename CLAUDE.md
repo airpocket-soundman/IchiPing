@@ -88,6 +88,12 @@ hardware/wiring.{svg,md,csv} と firmware/README.md を更新。
 
 **ただし digikey_project 側（正本）は `C4-DoorBaro.html` というファイル名のまま維持する**。digikey_project はアイデアカタログとして "C4 DoorBaro / WindowGuard" の原案表記を保ち、IchiPing はその C4 の実装版（リネーム後）として独立リポで動く、という建付け。digikey_project 側のファイル名・カタログ表記（`ideas.html`、`ideas.md` 等の "DoorBaro" 表記含む）を IchiPing に揃えてリネームしないこと。
 
+## 📦 学習 → MCU デプロイ パイプライン
+
+新しい学習データから 32cls/14cls モデルを実機に焼く際は、**Windows の `neutron-converter.exe` ではなく WSL の `neutron_converter_SDK_26_03` を必ず使う**。Windows 3.1.1 は microcode フォーマットが firmware (mcuxsdk 同梱 NeutronDriver) と ABI 不整合で INFER が hang する。SDK_26_03 は 7/7 = 100% NPU 化されてそのまま動く。
+
+詳細手順 (WSL 環境再構築・ortools バージョン制約・PINTO 経路・model_data.h 生成・トラブルシュート) は **[docs/deploy_pipeline.md](docs/deploy_pipeline.md)** にまとめてある。WSL の `/opt/nc_venv` が消えた場合もこのドキュメント通りに再構築する。
+
 ## 🔧 主要な技術的前提
 
 これらは正本の C4 spec §6 から確定済で、変えるならユーザー確認が必要:

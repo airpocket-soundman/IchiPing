@@ -1,4 +1,4 @@
-/* v12345_BLJIT: 5 baselines × 7360 sample = 36800 sample で学習 (baseline jittering augmentation) */
+/* v12345_BLJIT: 5 baselines × 7360 sample = 36800 sample で学習 (baseline jittering augmentation), 7/7 100% NPU */
 #ifndef ICHP_MODEL_DATA_H
 #define ICHP_MODEL_DATA_H
 #include <stdint.h>
