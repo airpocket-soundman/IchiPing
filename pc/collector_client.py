@@ -1044,6 +1044,13 @@ def run_oneshot(ser: serial.Serial, reader: StreamReader,
 
 
 def main() -> int:
+    # Windows のデフォルト stdout が cp932 だと em-dash 等の非 ASCII で
+    # UnicodeEncodeError になるので、起動時に UTF-8 に切り替える。
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except AttributeError:
+        pass
     p = argparse.ArgumentParser(description="IchiPing 09_collector client")
     p.add_argument("--port", required=True, help="serial port (e.g. COM7 or /dev/ttyACM0)")
     p.add_argument("--baud", type=int, default=921600)
