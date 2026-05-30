@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>IchiPing — v1〜v6 FFT-diff 比較</title>
+<style>
+  :root {
+    --bg: #0e1117;
+    --panel: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --warn: #f0883e;
+    --good: #3fb950;
+    --bad: #f85149;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 32px;
+    background: var(--bg); color: var(--text);
+    font: 14px/1.55 -apple-system, "Segoe UI", "Yu Gothic UI", "Hiragino Sans", system-ui, sans-serif;
+    max-width: 1400px; margin-left: auto; margin-right: auto;
+  }
+  h1 { font-size: 26px; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-top: 0; }
+  h2 { font-size: 20px; margin-top: 40px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 16px; margin-top: 28px; color: var(--accent); }
+  p { color: var(--text); }
+  .muted { color: var(--muted); }
+  table { border-collapse: collapse; margin: 12px 0; }
+  th, td { padding: 6px 12px; border: 1px solid var(--border); text-align: right; }
+  th { background: var(--panel); color: var(--accent); text-align: center; }
+  td.label { text-align: left; font-weight: 600; }
+  td.high { color: var(--good); font-weight: 600; }
+  td.low  { color: var(--warn); }
+  .v6 { background: rgba(88, 166, 255, 0.08); }
+  .panel {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 6px; padding: 12px; margin: 12px 0;
+  }
+  img {
+    max-width: 100%; height: auto; border: 1px solid var(--border);
+    border-radius: 4px; background: white;
+  }
+  .grid-heatmap {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+  .grid-heatmap figure { margin: 0; }
+  .grid-heatmap figcaption {
+    font-size: 12px; color: var(--muted);
+    text-align: center; padding-top: 4px;
+  }
+  .grid-line {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .conclusion {
+    background: rgba(63, 185, 80, 0.06);
+    border-left: 3px solid var(--good);
+    padding: 12px 16px; border-radius: 4px;
+  }
+  .surprise {
+    background: rgba(240, 136, 62, 0.08);
+    border-left: 3px solid var(--warn);
+    padding: 12px 16px; border-radius: 4px;
+  }
+  code {
+    background: var(--panel); padding: 2px 6px; border-radius: 3px;
+    color: var(--accent); font-size: 0.92em;
+  }
+  ul li { margin: 4px 0; }
+</style>
+</head>
+<body>
+
+<h1>IchiPing — v1〜v6 学習データ FFT-diff 比較</h1>
+<p class="muted">
+  生成: <code>pc/analyze_v1_6_fftdiff.py</code> ・
+  入力: 各 version の <code>pc/captures/full_32_train_vN/</code> ・
+  特徴量: 16 kHz / 2 s noise excitation の 1024-bin Welch log-mag PSD ・
+  基準: 各 version 自身の <code>s00000</code> 全閉フレーム平均
+</p>
+
+<h2>1. 背景と問題提起</h2>
+
+<p>
+  過去 (v1〜v5 採取時) のハードは <b>ブレッドボード配線 + 470 µF 電源コンデンサ</b>。
+  v6 採取時にハードを <b>ユニバーサル基板の固定配線</b> に変更し、
+  さらに <b>470 µF を一時的に外していた期間</b>がある。
+</p>
+
+<p>
+  この変更後、v12345_BLJIT モデルの実機 32cls 推論精度が
+  <span class="bad">100% (5/24) → 59% (5/30)</span> に劣化した。
+  「学習時と推論時のハード/特徴量分布が変わってしまったため」という仮説を
+  v1〜v6 の FFT-diff で検証する。
+</p>
+
+<h2>2. version 別 統計サマリ</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>version</th>
+      <th>n_states</th>
+      <th>|diff| 平均 (dB)</th>
+      <th>|diff| 最大 (dB)</th>
+      <th>c_flip<sub>A</sub> (AB 閉 / c 単独) (dB)</th>
+      <th>c_flip<sub>B</sub> (AB 開 BC 閉 / c 単独) (dB)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td class="label">v1</td><td>32</td><td>2.765</td><td>29.02</td><td class="high">0.268</td><td class="high">0.400</td></tr>
+    <tr><td class="label">v2</td><td>32</td><td>2.678</td><td>26.28</td><td class="high">0.315</td><td class="low">0.193</td></tr>
+    <tr><td class="label">v3</td><td>32</td><td>2.733</td><td>27.06</td><td>0.244</td><td class="low">0.202</td></tr>
+    <tr><td class="label">v4</td><td>32</td><td>2.686</td><td>24.82</td><td class="low">0.204</td><td class="low">0.190</td></tr>
+    <tr><td class="label">v5</td><td>32</td><td>2.715</td><td>24.68</td><td class="low">0.192</td><td class="low">0.221</td></tr>
+    <tr class="v6"><td class="label">v6</td><td>32</td><td>2.690</td><td>26.74</td><td class="high">0.263</td><td class="high">0.365</td></tr>
+  </tbody>
+</table>
+
+<p>
+  <code>c_flip_A</code> は <b>「AB が閉じている状況で c だけ動かしたときに何 dB スペクトルが変わるか」</b>。
+  AB closed の物理は「room A しか観測できない」はずだが、現実の扉は完全遮音ではないので
+  <b>微弱な漏れ</b>が残る。これを学習できれば「閉じた扉の向こう側」を推測できる。
+</p>
+
+<div class="surprise">
+  <b>意外な発見:</b>
+  v6 の漏れ信号 <code>c_flip_A = 0.263 dB</code>、<code>c_flip_B = 0.365 dB</code> は
+  v1 (0.268 / 0.400) とほぼ同等で、むしろ v3〜v5 (0.19〜0.24 / 0.19〜0.22) より <b>強い</b>。
+  「信号情報が消えた」のではなく、<b>形状・周波数分布が変わった</b>と解釈すべき。
+</div>
+
+<h2>3. 32 状態 × 1024 bin diff ヒートマップ</h2>
+
+<p>
+  縦軸: 14 等価クラス順にソートした 32 状態 / 横軸: 0〜8 kHz の 1024 bin /
+  色: 青 (baseline より低い) ↔ 赤 (高い)、± 8 dB スケール。
+</p>
+
+<div class="grid-heatmap">
+  <figure><img src="diff_v1.png" alt="v1"><figcaption>v1</figcaption></figure>
+  <figure><img src="diff_v2.png" alt="v2"><figcaption>v2</figcaption></figure>
+  <figure><img src="diff_v3.png" alt="v3"><figcaption>v3</figcaption></figure>
+  <figure><img src="diff_v4.png" alt="v4"><figcaption>v4</figcaption></figure>
+  <figure><img src="diff_v5.png" alt="v5"><figcaption>v5</figcaption></figure>
+  <figure><img src="diff_v6.png" alt="v6"><figcaption>v6 (ユニバーサル基板)</figcaption></figure>
+</div>
+
+<h2>4. v6 − mean(v1〜v5) — ハード変化の指紋</h2>
+
+<p>
+  各 state について、v6 と「v1〜v5 平均」の per-bin 差。
+  これが <b>ハード/環境変化で生じた系統誤差</b>。
+  バンド構造があれば「特定の周波数帯で系統的に何 dB ずれた」と読める。
+</p>
+
+<div class="panel">
+  <img src="delta_v6_vs_v1_5.png" alt="delta v6 vs v1-5">
+</div>
+
+<h2>5. 代表 state の line plot (全 version 重ね描き)</h2>
+
+<p>
+  各 state について「全 version の diff-from-self-baseline」を 1 グラフに重ねた。
+  v6 のラインが他と <b>同じ場所で同じ向き</b>に動いていれば形状保存、
+  <b>違うピーク位置・違う振幅</b>なら特徴シフト。
+</p>
+
+<h3>s00000 — 全閉 (自己 baseline と一致、参照)</h3>
+<div class="panel"><img src="line_s00000.png" alt="s00000"></div>
+
+<h3>s10000 — A2: window a だけ開 (観測可能、本来最も予測しやすい)</h3>
+<div class="panel"><img src="line_s10000.png" alt="s10000"></div>
+
+<h3>s00100 — A1 hidden: c だけ開 (AB 閉 → 物理的に非観測のはず)</h3>
+<p class="muted">
+  ここが「閉じた扉の向こうを見る」核心。v1〜v5 でこの微弱な信号を学習できていれば
+  c=1 を当てられる。v6 でも同じ形なら新 ハードでも学習可能。
+</p>
+<div class="panel"><img src="line_s00100.png" alt="s00100"></div>
+
+<h3>s00010 — B1: AB 開、b/c 閉 (room A+B 観測可能)</h3>
+<div class="panel"><img src="line_s00010.png" alt="s00010"></div>
+
+<h3>s00110 — B1 hidden: AB 開 + c 開 (BC 閉なので c は非観測のはず)</h3>
+<div class="panel"><img src="line_s00110.png" alt="s00110"></div>
+
+<h3>s00011 — C1: AB + BC 両開 (全室観測可能)</h3>
+<div class="panel"><img src="line_s00011.png" alt="s00011"></div>
+
+<h3>s11111 — C8: 全開</h3>
+<div class="panel"><img src="line_s11111.png" alt="s11111"></div>
+
+<h2>6. 結論と次のステップ</h2>
+
+<div class="conclusion">
+  <p><b>v6 の信号情報量は十分保持されている</b>:</p>
+  <ul>
+    <li>全体振幅 (|diff| 平均) は v1〜v5 と差なし (2.69 vs 2.68〜2.77 dB)</li>
+    <li>「閉じた扉越し」の微弱漏れ (c_flip<sub>A</sub>) は v1 並みに残存</li>
+    <li>BC 越しの c 漏れ (c_flip<sub>B</sub>) はむしろ v6 の方が強い</li>
+  </ul>
+  <p>
+    つまり <b>v6 でも 32cls 識別に必要な信号は届いている</b>。
+    BLJIT が v6 で誤るのは「v1〜v5 で学んだスペクトル形状が v6 では別の形に現れている」
+    ためで、<b>新ハードのデータで学習し直せば回復する</b>と予測される。
+  </p>
+</div>
+
+<p>次のアクション:</p>
+<ul>
+  <li>
+    <b>v7〜v10 採取</b> (各 50 frame × 32 = 1600 frame、合計 6400 frame追加)。
+    plans は <code>plans/full_32_train_v{7,8,9,10}.yaml</code> として生成済。
+  </li>
+  <li>
+    <b>v6〜v10 で再学習</b> (cross-baseline 5 種 + max augmentation)。
+    pipeline は <code>_run_v6_10_pipeline.py</code> として準備済。
+    v1〜v5 は捨てる (旧ハード時代の分布で訓練すると新ハードへの誤汎化が起きる懸念)。
+  </li>
+  <li>
+    <b>変換 → デプロイ</b>。NXP path と PINTO+winconv の両方を生成し、
+    実機で動く方を選ぶ (v123456 では NXP=hung、PINTO+winconv=INFER 失敗だったので、
+    op resolver 側の調整が必要なら別途対応)。
+  </li>
+</ul>
+
+</body>
+</html>
