@@ -119,4 +119,18 @@ status_t ili9341_draw_string(ili9341_t *d,
                              uint16_t x, uint16_t y, const char *s,
                              uint16_t fg, uint16_t bg, uint8_t size);
 
+/* Buffered char draw — builds the glyph in a 6*size × 7*size BSS pixel buffer
+ * (~2.1 KB at size 5) then issues a single set_window + blit. ~3-5x faster
+ * than draw_char because per-fill_rect SPI window setup is amortized to one.
+ * size > 5 fa  back to slow ili9341_draw_char. */
+#define ILI9341_CHAR_BUF_MAX_SIZE 5u
+status_t ili9341_draw_char_buf(ili9341_t *d,
+                                uint16_t x, uint16_t y, char c,
+                                uint16_t fg, uint16_t bg, uint8_t size);
+
+/* 5x7 font glyph accessor — 5 column bytes (LSB = row 0) for ASCII 0x20..0x7E.
+ * Used by callers that build their own pixel framebuffer (sprite) and want
+ * to render text without a per-char SPI blit. */
+const uint8_t *ili9341_font5x7_glyph(char c);
+
 #endif /* ILI9341_H_ */

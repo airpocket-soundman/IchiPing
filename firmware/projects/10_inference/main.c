@@ -27,6 +27,8 @@
 #include "pin_mux.h"
 #include "clock_config.h"
 #include "board.h"
+#include <math.h>
+
 #include "fsl_debug_console.h"
 #include "fsl_lpuart.h"
 #include "fsl_lpi2c.h"
@@ -76,7 +78,7 @@ extern void BOARD_InitHardware(void);
 #define INF_I2C_CLK_FREQ      CLOCK_GetLPFlexCommClkFreq(2)
 #endif
 #define INF_I2C_BAUD          100000U
-#define INF_TFT_SPI_BAUD      1000000U
+#define INF_TFT_SPI_BAUD      60000000U   /* 60 MHz — ILI9341 typical SPI 上限 (40 MHz は安定動作確認済、60 MHz は実機マージン要確認) */
 
 /* ---- TFLite Micro tensor arena ----
  * Neutron XL (108 KB model) の実効 arena は ~32 KB だが、念のため余裕を持つ。
@@ -200,6 +202,76 @@ static void play_and_capture(const int16_t *tx, int16_t *rx, size_t n)
         }
     }
     SAI_RxEnable(base, false);
+}
+
+/* ---- TFT sprite framebuffer (LovyanGFX 風) ----
+ *
+ * 各行 (PRED / TRUE / cls14) を RAM 上で 1 つの矩形バッファに描画し、
+ * 完成したら 1 set_window + 1 blit で TFT に送る。set_window コマンドの
+ * 往復回数を「5 桁 × 1 行 = 5 → 1」に集約でき、SPI バス占有率が上がる。
+ *
+ * バッファサイズは PRED 行 (150 × 35 = 5250 px, 10.3 KB) を最大とした
+ * 共有領域 1 つだけ。cls14 行 (240 × 14 = 3360 px) も同じバッファに収まる。
+ */
+#define FB_MAX_PIXELS  5250u
+static uint16_t s_fb[FB_MAX_PIXELS];
+
+static void fb_fill(uint16_t color, uint32_t n) {
+    for (uint32_t i = 0; i < n; i++) s_fb[i] = color;
+}
+
+static void fb_draw_char(uint16_t fb_w, uint16_t fb_h,
+                          uint16_t fx, uint16_t fy, char c,
+                          uint16_t fg, uint16_t bg, uint8_t sz)
+{
+    if (c < 0x20 || c > 0x7E) c = '?';
+    const uint8_t *g = ili9341_font5x7_glyph(c);
+    for (uint16_t col = 0; col < 5u; col++) {
+        uint8_t bits = g[col];
+        for (uint16_t row = 0; row < 7u; row++) {
+            uint16_t color = (bits & (1u << row)) ? fg : bg;
+            for (uint16_t dy = 0; dy < sz; dy++) {
+                uint16_t y = (uint16_t)(fy + row * sz + dy);
+                if (y >= fb_h) continue;
+                uint16_t *line = &s_fb[y * fb_w];
+                for (uint16_t dx = 0; dx < sz; dx++) {
+                    uint16_t x = (uint16_t)(fx + col * sz + dx);
+                    if (x >= fb_w) continue;
+                    line[x] = color;
+                }
+            }
+        }
+    }
+    /* spacing column (col 5, all bg) */
+    for (uint16_t row = 0; row < 7u * sz; row++) {
+        uint16_t y = (uint16_t)(fy + row);
+        if (y >= fb_h) continue;
+        uint16_t *line = &s_fb[y * fb_w];
+        for (uint16_t dx = 0; dx < sz; dx++) {
+            uint16_t x = (uint16_t)(fx + 5u * sz + dx);
+            if (x >= fb_w) continue;
+            line[x] = bg;
+        }
+    }
+}
+
+static void fb_draw_string(uint16_t fb_w, uint16_t fb_h,
+                            uint16_t fx, uint16_t fy, const char *s,
+                            uint16_t fg, uint16_t bg, uint8_t sz)
+{
+    while (*s) {
+        if ((uint32_t)fx + 6u * sz > fb_w) break;
+        fb_draw_char(fb_w, fb_h, fx, fy, *s, fg, bg, sz);
+        fx = (uint16_t)(fx + 6u * sz);
+        s++;
+    }
+}
+
+/* fb を TFT に転送 (set_window + blit)。 */
+static void fb_flush(uint16_t x, uint16_t y, uint16_t w, uint16_t h) {
+    (void)ili9341_set_window(&s_tft, x, y,
+                              (uint16_t)(x + w - 1u), (uint16_t)(y + h - 1u));
+    (void)ili9341_blit(&s_tft, s_fb, (size_t)w * h);
 }
 
 /* ---- 5-bit door 状態 decode ---- */
@@ -354,28 +426,139 @@ static void do_infer_once(void)
                 (unsigned)bits[0], (unsigned)bits[1], (unsigned)bits[2],
                 (unsigned)bits[3], (unsigned)bits[4]);
 
-    /* TFT 表示: 32cls (state bits, 大字) と 14cls (正規名) を併記 */
+    /* TFT 表示 (LANDSCAPE 320x240):
+     *   表示順: [c, BC, b, AB, a]
+     *   PRED 行: 正解+観測 GREEN / 誤+観測 RED / 正解+非観測 DARK_GREEN / 誤+非観測 DARK_RED
+     *   TRUE 行: 観測可能 ORANGE / 非観測 DARK_ORANGE
+     *
+     *   高速化 (sprite/framebuffer 方式):
+     *     - 各行 (PRED / TRUE / cls14) を RAM 上の s_fb に描画 → 1 set_window + 1 blit
+     *     - 行単位 diff: 5 桁 + 色が前回と同じならその行はスキップ
+     *     - 結果: ステート変化なしなら 0 SPI 送信、1 桁変化でも行 1 個分 (10.5 KB) で済む
+     */
     if (s_tft.spi != NULL) {
-        char line[40];
-        (void)ili9341_fill_rect(&s_tft, 0, 32, 240, 200, ILI9341_BLACK);
-        snprintf(line, sizeof(line), "seq %5u", (unsigned)s_state.result_seq);
-        (void)ili9341_draw_string(&s_tft, 6, 40, line, ILI9341_GREY, ILI9341_BLACK, 2);
-        /* 32cls: state bits を大字で */
-        snprintf(line, sizeof(line), "s%u%u%u%u%u",
-                 (unsigned)bits[0], (unsigned)bits[1], (unsigned)bits[2],
-                 (unsigned)bits[3], (unsigned)bits[4]);
-        (void)ili9341_draw_string(&s_tft, 6, 70, line, ILI9341_ORANGE, ILI9341_BLACK, 4);
-        /* 32cls idx (小、灰) */
-        snprintf(line, sizeof(line), "idx=%u/32", (unsigned)r.argmax_idx);
-        (void)ili9341_draw_string(&s_tft, 6, 115, line, ILI9341_GREY, ILI9341_BLACK, 2);
-        /* 14cls 名 (中字、緑) */
-        snprintf(line, sizeof(line), "cls14=%s", class_of_14(r.argmax_idx));
-        (void)ili9341_draw_string(&s_tft, 6, 140, line, ILI9341_GREEN, ILI9341_BLACK, 2);
-        /* baseline + 時間 */
-        snprintf(line, sizeof(line), "%s baseline", current_baseline_name());
-        (void)ili9341_draw_string(&s_tft, 6, 170, line, ILI9341_CYAN, ILI9341_BLACK, 2);
-        snprintf(line, sizeof(line), "%u us", (unsigned)r.invoke_us);
-        (void)ili9341_draw_string(&s_tft, 6, 195, line, ILI9341_GREY, ILI9341_BLACK, 2);
+        const uint8_t  sz   = 5;
+        const uint16_t cw   = 6u * sz;            /* 文字送り 30 px */
+        const uint16_t bx   = (uint16_t)((320u - 5u * cw) / 2u);  /* 中央寄せ */
+        const uint16_t py   = 40;                 /* PRED 行 y */
+        const uint16_t ty   = py + 7u * sz + 25;  /* TRUE 行 y */
+        const uint16_t boty = ty + 7u * sz + 12;  /* 下部テキスト y */
+
+        const uint16_t row_w = 5u * cw;           /* PRED/TRUE 行幅 = 150 */
+        const uint16_t row_h = 7u * sz;           /* PRED/TRUE 行高 = 35 */
+        const uint16_t bot_w = 240;               /* cls14 行幅 */
+        const uint16_t bot_h = 14;                /* cls14 行高 (size 2 × 7) */
+
+        const uint16_t DARK_GREEN  = 0x03E0u;
+        const uint16_t DARK_RED    = 0x7800u;
+        const uint16_t DARK_ORANGE = 0x7A80u;
+
+        const uint8_t order[5] = {2, 4, 1, 3, 0};  /* c, BC, b, AB, a */
+
+        /* TRUE bits (サーボ実位置) */
+        const servo_config_t *cfg = servo_config_get();
+        uint8_t actual[5];
+        for (uint8_t i = 0; i < 5; i++) {
+            float cur = s_state.current_deg[i];
+            float dop = fabsf(cur - cfg->open_deg[i]);
+            float dho = fabsf(cur - cfg->home_deg[i]);
+            actual[i] = (dop < dho) ? 1u : 0u;
+        }
+
+        /* 観測可能性 (実 AB/BC ベース) */
+        bool obs[5];
+        obs[0] = true;
+        obs[1] = (actual[3] == 1u);
+        obs[2] = (actual[3] == 1u) && (actual[4] == 1u);
+        obs[3] = true;
+        obs[4] = (actual[3] == 1u);
+
+        /* 行単位 diff 用の last state */
+        static bool     s_tft_inited       = false;
+        static uint8_t  s_last_pred[5]     = {0};
+        static uint16_t s_last_pred_fg[5]  = {0};
+        static uint8_t  s_last_actual[5]   = {0};
+        static uint16_t s_last_act_fg[5]   = {0};
+        static char     s_last_cls14[8]    = {0};
+        static char     s_last_bl_name[16] = {0};
+
+        /* === PRED 行: 5 桁/色が 1 つでも違えば全行 redraw === */
+        uint8_t  pred_ch[5];
+        uint16_t pred_fg[5];
+        for (uint8_t k = 0; k < 5; k++) {
+            uint8_t i = order[k];
+            bool correct = (bits[i] == actual[i]);
+            uint16_t fg;
+            if (correct) fg = obs[i] ? ILI9341_GREEN : DARK_GREEN;
+            else         fg = obs[i] ? ILI9341_RED   : DARK_RED;
+            pred_ch[k] = bits[i];
+            pred_fg[k] = fg;
+        }
+        bool pred_changed = !s_tft_inited;
+        for (uint8_t k = 0; !pred_changed && k < 5; k++) {
+            if (s_last_pred[k] != pred_ch[k] || s_last_pred_fg[k] != pred_fg[k]) {
+                pred_changed = true;
+            }
+        }
+        if (pred_changed) {
+            fb_fill(ILI9341_BLACK, (uint32_t)row_w * row_h);
+            for (uint8_t k = 0; k < 5; k++) {
+                fb_draw_char(row_w, row_h,
+                              (uint16_t)(k * cw), 0,
+                              (char)('0' + pred_ch[k]),
+                              pred_fg[k], ILI9341_BLACK, sz);
+                s_last_pred[k]    = pred_ch[k];
+                s_last_pred_fg[k] = pred_fg[k];
+            }
+            fb_flush(bx, py, row_w, row_h);
+        }
+
+        /* === TRUE 行: 同じ要領 === */
+        uint8_t  act_ch[5];
+        uint16_t act_fg[5];
+        for (uint8_t k = 0; k < 5; k++) {
+            uint8_t i = order[k];
+            act_ch[k] = actual[i];
+            act_fg[k] = obs[i] ? ILI9341_ORANGE : DARK_ORANGE;
+        }
+        bool act_changed = !s_tft_inited;
+        for (uint8_t k = 0; !act_changed && k < 5; k++) {
+            if (s_last_actual[k] != act_ch[k] || s_last_act_fg[k] != act_fg[k]) {
+                act_changed = true;
+            }
+        }
+        if (act_changed) {
+            fb_fill(ILI9341_BLACK, (uint32_t)row_w * row_h);
+            for (uint8_t k = 0; k < 5; k++) {
+                fb_draw_char(row_w, row_h,
+                              (uint16_t)(k * cw), 0,
+                              (char)('0' + act_ch[k]),
+                              act_fg[k], ILI9341_BLACK, sz);
+                s_last_actual[k] = act_ch[k];
+                s_last_act_fg[k] = act_fg[k];
+            }
+            fb_flush(bx, ty, row_w, row_h);
+        }
+
+        /* === 下部 cls14 + baseline 行 === */
+        const char *cls14_now = class_of_14(r.argmax_idx);
+        const char *bl_now    = current_baseline_name();
+        bool bot_changed = !s_tft_inited
+                        || strncmp(s_last_cls14, cls14_now, sizeof(s_last_cls14)) != 0
+                        || strncmp(s_last_bl_name, bl_now, sizeof(s_last_bl_name)) != 0;
+        if (bot_changed) {
+            char line[40];
+            snprintf(line, sizeof(line), "cls14=%s  %s", cls14_now, bl_now);
+            fb_fill(ILI9341_BLACK, (uint32_t)bot_w * bot_h);
+            fb_draw_string(bot_w, bot_h, 0, 0, line,
+                           ILI9341_CYAN, ILI9341_BLACK, 2);
+            fb_flush(0, boty, bot_w, bot_h);
+            strncpy(s_last_cls14, cls14_now, sizeof(s_last_cls14) - 1);
+            s_last_cls14[sizeof(s_last_cls14) - 1] = '\0';
+            strncpy(s_last_bl_name, bl_now, sizeof(s_last_bl_name) - 1);
+            s_last_bl_name[sizeof(s_last_bl_name) - 1] = '\0';
+        }
+        s_tft_inited = true;
     }
 }
 
@@ -706,12 +889,12 @@ static status_t tft_init(void)
         .dc_gpio = BOARD_ILI_DC_GPIO, .dc_pin = BOARD_ILI_DC_PIN,
         .res_gpio = BOARD_ILI_RES_GPIO, .res_pin = BOARD_ILI_RES_PIN,
         .bl_gpio = BOARD_ILI_BL_GPIO, .bl_pin = BOARD_ILI_BL_PIN,
-        .rotation = ILI9341_ROT_PORTRAIT,
+        .rotation = ILI9341_ROT_LANDSCAPE_FLIP,   /* 左 90° 回転 (240x320 縦 → 320x240 横) */
     };
     status_t s = ili9341_init(&s_tft);
     if (s == kStatus_Success) {
         (void)ili9341_fill_screen(&s_tft, ILI9341_BLACK);
-        (void)ili9341_fill_rect(&s_tft, 0, 0, 240, 28, ILI9341_NAVY);
+        (void)ili9341_fill_rect(&s_tft, 0, 0, 320, 28, ILI9341_NAVY);
         (void)ili9341_draw_string(&s_tft, 6, 7, "IchiPing infer",
                                   ILI9341_WHITE, ILI9341_NAVY, 2);
     }

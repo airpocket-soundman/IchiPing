@@ -310,6 +310,49 @@ status_t ili9341_draw_char(ili9341_t *d,
     return kStatus_Success;
 }
 
+/* Buffered char draw — see ili9341.h doc. BSS buffer sized for size=5:
+ *   6*5 × 7*5 = 30*35 = 1050 pixels = 2100 B. */
+static uint16_t s_char_buf[6u * ILI9341_CHAR_BUF_MAX_SIZE *
+                            7u * ILI9341_CHAR_BUF_MAX_SIZE];
+
+const uint8_t *ili9341_font5x7_glyph(char c) {
+    if (c < 0x20 || c > 0x7E) c = '?';
+    return &s_font5x7[(uint8_t)(c - 0x20) * 5u];
+}
+
+status_t ili9341_draw_char_buf(ili9341_t *d,
+                                uint16_t x, uint16_t y, char c,
+                                uint16_t fg, uint16_t bg, uint8_t size) {
+    if (c < 0x20 || c > 0x7E) c = '?';
+    if (size == 0u) size = 1u;
+    if (size > ILI9341_CHAR_BUF_MAX_SIZE) {
+        /* Buffer too small — fall back to per-cell fill_rect path. */
+        return ili9341_draw_char(d, x, y, c, fg, bg, size);
+    }
+    const uint16_t w = (uint16_t)(6u * size);
+    const uint16_t h = (uint16_t)(7u * size);
+    const uint8_t *glyph = &s_font5x7[(uint8_t)(c - 0x20) * 5u];
+
+    /* Fill buffer row-major. col<5 = glyph columns, col==5 = spacing. */
+    for (uint16_t py = 0; py < h; py++) {
+        uint8_t row = (uint8_t)(py / size);
+        uint16_t *line = &s_char_buf[py * w];
+        for (uint16_t px = 0; px < w; px++) {
+            uint8_t col = (uint8_t)(px / size);
+            uint16_t color;
+            if (col < 5u) color = (glyph[col] & (1u << row)) ? fg : bg;
+            else          color = bg;
+            line[px] = color;
+        }
+    }
+
+    status_t s = ili9341_set_window(d, x, y,
+                                    (uint16_t)(x + w - 1u),
+                                    (uint16_t)(y + h - 1u));
+    if (s != kStatus_Success) return s;
+    return ili9341_blit(d, s_char_buf, (size_t)w * h);
+}
+
 status_t ili9341_draw_string(ili9341_t *d,
                              uint16_t x, uint16_t y, const char *s,
                              uint16_t fg, uint16_t bg, uint8_t size) {
