@@ -112,9 +112,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--ambient-dirs", type=Path, nargs="*", default=None,
                     dest="ambient_dirs",
                     help="optional silence_* dirs to augment with real ambient noise")
-    ap.add_argument("--feature-mode", choices=("chirp", "noise", "noise_diff"),
+    ap.add_argument("--feature-mode",
+                    choices=("chirp", "noise", "noise_diff", "noise_diff_norm"),
                     default="chirp",
-                    help="特徴量抽出: chirp / noise / noise_diff (s00000 baseline 引き)")
+                    help="特徴量抽出: chirp / noise / noise_diff / noise_diff_norm "
+                         "(noise_diff_norm は per-frame zero-mean unit-variance 正規化追加)")
     ap.add_argument("--baseline-override-dir", type=Path, default=None,
                     dest="baseline_override_dir",
                     help="noise_diff の baseline を全 captures で共通の dir から取る "
@@ -145,6 +147,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--arch", choices=("conv1d", "neutron"), default="conv1d",
                     help="モデルアーキ。conv1d=旧 IchiPingV1_32cls / "
                          "neutron=Conv2D ベース (MCXN947 Neutron NPU 互換)")
+    ap.add_argument("--aug-strong", action="store_true",
+                    help="強化 augmentation (TimeShift ±20ms, LevelJitter ±4dB, "
+                         "NoiseOverlay SNR 0-35dB p=0.9, GaussianHiss 追加, "
+                         "FreqMask max 80/3個, SpectralJitter σ=0.6dB)。"
+                         "低ノイズ条件のみで採取したデータの汎化性能補強に使う。")
     args = ap.parse_args(argv)
 
     import random
@@ -157,9 +164,21 @@ def main(argv: list[str] | None = None) -> int:
     args.out.mkdir(parents=True, exist_ok=True)
     print(f"device: {args.device}")
 
-    train_tf = default_train_transform(args.ambient_dirs)
-    feat_tf = (default_feature_transform(args.feature_mode, spike_fix=args.spike_fix)
-               if args.feature_aug else None)
+    if args.aug_strong:
+        try:
+            from augment import strong_train_transform, strong_feature_transform
+        except ImportError:
+            from .augment import strong_train_transform, strong_feature_transform  # type: ignore
+        train_tf = strong_train_transform(args.ambient_dirs)
+        feat_tf = (strong_feature_transform(args.feature_mode, spike_fix=args.spike_fix)
+                   if args.feature_aug else None)
+        print("AUG STRONG: TimeShift ±20ms / LevelJitter ±4dB / "
+              "NoiseOverlay SNR 0-35dB p=0.9 / GaussianHiss / "
+              "FreqMask max 80 ×3 / SpectralJitter σ=0.6")
+    else:
+        train_tf = default_train_transform(args.ambient_dirs)
+        feat_tf = (default_feature_transform(args.feature_mode, spike_fix=args.spike_fix)
+                   if args.feature_aug else None)
     if feat_tf is not None:
         print(f"feature-space aug: FreqMask + SpectralJitter (spike_fix={args.spike_fix})")
     # Baseline jittering: 複数の baseline で同じデータを重複生成して ConcatDataset

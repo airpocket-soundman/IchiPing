@@ -304,3 +304,47 @@ def default_train_transform(
     else:
         steps.append(GaussianHiss(snr_db_range=(15.0, 35.0), p=0.5))
     return Compose(steps)
+
+
+def strong_train_transform(
+    ambient_dirs: Optional[Sequence[Path]] = None,
+) -> Compose:
+    """汎化性能強化版: 全パラメタを強めに振って高ノイズ耐性を取りに行く。
+
+    用途: v6-v10 のように低ノイズ条件でしか採取されてないデータで、実推論の
+    多様な室内環境 (TV / 会話 / 空調) に対する汎化が不十分なときに使う。
+
+    変更点 (default_train_transform からの差):
+      - TimeShift: ±10ms → ±20ms (chirp 開始ずれ余裕拡大)
+      - LevelJitter: ±2dB → ±4dB (SPK 音量 / mic gain ドリフト想定拡大)
+      - NoiseOverlay: SNR 5-25dB → SNR 0-35dB、p 0.7 → 0.9
+        (信号と等強度のノイズまで含めて学習させる)
+      - GaussianHiss 追加 (overlay 有無に関わらず、SNR 10-40dB, p=0.5)
+        実 ambient と合成 hiss の両方を経験させる
+    """
+    steps: List[Transform] = [
+        TimeShift(max_ms=20.0, p=0.8),
+        LevelJitter(db_range=4.0, p=0.8),
+    ]
+    if ambient_dirs:
+        steps.append(NoiseOverlay(ambient_dirs, snr_db_range=(0.0, 35.0), p=0.9))
+    steps.append(GaussianHiss(snr_db_range=(10.0, 40.0), p=0.5))
+    return Compose(steps)
+
+
+def strong_feature_transform(
+    feature_mode: str = "noise_diff",
+    spike_fix: bool = False,
+) -> FeatureCompose:
+    """feature 空間の強化版 augmentation。
+
+    default_feature_transform からの差:
+      - FreqMask: max_width 40→80, n_masks 2→3, p 0.7→0.85
+        広帯域に依存する特徴量も "落ちる" 経験を学習
+      - SpectralJitter: σ 0.3dB → 0.6dB, p 0.8 → 0.9
+        SPK 周波数応答の長期ドリフト幅をより広く擬似化
+    """
+    return FeatureCompose([
+        FreqMask(max_width=80, n_masks=3, p=0.85),
+        SpectralJitter(sigma_db=0.6, p=0.9),
+    ])

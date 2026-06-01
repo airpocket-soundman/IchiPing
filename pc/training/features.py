@@ -155,3 +155,27 @@ def samples_to_noise_diff_features(samples: np.ndarray,
     if baseline_db.shape != db.shape:
         raise ValueError(f"baseline shape {baseline_db.shape} != feature shape {db.shape}")
     return (db - baseline_db).astype(np.float32)
+
+
+def samples_to_noise_diff_norm_features(samples: np.ndarray,
+                                        baseline_db: np.ndarray,
+                                        cfg: FeatureConfig = FeatureConfig()) -> np.ndarray:
+    """noise_diff_norm 経路: noise_diff の per-frame zero-mean unit-variance 正規化版。
+
+    意図: 推論時に SPK 音量を変えて SNR を稼ぐ運用に対応する。
+      - 学習データは固定音量 (vol=3) で採取
+      - 推論時に環境ノイズが大きい → vol を上げたい
+      - per-frame で標準化することで weight は「形状」のみを学習、
+        レベル軸の自由度を持つようになる
+
+    具体的に:
+      feat = db - baseline_db                      # 通常 noise_diff
+      feat = feat - feat.mean()                    # global level 除去
+      feat = feat / (feat.std() + 1e-6)            # 標準偏差で割って正規化
+
+    firmware 側にも同等の処理 (ichp_features_normalize_frame) を入れる必要あり。
+    """
+    feat = samples_to_noise_diff_features(samples, baseline_db, cfg)
+    feat = feat - feat.mean()
+    std = float(feat.std() + 1e-6)
+    return (feat / std).astype(np.float32)

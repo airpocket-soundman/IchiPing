@@ -53,6 +53,7 @@ try:
         samples_to_features,
         samples_to_noise_features,
         samples_to_noise_diff_features,
+        samples_to_noise_diff_norm_features,
         samples_to_logmag_psd,
     )
 except ImportError:
@@ -60,6 +61,7 @@ except ImportError:
         samples_to_features,
         samples_to_noise_features,
         samples_to_noise_diff_features,
+        samples_to_noise_diff_norm_features,
         samples_to_logmag_psd,
     )
 
@@ -68,11 +70,13 @@ except ImportError:
 # - "chirp": matched filter で RIR を取り出す (chirp 励振データ用)
 # - "noise": Welch スペクトルを平均し frame 内で mean-subtract (PRBS 白色雑音励振)
 # - "noise_diff": Welch + s00000 ベースラインを per-bin 引く (cross-run ドリフト耐性版)
-#                  ベースラインは __init__ で各 captures_dir の s00000 から自動計算する。
+# - "noise_diff_norm": noise_diff + per-frame zero-mean unit-variance 正規化
+#                      推論時の SPK 音量変動に対する不変性を強化 (vol up で SNR 稼ぐ運用)
 FEATURE_FUNCS = {
     "chirp": samples_to_features,
     "noise": samples_to_noise_features,
-    "noise_diff": None,  # noise_diff は dataset 側で baseline closure を作る
+    "noise_diff": None,       # baseline closure を __init__ で作る
+    "noise_diff_norm": None,  # 同様、norm 適用は __getitem__ で
 }
 
 # noise_diff モードでベースラインを取り出す state ラベル (全閉)
@@ -207,16 +211,16 @@ class IchiPingDataset(Dataset):
                         Example(wav_path=wav_path, state=bits, cls=cls, sample_rate=0)
                     )
 
-            # noise_diff モードでは captures_dir ごとに s00000 ベースラインを構築。
+            # noise_diff / noise_diff_norm モードでは captures_dir ごとに s00000 ベースラインを構築。
             # ただし baseline_override_dir が指定された場合、その dir の s00000 を
             # 全 captures_dir 共通の baseline として使う (デプロイ運用シミュレーション)。
-            if feature_mode == "noise_diff":
+            if feature_mode in ("noise_diff", "noise_diff_norm"):
                 base_source = self._baseline_override_dir if self._baseline_override_dir else root
                 base_dir = base_source / BASELINE_LABEL
                 base_wavs = sorted(base_dir.glob("frame_*.wav")) if base_dir.exists() else []
                 if not base_wavs:
                     raise RuntimeError(
-                        f"noise_diff: {base_source} に {BASELINE_LABEL}/ が無い、または frame_*.wav 不在")
+                        f"{feature_mode}: {base_source} に {BASELINE_LABEL}/ が無い、または frame_*.wav 不在")
                 # 各 frame の log-mag PSD を平均してこの run の baseline にする
                 accum = None
                 for p in base_wavs:
@@ -227,8 +231,8 @@ class IchiPingDataset(Dataset):
                 # この root 配下の全 example が同じ baseline を参照する
                 self._baselines[root] = baseline
 
-        # feature_mode dispatch — noise_diff は closure で baseline を埋め込む
-        if feature_mode == "noise_diff":
+        # feature_mode dispatch — noise_diff / noise_diff_norm は closure で baseline を埋め込む
+        if feature_mode in ("noise_diff", "noise_diff_norm"):
             self._feature_fn = None  # __getitem__ で baseline を引数に取って呼ぶ
         else:
             self._feature_fn = FEATURE_FUNCS[feature_mode]
@@ -250,6 +254,10 @@ class IchiPingDataset(Dataset):
             root = self._resolve_root(ex.wav_path)
             baseline = self._baselines[root]
             feats = samples_to_noise_diff_features(samples, baseline)
+        elif self.feature_mode == "noise_diff_norm":
+            root = self._resolve_root(ex.wav_path)
+            baseline = self._baselines[root]
+            feats = samples_to_noise_diff_norm_features(samples, baseline)
         else:
             feats = self._feature_fn(samples)
         # 特徴量空間の augmentation (SpecAugment 系)。学習時のみ渡される。
