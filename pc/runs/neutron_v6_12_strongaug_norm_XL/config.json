@@ -1,0 +1,20 @@
+{
+  "model": "IchiPingV1_32clsNeutron",
+  "arch": "neutron",
+  "size": "XL",
+  "n_classes": 32,
+  "n_params": 104000,
+  "epochs": 80,
+  "batch": 32,
+  "lr": 0.001,
+  "ambient_dirs": [
+    "captures\\full_32_passive_v1"
+  ],
+  "feature_mode": "noise_diff_norm",
+  "feature_aug": true,
+  "loss_mode": "ce",
+  "hamming_alpha": null,
+  "best_val_acc": 0.9994897959183674,
+  "test_acc_32cls": 0.9996598639455783,
+  "test_acc_14cls": 1.0
+}
