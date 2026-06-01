@@ -72,6 +72,13 @@ void ichp_features_logmag_psd(ichp_features_ctx_t *ctx,
 void ichp_features_subtract_baseline(float *logmag_inout,
                                      const float *baseline);
 
+/* noise_diff_norm 経路用: 1024-bin float32 を per-frame zero-mean unit-variance
+ * 正規化 (in-place)。学習側 samples_to_noise_diff_norm_features と数値一致。
+ * SPK 音量や mic gain の絶対レベル変動に対する不変性を持たせる用。
+ * noise_diff_norm モデルを焼く際は subtract_baseline 後、quantize_int8 前に
+ * 必ず呼ぶこと。通常 noise_diff モデルでは呼ばない。 */
+void ichp_features_normalize_frame(float *logmag_diff);
+
 /* float32 1024-bin noise_diff → INT8 1024-bin (TFLite 入力用)。
  *   q[i] = clip(round(x[i] / scale) + zero_point, -128, 127)
  * scale/zero_point は model_data.h のヘッダコメントから取った

@@ -195,6 +195,28 @@ void ichp_features_subtract_baseline(float *logmag_inout,
     }
 }
 
+void ichp_features_normalize_frame(float *logmag_diff)
+{
+    /* per-frame zero-mean unit-variance 正規化。学習側
+     * samples_to_noise_diff_norm_features と数値一致させる。 */
+    float mean = 0.0f;
+    for (uint32_t k = 0; k < ICHP_FEAT_N_BINS; k++) {
+        mean += logmag_diff[k];
+    }
+    mean /= (float)ICHP_FEAT_N_BINS;
+
+    float var = 0.0f;
+    for (uint32_t k = 0; k < ICHP_FEAT_N_BINS; k++) {
+        logmag_diff[k] -= mean;
+        var += logmag_diff[k] * logmag_diff[k];
+    }
+    float std = sqrtf(var / (float)ICHP_FEAT_N_BINS) + 1e-6f;
+    float inv_std = 1.0f / std;
+    for (uint32_t k = 0; k < ICHP_FEAT_N_BINS; k++) {
+        logmag_diff[k] *= inv_std;
+    }
+}
+
 void ichp_features_quantize_int8(const float *logmag_diff,
                                  float scale, int32_t zero_point,
                                  int8_t *out_int8)

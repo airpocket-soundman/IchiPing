@@ -382,6 +382,13 @@ static void do_infer_once(void)
     const float *bl = current_baseline();
     ichp_features_subtract_baseline(s_logmag, bl);
 
+    /* per-frame normalize: noise_diff_norm 学習モデルの整合用。
+     * (学習側 samples_to_noise_diff_norm_features と同じ zero-mean unit-variance)。
+     * 通常の noise_diff モデルでは精度が落ちる (= 異なる入力分布になる) ので、
+     * 焼くモデルとの整合に注意。
+     */
+    ichp_features_normalize_frame(s_logmag);
+
     /* INT8 量子化 (model 入力 qparams を毎回取る — モデル更新で変わるため) */
     float scale; int32_t zp;
     ichp_tflite_input_qparams(&scale, &zp);
