@@ -1,0 +1,6 @@
+# v12 の s01101 取り直し (採取時にノイズ混入したため)
+- label: s01101
+  pattern: 4
+  repeats: 50
+  volume: 5
+  doors: { a: CLOSE, b: OPEN, c: OPEN, AB: CLOSE, BC: OPEN }
