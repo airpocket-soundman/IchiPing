@@ -1090,7 +1090,20 @@ def main() -> int:
         return 2
 
     try:
-        ser = serial.Serial(args.port, args.baud, timeout=0.1)
+        # MCU-Link の OpenSDA は pyserial デフォルトの DTR/RTS アサートで
+        # MCU リセットが入ってしまうため、ポートを未 open 状態で構築して
+        # DTR/RTS を OFF に固定してから open し、書き込み済みファームを
+        # そのまま実行継続させる ("MCU 既に動いてる" を前提に PING で確認)。
+        ser = serial.Serial()
+        ser.port = args.port
+        ser.baudrate = args.baud
+        ser.timeout = 0.1
+        try:
+            ser.dtr = False
+            ser.rts = False
+        except (AttributeError, ValueError):
+            pass
+        ser.open()
         # Windows' default kernel RX buffer is ~4 KB. ICHP frames at 32k
         # samples × 2B + header + CRC are ~64 KB, so the kernel buffer
         # overflows mid-frame whenever the reader thread pauses to dispatch
@@ -1131,36 +1144,41 @@ def main() -> int:
     print(f"connected {args.port} @ {args.baud} bps, output -> {run_root}")
     print(f"loaded {len(lib.patterns)} patterns from {args.patterns}")
 
-    # Wait for the MCU boot to finish before pushing patterns. The firmware
-    # emits "INFO IchiPing 09_collector ready" at the very end of init; up
-    # to that point the command loop is not yet running and any PAT lines
-    # we send sit in the RX FIFO until they overflow it, losing CR/LF and
-    # leaving the firmware out of sync. Opening the OpenSDA port can also
-    # toggle DTR and reset the MCU, so we must always honour this gate.
-    #
-    # The startup banner currently takes ~3 s on FRDM-MCXN947 (servo init +
-    # SAI init + TFT init + 0.3 s settle), but on the first cold boot or a
-    # slower I2C scan it can run several seconds longer. Wait generously
-    # before falling back; pushing PAT_* lines into a still-booting MCU
-    # silently overflows the 8-byte LPUART RX FIFO and breaks the library.
-    print("waiting for MCU boot...")
-    BOOT_WAIT_S = 30.0
-    ready = wait_for_prefix(reader, "INFO IchiPing", timeout=BOOT_WAIT_S)
-    if ready is None:
-        print(f"  (no boot banner seen in {BOOT_WAIT_S:.0f} s; probing with PING...)")
-        # Last-resort sanity check: maybe the MCU was already up when we
-        # connected and the banner is long gone. PING is cheap and either
-        # confirms reachability or proves the link is dead before we waste
-        # a 30 s pattern push that has nowhere to land.
-        send(ser, "PING")
-        pong = wait_for_prefix(reader, "OK PONG", timeout=2.0)
-        if pong is None:
-            raise SystemExit(
-                "MCU did not respond to PING after boot-wait timeout — "
-                "check power, USB cable, that the firmware was actually "
-                "flashed, and that no other process is holding the COM port."
-            )
-        print(f"  PING ok ({pong}) — proceeding with pattern push")
+    # MCU が「すでに動いてる」のを PING で確認するのが第一手。
+    # DTR/RTS をアサートしない open に変えたので、書き込み済みファームは
+    # そのまま走行継続しているはず → PING で確認できれば boot banner 待ち
+    # 不要で即パターン push に進む。失敗した場合のみ従来の banner 待ちに
+    # フォールバック (= 何らかの理由で MCU が boot 直後で実際に banner を
+    # 吐く途中、等のケースを救う)。
+    print("probing MCU with PING (skip boot-banner wait if already running)...")
+    # PING 送信前に boot 関連の go-by ノイズを軽くドレイン
+    try:
+        while reader.lines.get_nowait():
+            pass
+    except Exception:
+        pass
+    send(ser, "PING")
+    pong = wait_for_prefix(reader, "OK PONG", timeout=2.0)
+    if pong is None:
+        # PING 即時応答なし → 「いま boot 中」かも、と仮定して banner 待ち
+        print("  (no PING response — assuming MCU is booting, waiting for ready banner...)")
+        BOOT_WAIT_S = 30.0
+        ready = wait_for_prefix(reader, "INFO IchiPing", timeout=BOOT_WAIT_S)
+        if ready is None:
+            # 最後にもう 1 回 PING
+            send(ser, "PING")
+            pong = wait_for_prefix(reader, "OK PONG", timeout=2.0)
+            if pong is None:
+                raise SystemExit(
+                    "MCU did not respond to PING after boot-wait timeout — "
+                    "check power, USB cable, that the firmware was actually "
+                    "flashed, and that no other process is holding the COM port."
+                )
+            print(f"  PING ok ({pong}) — proceeding with pattern push")
+        else:
+            print(f"  ready banner seen ({ready}) — proceeding")
+    else:
+        print(f"  PING ok ({pong}) — MCU is up, skipping boot-banner wait")
 
     # Push the YAML library to the MCU. After reset the firmware's pattern
     # library is empty, so RUN won't work until this completes. Pace each

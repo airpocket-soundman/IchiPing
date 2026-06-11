@@ -116,7 +116,7 @@ extern void BOARD_InitHardware(void);
  * hardware. Once 09 bring-up confirms display works end-to-end, this
  * can be raised to 20 MHz like 04_lvgl_test attempted (which is frozen
  * and therefore unverified at that speed). */
-#define COL_TFT_SPI_BAUD      1000000U
+#define COL_TFT_SPI_BAUD      20000000U   /* 20 MHz — ILI9341 通常上限。1 MHz だと CLOSE ALL 内の TFT 更新 5 回で ~10 秒掛かり client が timeout する */
 
 /* ---- Buffers ---- */
 

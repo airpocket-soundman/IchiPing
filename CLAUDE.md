@@ -94,6 +94,10 @@ hardware/wiring.{svg,md,csv} と firmware/README.md を更新。
 
 詳細手順 (WSL 環境再構築・ortools バージョン制約・PINTO 経路・model_data.h 生成・トラブルシュート) は **[docs/deploy_pipeline.md](docs/deploy_pipeline.md)** にまとめてある。WSL の `/opt/nc_venv` が消えた場合もこのドキュメント通りに再構築する。
 
+## 🔌 09_collector でデータ採取が止まったら
+
+`collector_client.py` が CLOSE ALL timeout / COM3 PermissionError / Write timeout / COM3 が device list から消える、等で止まったら **ファームをいじらず** [`docs/collector_recovery.md`](docs/collector_recovery.md) の手順で復旧する。本質は **USB ケーブルの抜き差し**で、これで PCA9685 / MCU USB CDC のハード状態を一旦リセットする。LinkServer の soft reset では戻らない。
+
 ## 🔧 主要な技術的前提
 
 これらは正本の C4 spec §6 から確定済で、変えるならユーザー確認が必要:
