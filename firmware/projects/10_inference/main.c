@@ -34,6 +34,7 @@
 #include "fsl_lpi2c.h"
 #include "fsl_sai.h"
 #include "fsl_gpio.h"
+#include "fsl_port.h"
 
 #include "sai_mic.h"
 #include "sai_speaker.h"
@@ -56,6 +57,17 @@
 #include <stdio.h>
 
 extern void BOARD_InitHardware(void);
+
+/* UI 関連の forward declaration (do_infer_once が UI ヘルパを呼ぶため) */
+static void  ui_gpio_init(void);
+static void  ui_read_toggles(uint8_t bits_out[5]);
+static bool  ui_read_exec_button_edge(void);
+static inline void ui_set_infer_led(bool on);
+static void  apply_toggle_to_servo(uint8_t i, uint8_t new_bit);
+
+/* TFT 表示 (推論結果 / サーボ実状態) リフレッシュ — 全ての servo 移動 / 推論完了で呼ぶ */
+static void  tft_show_state(void);
+static void  tft_draw_labels_once(void);
 
 /* ---- Audio constants ---- */
 #define INF_SAMPLE_RATE       ICHP_FEAT_RATE_HZ                         /* 16000 */
@@ -113,16 +125,29 @@ typedef struct {
     int32_t          volume_pct;
     baseline_mode_t  bl_mode;
     bool             stop_requested;
+    bool             in_infer_stream;        /* INFER STREAM 実行中フラグ (EXEC ボタン抑制用) */
     uint16_t         result_seq;             /* RESULT 行に乗せる連番 */
     float            current_deg[ICHP_SERVO_COUNT];
+
+    /* TFT 表示用: 直近の推論結果の "有効性" を追跡。
+     * 推論実行時: bits を s_pred_bits に保存 + 当時のサーボ状態を s_pred_servo_at に保存 + valid=true。
+     * tft_show_state(): 現在のサーボ状態が s_pred_servo_at と一致しなくなった瞬間に valid=false にし、
+     *                   推論結果欄を "-----" 表示に戻す。 */
+    bool             pred_valid;
+    uint8_t          pred_bits[5];           /* 推論結果 (a,b,c,AB,BC) */
+    uint8_t          pred_servo_at[5];       /* 推論時の物理サーボ bit 状態 */
 } inf_state_t;
 
 static inf_state_t s_state = {
     .volume_pct      = INF_DEFAULT_VOLUME,
     .bl_mode         = BL_MODE_FACTORY,
     .stop_requested  = false,
+    .in_infer_stream = false,
     .result_seq      = 0,
     .current_deg     = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f },
+    .pred_valid      = false,
+    .pred_bits       = { 0, 0, 0, 0, 0 },
+    .pred_servo_at   = { 0, 0, 0, 0, 0 },
 };
 
 static servo_driver_t s_servo;
@@ -372,8 +397,10 @@ static bool capture_logmag(uint32_t *cap_ms_out)
 static void do_infer_once(void)
 {
     s_state.result_seq++;
+    ui_set_infer_led(true);     /* 推論中インジケータ LED ON */
     uint32_t cap_ms = 0;
     if (!capture_logmag(&cap_ms)) {
+        ui_set_infer_led(false);
         uart_write_line("ERR INFER no_pattern (push patterns via PAT_* first)");
         return;
     }
@@ -398,6 +425,7 @@ static void do_infer_once(void)
     ichp_tflite_result_t r;
     ichp_tflite_status_t st = ichp_tflite_invoke(s_input_int8, s_output_int8, &r);
     if (st != ICHP_TFLITE_OK) {
+        ui_set_infer_led(false);
         uart_printf("ERR INFER tflite status=%d", (int)st);
         return;
     }
@@ -433,140 +461,22 @@ static void do_infer_once(void)
                 (unsigned)bits[0], (unsigned)bits[1], (unsigned)bits[2],
                 (unsigned)bits[3], (unsigned)bits[4]);
 
-    /* TFT 表示 (LANDSCAPE 320x240):
-     *   表示順: [c, BC, b, AB, a]
-     *   PRED 行: 正解+観測 GREEN / 誤+観測 RED / 正解+非観測 DARK_GREEN / 誤+非観測 DARK_RED
-     *   TRUE 行: 観測可能 ORANGE / 非観測 DARK_ORANGE
-     *
-     *   高速化 (sprite/framebuffer 方式):
-     *     - 各行 (PRED / TRUE / cls14) を RAM 上の s_fb に描画 → 1 set_window + 1 blit
-     *     - 行単位 diff: 5 桁 + 色が前回と同じならその行はスキップ
-     *     - 結果: ステート変化なしなら 0 SPI 送信、1 桁変化でも行 1 個分 (10.5 KB) で済む
-     */
-    if (s_tft.spi != NULL) {
-        const uint8_t  sz   = 5;
-        const uint16_t cw   = 6u * sz;            /* 文字送り 30 px */
-        const uint16_t bx   = (uint16_t)((320u - 5u * cw) / 2u);  /* 中央寄せ */
-        const uint16_t py   = 40;                 /* PRED 行 y */
-        const uint16_t ty   = py + 7u * sz + 25;  /* TRUE 行 y */
-        const uint16_t boty = ty + 7u * sz + 12;  /* 下部テキスト y */
-
-        const uint16_t row_w = 5u * cw;           /* PRED/TRUE 行幅 = 150 */
-        const uint16_t row_h = 7u * sz;           /* PRED/TRUE 行高 = 35 */
-        const uint16_t bot_w = 240;               /* cls14 行幅 */
-        const uint16_t bot_h = 14;                /* cls14 行高 (size 2 × 7) */
-
-        const uint16_t DARK_GREEN  = 0x03E0u;
-        const uint16_t DARK_RED    = 0x7800u;
-        const uint16_t DARK_ORANGE = 0x7A80u;
-
-        const uint8_t order[5] = {2, 4, 1, 3, 0};  /* c, BC, b, AB, a */
-
-        /* TRUE bits (サーボ実位置) */
+    /* 推論結果を s_state.pred_* に保存 (TFT 表示 は tft_show_state が担当)。
+     * 同時に「推論時の物理サーボ状態」も保存しておき、後で物理状態が変わったら
+     * tft_show_state 側で pred_valid を自動 false に倒して "-----" 表示に戻す。 */
+    {
         const servo_config_t *cfg = servo_config_get();
-        uint8_t actual[5];
         for (uint8_t i = 0; i < 5; i++) {
+            s_state.pred_bits[i] = bits[i];
             float cur = s_state.current_deg[i];
             float dop = fabsf(cur - cfg->open_deg[i]);
             float dho = fabsf(cur - cfg->home_deg[i]);
-            actual[i] = (dop < dho) ? 1u : 0u;
+            s_state.pred_servo_at[i] = (dop < dho) ? 1u : 0u;
         }
-
-        /* 観測可能性 (実 AB/BC ベース) */
-        bool obs[5];
-        obs[0] = true;
-        obs[1] = (actual[3] == 1u);
-        obs[2] = (actual[3] == 1u) && (actual[4] == 1u);
-        obs[3] = true;
-        obs[4] = (actual[3] == 1u);
-
-        /* 行単位 diff 用の last state */
-        static bool     s_tft_inited       = false;
-        static uint8_t  s_last_pred[5]     = {0};
-        static uint16_t s_last_pred_fg[5]  = {0};
-        static uint8_t  s_last_actual[5]   = {0};
-        static uint16_t s_last_act_fg[5]   = {0};
-        static char     s_last_cls14[8]    = {0};
-        static char     s_last_bl_name[16] = {0};
-
-        /* === PRED 行: 5 桁/色が 1 つでも違えば全行 redraw === */
-        uint8_t  pred_ch[5];
-        uint16_t pred_fg[5];
-        for (uint8_t k = 0; k < 5; k++) {
-            uint8_t i = order[k];
-            bool correct = (bits[i] == actual[i]);
-            uint16_t fg;
-            if (correct) fg = obs[i] ? ILI9341_GREEN : DARK_GREEN;
-            else         fg = obs[i] ? ILI9341_RED   : DARK_RED;
-            pred_ch[k] = bits[i];
-            pred_fg[k] = fg;
-        }
-        bool pred_changed = !s_tft_inited;
-        for (uint8_t k = 0; !pred_changed && k < 5; k++) {
-            if (s_last_pred[k] != pred_ch[k] || s_last_pred_fg[k] != pred_fg[k]) {
-                pred_changed = true;
-            }
-        }
-        if (pred_changed) {
-            fb_fill(ILI9341_BLACK, (uint32_t)row_w * row_h);
-            for (uint8_t k = 0; k < 5; k++) {
-                fb_draw_char(row_w, row_h,
-                              (uint16_t)(k * cw), 0,
-                              (char)('0' + pred_ch[k]),
-                              pred_fg[k], ILI9341_BLACK, sz);
-                s_last_pred[k]    = pred_ch[k];
-                s_last_pred_fg[k] = pred_fg[k];
-            }
-            fb_flush(bx, py, row_w, row_h);
-        }
-
-        /* === TRUE 行: 同じ要領 === */
-        uint8_t  act_ch[5];
-        uint16_t act_fg[5];
-        for (uint8_t k = 0; k < 5; k++) {
-            uint8_t i = order[k];
-            act_ch[k] = actual[i];
-            act_fg[k] = obs[i] ? ILI9341_ORANGE : DARK_ORANGE;
-        }
-        bool act_changed = !s_tft_inited;
-        for (uint8_t k = 0; !act_changed && k < 5; k++) {
-            if (s_last_actual[k] != act_ch[k] || s_last_act_fg[k] != act_fg[k]) {
-                act_changed = true;
-            }
-        }
-        if (act_changed) {
-            fb_fill(ILI9341_BLACK, (uint32_t)row_w * row_h);
-            for (uint8_t k = 0; k < 5; k++) {
-                fb_draw_char(row_w, row_h,
-                              (uint16_t)(k * cw), 0,
-                              (char)('0' + act_ch[k]),
-                              act_fg[k], ILI9341_BLACK, sz);
-                s_last_actual[k] = act_ch[k];
-                s_last_act_fg[k] = act_fg[k];
-            }
-            fb_flush(bx, ty, row_w, row_h);
-        }
-
-        /* === 下部 cls14 + baseline 行 === */
-        const char *cls14_now = class_of_14(r.argmax_idx);
-        const char *bl_now    = current_baseline_name();
-        bool bot_changed = !s_tft_inited
-                        || strncmp(s_last_cls14, cls14_now, sizeof(s_last_cls14)) != 0
-                        || strncmp(s_last_bl_name, bl_now, sizeof(s_last_bl_name)) != 0;
-        if (bot_changed) {
-            char line[40];
-            snprintf(line, sizeof(line), "cls14=%s  %s", cls14_now, bl_now);
-            fb_fill(ILI9341_BLACK, (uint32_t)bot_w * bot_h);
-            fb_draw_string(bot_w, bot_h, 0, 0, line,
-                           ILI9341_CYAN, ILI9341_BLACK, 2);
-            fb_flush(0, boty, bot_w, bot_h);
-            strncpy(s_last_cls14, cls14_now, sizeof(s_last_cls14) - 1);
-            s_last_cls14[sizeof(s_last_cls14) - 1] = '\0';
-            strncpy(s_last_bl_name, bl_now, sizeof(s_last_bl_name) - 1);
-            s_last_bl_name[sizeof(s_last_bl_name) - 1] = '\0';
-        }
-        s_tft_inited = true;
+        s_state.pred_valid = true;
     }
+    tft_show_state();
+    ui_set_infer_led(false);     /* 推論完了 → LED OFF */
 }
 
 /* ---- INFER STREAM ---- */
@@ -592,6 +502,7 @@ static void poll_stop(ichp_cmd_lbuf_t *lb)
 static void do_infer_stream(int32_t n, ichp_cmd_lbuf_t *lb)
 {
     s_state.stop_requested = false;
+    s_state.in_infer_stream = true;
     uart_printf("OK INFER started count=%d", (int)n);
     int32_t done = 0;
     for (int32_t i = 0; i < n && !s_state.stop_requested; i++) {
@@ -604,6 +515,7 @@ static void do_infer_stream(int32_t n, ichp_cmd_lbuf_t *lb)
     } else {
         uart_printf("OK INFER done count=%d", (int)done);
     }
+    s_state.in_infer_stream = false;
 }
 
 /* ---- BL CALIBRATE ---- */
@@ -908,6 +820,281 @@ static status_t tft_init(void)
     return s;
 }
 
+/* ---- UI GPIO (トグル × 5 + EXEC ボタン + 推論中 LED) ----
+ *
+ * 入力 6 個は内蔵 pull-up + active-low。スイッチ ON 側で GND に短絡されて
+ * GPIO_PinRead == 0 → 論理的に "OPEN/PUSHED"、OFF 側で pull-up により 1 →
+ * "CLOSE/RELEASED"。LED は active-high 出力。
+ *
+ * トグル状態の bit 並びは bits[5] = (a, b, c, AB, BC) の順で、内部の
+ * decode_doors / drive_all_seq と同じ index 規約。
+ */
+
+#define UI_DEBOUNCE_MS 5u           /* スイッチ debounce 期間 */
+#define UI_POLL_INTERVAL_MS 20u     /* メインループ poll 間隔 */
+
+static void ui_pin_input_pullup(PORT_Type *port, GPIO_Type *gpio, uint32_t pin)
+{
+    const port_pin_config_t in_cfg = {
+        kPORT_PullUp,                kPORT_LowPullResistor,
+        kPORT_FastSlewRate,          kPORT_PassiveFilterEnable,  /* チャタリング軽減 */
+        kPORT_OpenDrainDisable,      kPORT_LowDriveStrength,
+        kPORT_MuxAlt0,               /* GPIO */
+        kPORT_InputBufferEnable,     kPORT_InputNormal,
+        kPORT_UnlockRegister,
+    };
+    PORT_SetPinConfig(port, pin, &in_cfg);
+    gpio_pin_config_t gpio_cfg = { kGPIO_DigitalInput, 0 };
+    GPIO_PinInit(gpio, pin, &gpio_cfg);
+}
+
+static void ui_pin_output_low(PORT_Type *port, GPIO_Type *gpio, uint32_t pin)
+{
+    const port_pin_config_t out_cfg = {
+        kPORT_PullDisable,           kPORT_LowPullResistor,
+        kPORT_FastSlewRate,          kPORT_PassiveFilterDisable,
+        kPORT_OpenDrainDisable,      kPORT_LowDriveStrength,
+        kPORT_MuxAlt0,               /* GPIO */
+        kPORT_InputBufferDisable,    kPORT_InputNormal,
+        kPORT_UnlockRegister,
+    };
+    PORT_SetPinConfig(port, pin, &out_cfg);
+    gpio_pin_config_t gpio_cfg = { kGPIO_DigitalOutput, 0 };
+    GPIO_PinInit(gpio, pin, &gpio_cfg);
+}
+
+static void ui_gpio_init(void)
+{
+    /* MCXN947 の各 PORT クロックを念のため全部有効化 (他のドライバ init で
+     * 既に on のはずだが、UI 専用で確実に立てておく)。 */
+    CLOCK_EnableClock(kCLOCK_Port0);
+    CLOCK_EnableClock(kCLOCK_Port1);
+
+    /* 入力 (5 トグル + EXEC ボタン) */
+    ui_pin_input_pullup(BOARD_UI_TGL_A_PORT,    BOARD_UI_TGL_A_GPIO,    BOARD_UI_TGL_A_PIN);
+    ui_pin_input_pullup(BOARD_UI_TGL_B_PORT,    BOARD_UI_TGL_B_GPIO,    BOARD_UI_TGL_B_PIN);
+    ui_pin_input_pullup(BOARD_UI_TGL_C_PORT,    BOARD_UI_TGL_C_GPIO,    BOARD_UI_TGL_C_PIN);
+    ui_pin_input_pullup(BOARD_UI_TGL_AB_PORT,   BOARD_UI_TGL_AB_GPIO,   BOARD_UI_TGL_AB_PIN);
+    ui_pin_input_pullup(BOARD_UI_TGL_BC_PORT,   BOARD_UI_TGL_BC_GPIO,   BOARD_UI_TGL_BC_PIN);
+    ui_pin_input_pullup(BOARD_UI_BTN_EXEC_PORT, BOARD_UI_BTN_EXEC_GPIO, BOARD_UI_BTN_EXEC_PIN);
+
+    /* 出力 LED (active-high) */
+    ui_pin_output_low(BOARD_UI_LED_INFER_PORT, BOARD_UI_LED_INFER_GPIO, BOARD_UI_LED_INFER_PIN);
+}
+
+/* 5 トグルの現状態を bits_out[5] = (a, b, c, AB, BC) に詰める。
+ * 反転 (active-high 扱い) — スイッチ ON (GND ショート、pin=LOW) で CLOSE (0)、
+ * OFF (解放、pull-up HIGH) で OPEN (1)。 */
+static void ui_read_toggles(uint8_t bits_out[5])
+{
+    bits_out[0] = (GPIO_PinRead(BOARD_UI_TGL_A_GPIO,  BOARD_UI_TGL_A_PIN)  == 0u) ? 0u : 1u;
+    bits_out[1] = (GPIO_PinRead(BOARD_UI_TGL_B_GPIO,  BOARD_UI_TGL_B_PIN)  == 0u) ? 0u : 1u;
+    bits_out[2] = (GPIO_PinRead(BOARD_UI_TGL_C_GPIO,  BOARD_UI_TGL_C_PIN)  == 0u) ? 0u : 1u;
+    bits_out[3] = (GPIO_PinRead(BOARD_UI_TGL_AB_GPIO, BOARD_UI_TGL_AB_PIN) == 0u) ? 0u : 1u;
+    bits_out[4] = (GPIO_PinRead(BOARD_UI_TGL_BC_GPIO, BOARD_UI_TGL_BC_PIN) == 0u) ? 0u : 1u;
+}
+
+/* EXEC ボタン: active-low、debounce 付きの "押下開始エッジ" 検出。
+ * 押した瞬間 (released → pressed) で 1 回だけ true を返す。 */
+static bool ui_read_exec_button_edge(void)
+{
+    static bool      s_last_pressed = false;
+    static uint32_t  s_last_change_ms = 0;
+    bool pressed_now = (GPIO_PinRead(BOARD_UI_BTN_EXEC_GPIO,
+                                     BOARD_UI_BTN_EXEC_PIN) == 0u);
+    /* debounce */
+    if (pressed_now != s_last_pressed) {
+        if (s_uptime_ms - s_last_change_ms >= UI_DEBOUNCE_MS) {
+            s_last_change_ms = s_uptime_ms;
+            bool prev = s_last_pressed;
+            s_last_pressed = pressed_now;
+            return (!prev) && pressed_now;   /* released → pressed エッジ */
+        }
+    } else {
+        s_last_change_ms = s_uptime_ms;       /* 安定中はタイマリセット */
+    }
+    return false;
+}
+
+static inline void ui_set_infer_led(bool on)
+{
+    GPIO_PinWrite(BOARD_UI_LED_INFER_GPIO, BOARD_UI_LED_INFER_PIN, on ? 1u : 0u);
+}
+
+/* ---- TFT 表示更新 (推論結果 / サーボ実状態) ----
+ *
+ * 表示順 (どちらの行も) [c, BC, b, AB, a]。
+ *
+ *   inf 行 (推論結果):
+ *     - s_state.pred_valid == false: "-----" を GREY で表示
+ *     - 物理サーボ状態が推論時から変わった: pred_valid を自動 false に → "-----" に戻る
+ *     - 推論結果あり (pred_valid == true): 各 bit を色付き表示
+ *         正解 + 観測可能 GREEN / 誤 + 観測可能 RED
+ *         正解 + 非観測  DARK_GREEN / 誤 + 非観測 DARK_RED
+ *
+ *   act 行 (サーボ実状態):
+ *     - 常にサーボ current_deg から算出した bit (1=OPEN / 0=CLOSE)
+ *     - 観測可能 ORANGE / 非観測 DARK_ORANGE
+ *
+ * 描画は sprite framebuffer + 行単位 diff で「変化があった行だけ」blit。
+ * 何も変わってなければ SPI 送信ゼロ。
+ */
+
+#define TFT_INF_DASH_CHAR '-'
+
+static void tft_draw_labels_once(void)
+{
+    if (s_tft.spi == NULL) return;
+    static bool s_labels_drawn = false;
+    if (s_labels_drawn) return;
+    /* size=2 のラベル "inf" / "act" を 5 桁数字行 (size=5, 高さ 35) の左に
+     * 縦中央寄せで描く。1 回描いたら以降不変なので flag で保護。 */
+    const uint16_t py = 40;
+    const uint16_t ty = py + 7u * 5u + 25u;
+    const uint16_t label_y_off = (35u - 7u * 2u) / 2u;   /* (行高 35 - 文字高 14) / 2 */
+    (void)ili9341_draw_string(&s_tft, 6, (uint16_t)(py + label_y_off), "inf",
+                              ILI9341_WHITE, ILI9341_BLACK, 2);
+    (void)ili9341_draw_string(&s_tft, 6, (uint16_t)(ty + label_y_off), "act",
+                              ILI9341_WHITE, ILI9341_BLACK, 2);
+    s_labels_drawn = true;
+}
+
+static void tft_show_state(void)
+{
+    if (s_tft.spi == NULL) return;
+    tft_draw_labels_once();
+
+    const uint8_t  sz   = 5;
+    const uint16_t cw   = 6u * sz;            /* 文字送り 30 px */
+    const uint16_t bx   = (uint16_t)((320u - 5u * cw) / 2u);  /* 数字 5 桁分の中央寄せ */
+    const uint16_t py   = 40;                 /* inf 行 y */
+    const uint16_t ty   = py + 7u * sz + 25u; /* act 行 y */
+    const uint16_t row_w = 5u * cw;
+    const uint16_t row_h = 7u * sz;
+
+    const uint16_t DARK_GREEN  = 0x03E0u;
+    const uint16_t DARK_RED    = 0x7800u;
+    const uint16_t DARK_ORANGE = 0x7A80u;
+
+    /* 表示順: 物理空間の左→右 = [c, BC, b, AB, a] */
+    const uint8_t order[5] = {2, 4, 1, 3, 0};
+
+    /* === 現サーボ位置 → bit === */
+    const servo_config_t *cfg = servo_config_get();
+    uint8_t actual[5];
+    for (uint8_t i = 0; i < 5; i++) {
+        float cur = s_state.current_deg[i];
+        float dop = fabsf(cur - cfg->open_deg[i]);
+        float dho = fabsf(cur - cfg->home_deg[i]);
+        actual[i] = (dop < dho) ? 1u : 0u;
+    }
+
+    /* === pred_valid を auto-invalidate ===
+     * 推論時の物理状態 (pred_servo_at) と現在 (actual) が違ったら推論結果は無効化。
+     * これでトグル切替・PC OPEN/CLOSE 等の全経路で「結果が古くなる」のを検出できる。 */
+    if (s_state.pred_valid) {
+        for (uint8_t i = 0; i < 5; i++) {
+            if (s_state.pred_servo_at[i] != actual[i]) {
+                s_state.pred_valid = false;
+                break;
+            }
+        }
+    }
+
+    /* === 観測可能性 (実 AB/BC ベース、cls14 縮約と同じロジック) === */
+    bool obs[5];
+    obs[0] = true;
+    obs[1] = (actual[3] == 1u);
+    obs[2] = (actual[3] == 1u) && (actual[4] == 1u);
+    obs[3] = true;
+    obs[4] = (actual[3] == 1u);
+
+    /* 行単位 diff 用の last state */
+    static bool     s_tft_inited      = false;
+    static char     s_last_inf_ch[5]  = {0};
+    static uint16_t s_last_inf_fg[5]  = {0};
+    static uint8_t  s_last_act_ch[5]  = {0};
+    static uint16_t s_last_act_fg[5]  = {0};
+
+    /* === inf 行 === */
+    char     inf_ch[5];
+    uint16_t inf_fg[5];
+    for (uint8_t k = 0; k < 5; k++) {
+        uint8_t i = order[k];
+        if (s_state.pred_valid) {
+            inf_ch[k] = (char)('0' + s_state.pred_bits[i]);
+            bool correct = (s_state.pred_bits[i] == actual[i]);
+            if (correct) inf_fg[k] = obs[i] ? ILI9341_GREEN : DARK_GREEN;
+            else         inf_fg[k] = obs[i] ? ILI9341_RED   : DARK_RED;
+        } else {
+            inf_ch[k] = TFT_INF_DASH_CHAR;
+            inf_fg[k] = ILI9341_GREY;
+        }
+    }
+    bool inf_changed = !s_tft_inited;
+    for (uint8_t k = 0; !inf_changed && k < 5; k++) {
+        if (s_last_inf_ch[k] != inf_ch[k] || s_last_inf_fg[k] != inf_fg[k]) {
+            inf_changed = true;
+        }
+    }
+    if (inf_changed) {
+        fb_fill(ILI9341_BLACK, (uint32_t)row_w * row_h);
+        for (uint8_t k = 0; k < 5; k++) {
+            fb_draw_char(row_w, row_h,
+                          (uint16_t)(k * cw), 0,
+                          inf_ch[k],
+                          inf_fg[k], ILI9341_BLACK, sz);
+            s_last_inf_ch[k] = inf_ch[k];
+            s_last_inf_fg[k] = inf_fg[k];
+        }
+        fb_flush(bx, py, row_w, row_h);
+    }
+
+    /* === act 行 === */
+    uint8_t  act_ch[5];
+    uint16_t act_fg[5];
+    for (uint8_t k = 0; k < 5; k++) {
+        uint8_t i = order[k];
+        act_ch[k] = actual[i];
+        act_fg[k] = obs[i] ? ILI9341_ORANGE : DARK_ORANGE;
+    }
+    bool act_changed = !s_tft_inited;
+    for (uint8_t k = 0; !act_changed && k < 5; k++) {
+        if (s_last_act_ch[k] != act_ch[k] || s_last_act_fg[k] != act_fg[k]) {
+            act_changed = true;
+        }
+    }
+    if (act_changed) {
+        fb_fill(ILI9341_BLACK, (uint32_t)row_w * row_h);
+        for (uint8_t k = 0; k < 5; k++) {
+            fb_draw_char(row_w, row_h,
+                          (uint16_t)(k * cw), 0,
+                          (char)('0' + act_ch[k]),
+                          act_fg[k], ILI9341_BLACK, sz);
+            s_last_act_ch[k] = act_ch[k];
+            s_last_act_fg[k] = act_fg[k];
+        }
+        fb_flush(bx, ty, row_w, row_h);
+    }
+
+    s_tft_inited = true;
+}
+
+/* トグルの bit を 1 個だけ強制的に servo に反映する (i = 0..4)。 */
+static void apply_toggle_to_servo(uint8_t i, uint8_t new_bit)
+{
+    const servo_config_t *cfg = servo_config_get();
+    const float target = (new_bit == 1u) ? cfg->open_deg[i] : cfg->home_deg[i];
+    (void)servo_set_deg(&s_servo, i, target);
+    s_state.current_deg[i] = target;
+    delay_ms(INF_NAMED_MOVE_MS);
+    (void)servo_set_off(&s_servo, i);
+    uart_printf("INFO TGL %s %s deg=%d",
+                ICHP_SERVO_NAMES[i],
+                (new_bit == 1u) ? "OPEN" : "CLOSE",
+                (int)target);
+}
+
 /* ---- main ---- */
 
 int main(void)
@@ -999,12 +1186,68 @@ int main(void)
     (void)ichp_baseline_factory();
     uart_write_line("INFO BOOT baseline=factory (noise_low hardcoded)");
 
-    uart_write_line("INFO IchiPing 10_inference ready");
+    /* --- UI GPIO 初期化 (5 トグル + EXEC ボタン + 推論中 LED) --- */
+    ui_gpio_init();
+    uart_write_line("INFO BOOT UI GPIO (toggles a/b/c/AB/BC + EXEC btn + LED) ready");
+
+    /* --- 自動キャリブレーション用 default pattern push ---
+     * PAT NOISE w_2000 2000 30 0 (= 2 s PRBS noise, vol 30%) を 0 番にセット。
+     * これがないと BL CALIBRATE / INFER の capture_logmag が no_pattern で fail する。
+     * PC コマンドから PAT_NOISE/PAT_SELECT で後で上書き可能。 */
+    if (pattern_lib_add_noise("w_2000", 2000u, 30u, 0u)) {
+        (void)pattern_lib_select(0u);
+        uart_write_line("INFO BOOT default pattern push (PAT NOISE w_2000 2000 30 0)");
+    } else {
+        uart_write_line("WARN BOOT default pattern push failed");
+    }
+
+    /* --- 自動 BL CALIBRATE: 起動直後の "全閉" 状態を baseline として 10 frame 平均 --- */
+    if (s_tft.spi != NULL) {
+        (void)ili9341_fill_rect(&s_tft, 0, 32, 320, 208, ILI9341_BLACK);
+        (void)ili9341_draw_string(&s_tft, 6, 100, "CALIBRATING...",
+                                  ILI9341_YELLOW, ILI9341_BLACK, 3);
+    }
+    uart_write_line("INFO BOOT auto BL CALIBRATE 10 starting");
+    ichp_cmd_lbuf_t boot_lb;
+    ichp_cmd_lbuf_reset(&boot_lb);
+    do_bl_calibrate(10, &boot_lb);
+    /* do_bl_calibrate は自動で BL_MODE_LIVE に切替済。 */
+    if (s_tft.spi != NULL) {
+        (void)ili9341_fill_rect(&s_tft, 0, 32, 320, 208, ILI9341_BLACK);
+    }
+
+    /* --- 起動時トグル状態にサーボ同期 --- */
+    {
+        uint8_t init_tgl[5];
+        ui_read_toggles(init_tgl);
+        uart_printf("INFO BOOT toggle initial state a=%u b=%u c=%u AB=%u BC=%u",
+                    (unsigned)init_tgl[0], (unsigned)init_tgl[1], (unsigned)init_tgl[2],
+                    (unsigned)init_tgl[3], (unsigned)init_tgl[4]);
+        const servo_config_t *cfg = servo_config_get();
+        for (uint8_t i = 0; i < 5; i++) {
+            /* 現在 current_deg は home (CLOSE) のはず。トグルが OPEN なら個別に駆動。 */
+            if (init_tgl[i] == 1u && s_state.current_deg[i] != cfg->open_deg[i]) {
+                apply_toggle_to_servo(i, 1u);
+            }
+        }
+    }
+
+    /* 初期 TFT: inf 行は "-----"、act 行は現サーボ状態 (boot sync 直後の値)。 */
+    tft_show_state();
+
+    uart_write_line("INFO IchiPing 10_inference ready (auto-calibrated, toggle-driven)");
     uart_write_line("INFO send PING / BL STATUS / INFER / INFER STREAM <N> / BL CALIBRATE [N]");
+    uart_write_line("INFO local: toggle switches drive servos, EXEC btn triggers INFER");
 
     ichp_cmd_lbuf_t lb;
     ichp_cmd_lbuf_reset(&lb);
+    /* ローカル UI 状態 (トグル前回値 + ポーリング時刻) */
+    uint8_t  last_tgl[5];
+    ui_read_toggles(last_tgl);   /* boot 後の同期で current_deg と一致しているはず */
+    uint32_t last_poll_ms = s_uptime_ms;
+
     for (;;) {
+        /* === UART 優先 (PC コマンド) === */
         if (LPUART_GetStatusFlags(INF_UART_BASE) & kLPUART_RxDataRegFullFlag) {
             uint8_t c = LPUART_ReadByte(INF_UART_BASE);
             if (ichp_cmd_lbuf_feed(&lb, (char)c)) {
@@ -1016,11 +1259,41 @@ int main(void)
                 const char *et = NULL, *ea = NULL;
                 if (ichp_cmd_parse(lb.buf, &cmd, &et, &ea)) {
                     apply_cmd(&cmd, &lb);
+                    /* PC からサーボ操作が来た可能性 → トグル基準値も最新の物理状態に
+                     * 引き直して "PC vs トグル の不一致" 検出をリセット。 */
+                    ui_read_toggles(last_tgl);
                 } else {
                     uart_printf("ERR %s %s", et ? et : "PARSE", ea ? ea : "?");
                 }
                 ichp_cmd_lbuf_reset(&lb);
             }
+        }
+
+        /* === ローカル UI (トグル / EXEC ボタン) を一定間隔でポーリング ===
+         * INFER STREAM 中はトグル / ボタン とも無視 (二重起動・サーボ駆動衝突回避)。 */
+        if (!s_state.in_infer_stream
+            && (s_uptime_ms - last_poll_ms) >= UI_POLL_INTERVAL_MS) {
+            last_poll_ms = s_uptime_ms;
+
+            /* トグル変化検出 */
+            uint8_t now_tgl[5];
+            ui_read_toggles(now_tgl);
+            for (uint8_t i = 0; i < 5; i++) {
+                if (now_tgl[i] != last_tgl[i]) {
+                    apply_toggle_to_servo(i, now_tgl[i]);
+                    last_tgl[i] = now_tgl[i];
+                }
+            }
+
+            /* EXEC ボタン押下エッジ → 1 回推論 */
+            if (ui_read_exec_button_edge()) {
+                uart_write_line("INFO EXEC button pressed → INFER 1");
+                do_infer_once();
+            }
+
+            /* TFT を再描画 (各種 servo 経路の変化を吸収、行単位 diff で
+             * 何も変わってなければ実 SPI 送信ゼロ)。 */
+            tft_show_state();
         }
     }
 }

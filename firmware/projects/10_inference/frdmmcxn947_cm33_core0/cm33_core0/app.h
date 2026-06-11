@@ -49,4 +49,30 @@
 #define BOARD_USER_BUTTON_PIN      6U
 #define BOARD_USER_BUTTON_NAME     "SW3"
 
+/* ---- UI 入力 (hardware/pin_plan.md §GPIO 入力 より) ----
+ * 5 個のトグルスイッチ (窓 a/b/c + 扉 AB/BC) + EXEC ボタン + 推論中 LED。
+ * すべて内蔵 pull-up + active-low (スイッチ ON で GND に短絡 → LOW)。
+ * 物理スイッチ OFF/CLOSE = HIGH、ON/OPEN = LOW という規約。 */
+#define BOARD_UI_TGL_A_PORT       PORT1
+#define BOARD_UI_TGL_A_GPIO       GPIO1
+#define BOARD_UI_TGL_A_PIN        23U    /* D3 = P1_23 */
+#define BOARD_UI_TGL_B_PORT       PORT0
+#define BOARD_UI_TGL_B_GPIO       GPIO0
+#define BOARD_UI_TGL_B_PIN        30U    /* D4 = P0_30 */
+#define BOARD_UI_TGL_C_PORT       PORT1
+#define BOARD_UI_TGL_C_GPIO       GPIO1
+#define BOARD_UI_TGL_C_PIN        21U    /* D5 = P1_21 (※ SAI1_MCLK / ENET 共用、本ファームは MCLK 未使用) */
+#define BOARD_UI_TGL_AB_PORT      PORT1
+#define BOARD_UI_TGL_AB_GPIO      GPIO1
+#define BOARD_UI_TGL_AB_PIN        2U    /* D6 = P1_2  (※ LED_BLUE と共用、トグル使用時は青 LED 消灯) */
+#define BOARD_UI_TGL_BC_PORT      PORT0
+#define BOARD_UI_TGL_BC_GPIO      GPIO0
+#define BOARD_UI_TGL_BC_PIN        31U   /* D7 = P0_31 */
+#define BOARD_UI_BTN_EXEC_PORT    PORT0
+#define BOARD_UI_BTN_EXEC_GPIO    GPIO0
+#define BOARD_UI_BTN_EXEC_PIN     28U    /* D8 = P0_28 (推論実行ボタン) */
+#define BOARD_UI_LED_INFER_PORT   PORT0
+#define BOARD_UI_LED_INFER_GPIO   GPIO0
+#define BOARD_UI_LED_INFER_PIN    29U    /* D2 = P0_29 (推論中インジケータ) */
+
 #endif /* _APP_H_ */
