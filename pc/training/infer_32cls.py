@@ -201,7 +201,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--out",      type=Path, required=True)
     ap.add_argument("--batch",    type=int, default=32)
     ap.add_argument("--device",   default="cuda" if torch.cuda.is_available() else "cpu")
-    ap.add_argument("--feature-mode", choices=("chirp", "noise", "noise_diff"),
+    ap.add_argument("--feature-mode", choices=("chirp", "noise", "noise_diff", "noise_diff_norm"),
                     default="chirp",
                     help="特徴量モード (学習時と一致させること)")
     ap.add_argument("--baseline-from", type=Path, default=None,
