@@ -28,12 +28,15 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from gen_fftdiff_band import (  # noqa: E402
-    DIVERGE_CLIM,
     DIVERGE_CMAP,
     FMAX_HZ,
     load_wav,
     welch_psd_db,
 )
+
+# 帯カラーチャートの色域 (±dB)。1 ビット状態差の diff は ±10 dB 程度まで振れるため、
+# 1 ペア版 (gen_fftdiff_band.py) の ±6 dB より広く取る
+DEFAULT_CLIM_DB = 10.0
 
 
 def main(argv=None) -> int:
@@ -45,6 +48,8 @@ def main(argv=None) -> int:
     ap.add_argument("--label-a", default="stateA")
     ap.add_argument("--label-b", default="stateB")
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--clim", type=float, default=DEFAULT_CLIM_DB,
+                    help="帯カラーチャートの色域 (±dB)")
     args = ap.parse_args(argv)
 
     rb, sb = load_wav(args.baseline)
@@ -68,10 +73,12 @@ def main(argv=None) -> int:
     import matplotlib.pyplot as plt
 
     fig = plt.figure(figsize=(10, 9))
-    gs = fig.add_gridspec(3, 1, height_ratios=[3, 2, 1.2], hspace=0.30)
+    # 右列はカラーバー専用 (最下段のみ使用)。主要 3 軸の幅を揃えて x 軸を整列させる
+    gs = fig.add_gridspec(3, 2, height_ratios=[3, 2, 1.2],
+                          width_ratios=[1, 0.02], hspace=0.30, wspace=0.04)
 
     # 段1: 両 state の FFT 重ね描き (2 本)
-    ax0 = fig.add_subplot(gs[0])
+    ax0 = fig.add_subplot(gs[0, 0])
     ax0.plot(freqs, psd_a, lw=0.8, color="#1f77b4", label=args.label_a, alpha=0.9)
     ax0.plot(freqs, psd_b, lw=0.8, color="#ff7f0e", label=args.label_b, alpha=0.85)
     ax0.set_ylabel("PSD (dB)")
@@ -82,12 +89,12 @@ def main(argv=None) -> int:
     ax0.set_xlim(0, FMAX_HZ)
 
     # 段2: 2 本の diff 線を同一パネルに重ね描き (= noise_diff 特徴量)
-    ax1 = fig.add_subplot(gs[1], sharex=ax0)
+    ax1 = fig.add_subplot(gs[1, 0], sharex=ax0)
     ax1.axhline(0, color="k", lw=0.6)
     ax1.plot(freqs, diff_a, lw=0.8, color="#1f77b4",
-             label=f"{args.label_a} − {args.label_base}")
+             label=f"{args.label_a} diff")
     ax1.plot(freqs, diff_b, lw=0.8, color="#ff7f0e", alpha=0.85,
-             label=f"{args.label_b} − {args.label_base}")
+             label=f"{args.label_b} diff")
     ax1.set_ylabel(f"Δ PSD (dB)\nvs {args.label_base}")
     ax1.legend(loc="upper right")
     ax1.grid(True, alpha=0.3)
@@ -95,16 +102,17 @@ def main(argv=None) -> int:
 
     # 段3: 両 diff の帯カラーチャートを 2 行並置。
     # interpolation="nearest" で行内 (y 方向) を完全一様に保ち、境界に横線を引く
-    ax2 = fig.add_subplot(gs[2], sharex=ax0)
+    ax2 = fig.add_subplot(gs[2, 0], sharex=ax0)
     bands = np.vstack([diff_a, diff_b])
     im = ax2.imshow(bands, aspect="auto", cmap=DIVERGE_CMAP,
-                    vmin=-DIVERGE_CLIM, vmax=DIVERGE_CLIM,
+                    vmin=-args.clim, vmax=args.clim,
                     extent=[0, FMAX_HZ, 0, 2], interpolation="nearest")
     ax2.axhline(1, color="k", lw=1.5)
     ax2.set_yticks([0.5, 1.5])
     ax2.set_yticklabels([args.label_b, args.label_a])  # imshow は上が先頭行
     ax2.set_xlabel("Frequency (Hz)")
-    cbar = fig.colorbar(im, ax=[ax0, ax1, ax2], fraction=0.025, pad=0.02)
+    cax = fig.add_subplot(gs[2, 1])
+    cbar = fig.colorbar(im, cax=cax)
     cbar.set_label("Δ PSD (dB)")
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
