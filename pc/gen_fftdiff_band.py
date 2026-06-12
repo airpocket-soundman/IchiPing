@@ -33,7 +33,7 @@ import numpy as np
 
 FMAX_HZ = 8000.0   # 表示上限 (16 kHz / 2)
 DIVERGE_CMAP = "RdBu_r"  # 0 = 白背景 (coolwarm は 0 がグレーになるため不採用)
-DIVERGE_CLIM = 15.0  # ±dB (gen_fftdiff_band_pair.py と同一基準。小変化の視認性優先)
+DIVERGE_CLIM = 10.0  # ±dB (gen_fftdiff_band_pair.py と同一基準。小変化の視認性優先)
 
 
 def load_wav(path: Path):

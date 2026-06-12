@@ -38,9 +38,9 @@ from gen_fftdiff_band import (  # noqa: E402
 )
 
 # 帯カラーチャートの色域 (±dB)。full_32_eval_v1 の全 31 状態 vs s00000 の diff の
-# 最大は 25.3 dB (s10110) だが、小さい変化の視認性を優先して ±15 dB とする
-# (15 dB 超の bin は端の色にクリップ)
-DEFAULT_CLIM_DB = 15.0
+# 最大は 25.3 dB (s10110) だが、小さい変化の視認性を優先して ±10 dB とする
+# (10 dB 超の bin は端の色にクリップ)
+DEFAULT_CLIM_DB = 10.0
 
 
 def main(argv=None) -> int:
