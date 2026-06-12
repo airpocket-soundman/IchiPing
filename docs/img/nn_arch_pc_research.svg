@@ -117,7 +117,7 @@
 
   <!-- 32 logits out -->
   <rect class="box-out" x="380" y="638" width="340" height="42" rx="6"/>
-  <text x="550" y="658" text-anchor="middle" class="ttl-s">32 logits = 5-bit state (s00000..s11111)</text>
+  <text x="550" y="658" text-anchor="middle" class="ttl-s">32 logits = 5-bit state (h00000..h11111)</text>
   <text x="550" y="672" text-anchor="middle" class="sub-s">PC は FP32 で訓練、PC 推論で精度上限を確認するための研究用</text>
 
   <!-- SIZE_PRESETS 表 -->

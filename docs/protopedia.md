@@ -186,20 +186,20 @@ IchiPing はこの **アクティブ音響センシング** の原理を、$50 �
 
 ## 検出の仕組み — FFT diff による特徴抽出
 
-NN に渡す入力は **生の FFT スペクトルではなく、「baseline (s00000 全閉) からの diff」** です。これが SNR を大きく改善し、窓開閉の特徴を顕在化させる鍵になっています。
+NN に渡す入力は **生の FFT スペクトルではなく、「baseline (h00000 全閉) からの diff」** です。これが SNR を大きく改善し、窓開閉の特徴を顕在化させる鍵になっています。
 
-![FFT diff による特徴抽出 — s00000 (全閉) vs s10000 (窓 a 開)](https://raw.githubusercontent.com/airpocket-soundman/IchiPing/main/docs/img/fft_diff_explanation.svg)
+![FFT diff による特徴抽出 — h00000 (全閉) vs h00001 (窓 a 開)](https://raw.githubusercontent.com/airpocket-soundman/IchiPing/main/docs/img/fft_diff_explanation.svg)
 
 上から:
-1. **s00000 (全閉) の FFT マグニチュード** — SPK の周波数特性、室内モード、定常雑音、室温・湿度依存などが全部混在
-2. **s10000 (窓 a のみ開) の FFT マグニチュード** — 上とほぼ同じに見える。窓 a を開けた音響的変化は数 dB 程度で、目視ではほぼ判別不能
-3. **Diff = s10000 − s00000** — 両者の共通成分（雑音床や SPK 特性）が打ち消され、**窓 a を開けたことで起きた変化だけ**が残る。309 Hz で +30 dB のピーク、1212 Hz / 2798 Hz で −15〜−20 dB のディップ、と明瞭な特徴が出る
+1. **h00000 (全閉) の FFT マグニチュード** — SPK の周波数特性、室内モード、定常雑音、室温・湿度依存などが全部混在
+2. **h00001 (窓 a のみ開) の FFT マグニチュード** — 上とほぼ同じに見える。窓 a を開けた音響的変化は数 dB 程度で、目視ではほぼ判別不能
+3. **Diff = h00001 − h00000** — 両者の共通成分（雑音床や SPK 特性）が打ち消され、**窓 a を開けたことで起きた変化だけ**が残る。309 Hz で +30 dB のピーク、1212 Hz / 2798 Hz で −15〜−20 dB のディップ、と明瞭な特徴が出る
 
 **SNR 改善は +20〜+30 dB**。NN は「環境全部の絶対値」ではなく「**何が変わったか**」に集中して学習できるため、少サンプルでも高精度を実現できます。
 
 ### クラスごとの FFT diff 形状
 
-![FFT diff from baseline s00000 (dB) — sorted by equivalence class](https://raw.githubusercontent.com/airpocket-soundman/IchiPing/main/docs/img/fft_diff_heatmap_by_class.png)
+![FFT diff from baseline h00000 (dB) — sorted by equivalence class](https://raw.githubusercontent.com/airpocket-soundman/IchiPing/main/docs/img/fft_diff_heatmap_by_class.png)
 
 32 状態を等価クラス順 (A1 → A2 → B1..B4 → C1..C8) に縦に並べ、横軸を周波数 (50-5000 Hz log) として diff を **色 (赤 = +dB / 青 = -dB)** で示したヒートマップ。クラスごとに独自のパターンが目視で確認できます:
 

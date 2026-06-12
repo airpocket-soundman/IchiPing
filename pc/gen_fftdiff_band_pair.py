@@ -11,12 +11,15 @@ gen_fftdiff_band.py (1 ペア版) の拡張。2 つの state を共通ベース�
   段3: 両 diff の帯カラーチャートを 2 行で並置 (coolwarm, ±6 dB 共有)。
        各帯は 1 次元 (y 方向は一様)、間に区切りの横線を引く
 
+状態ラベルは h 表記 (間取り順、state_labels.py 参照) で表示する。
+wav パスのディレクトリ名は s 表記のまま (データ正本は s)。
+
 使い方:
   uv run --extra training python gen_fftdiff_band_pair.py \
       --baseline captures/full_32_eval_v1/s00000/frame_000000.wav \
-      --wav-a captures/full_32_eval_v1/s00010/frame_000000.wav --label-a s00010 \
-      --wav-b captures/full_32_eval_v1/s00011/frame_000000.wav --label-b s00011 \
-      --out ../docs/img/fftdiff_band_s00010_s00011.png
+      --wav-a captures/full_32_eval_v1/s00010/frame_000000.wav --label-a h00010 \
+      --wav-b captures/full_32_eval_v1/s00011/frame_000000.wav --label-b h01010 \
+      --out ../docs/img/fftdiff_band_h00010_h01010.png
 """
 from __future__ import annotations
 
@@ -45,7 +48,7 @@ def main(argv=None) -> int:
     ap.add_argument("--baseline", type=Path, required=True, help="ベースライン wav (s00000)")
     ap.add_argument("--wav-a", type=Path, required=True)
     ap.add_argument("--wav-b", type=Path, required=True)
-    ap.add_argument("--label-base", default="s00000")
+    ap.add_argument("--label-base", default="h00000")
     ap.add_argument("--label-a", default="stateA")
     ap.add_argument("--label-b", default="stateB")
     ap.add_argument("--out", type=Path, required=True)

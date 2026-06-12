@@ -124,7 +124,7 @@
 
   <!-- 32 logits -->
   <rect class="box-out" x="380" y="690" width="340" height="44" rx="6"/>
-  <text x="550" y="710" text-anchor="middle" class="ttl-s">32 logits = 5-bit state (s00000..s11111)</text>
+  <text x="550" y="710" text-anchor="middle" class="ttl-s">32 logits = 5-bit state (h00000..h11111)</text>
   <text x="550" y="725" text-anchor="middle" class="sub-s">INT8 量子化, dequantize は CPU 側で実施</text>
 
   <!-- Firmware side: 14cls derivation -->

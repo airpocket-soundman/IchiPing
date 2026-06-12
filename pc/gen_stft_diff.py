@@ -13,11 +13,15 @@ noise_diff 特徴量の妥当性の可視化。
 |diff| の 99 パーセンタイルから対称に決める (独立録音同士の per-bin 差分は
 分散が大きいため、固定 ±6 dB では飽和しやすい)。
 
+状態ラベルは h 表記 (間取り順、state_labels.py 参照) で表示する。
+wav パスのディレクトリ名は s 表記のまま (データ正本は s)。
+
 使い方:
   uv run --extra training python gen_stft_diff.py \
       --wav0 captures/full_32_eval_v1/s00000/frame_000000.wav \
-      --wav1 captures/full_32_eval_v1/s00001/frame_000001.wav \
-      --out ../docs/img/stft_diff_s00000_vs_s00001.png
+      --wav1 captures/full_32_eval_v1/s00001/frame_000000.wav \
+      --label0 h00000 --label1 h01000 \
+      --out ../docs/img/stft_diff_h00000_vs_h01000.png
 """
 from __future__ import annotations
 
@@ -45,8 +49,8 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--wav0", type=Path, required=True, help="基準 state の wav")
     ap.add_argument("--wav1", type=Path, required=True, help="比較 state の wav")
-    ap.add_argument("--label0", default="s00000")
-    ap.add_argument("--label1", default="s00001")
+    ap.add_argument("--label0", default="h00000")
+    ap.add_argument("--label1", default="h01000")
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args(argv)
 

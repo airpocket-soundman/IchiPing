@@ -242,13 +242,18 @@ def make_diff_heatmap(states: dict[str, tuple[np.ndarray, np.ndarray]],
                       baseline_key: str, out_path: Path,
                       order: list[str] | None = None,
                       title_suffix: str = "",
-                      draw_class_dividers: bool = False) -> None:
+                      draw_class_dividers: bool = False,
+                      label_fn=None,
+                      ylabel: str = "State (sABCDE)") -> None:
     """Heatmap: rows=states, cols=freq bins, values=mag_db - baseline.
 
     order: explicit row order (defaults to alphabetical).
     draw_class_dividers: when True, add horizontal lines between equivalence
         classes and put the class tag in the y-tick label.
+    label_fn: 表示専用のラベル変換 (例: state_labels.s_to_h)。内部のキー・
+        等価クラス判定は s 表記のまま、軸・タイトルの表示だけ変換する。
     """
+    disp = label_fn if label_fn is not None else (lambda k: k)
     if baseline_key not in states:
         print(f"warning: baseline {baseline_key} missing; skipping diff heatmap")
         return
@@ -273,7 +278,7 @@ def make_diff_heatmap(states: dict[str, tuple[np.ndarray, np.ndarray]],
     ax.set_yticks(np.arange(n_states))
     if draw_class_dividers:
         # Tag each label with its equivalence class for quick orientation.
-        ytick_labels = [f"{class_of(k):<3} {k}" for k in sorted_keys]
+        ytick_labels = [f"{class_of(k):<3} {disp(k)}" for k in sorted_keys]
         ax.set_yticklabels(ytick_labels, fontsize=7, fontfamily="monospace")
         # Horizontal lines between class transitions.
         prev_cls = None
@@ -283,10 +288,10 @@ def make_diff_heatmap(states: dict[str, tuple[np.ndarray, np.ndarray]],
                 ax.axhline(i - 0.5, color="#1a1d23", linewidth=0.8, alpha=0.7)
             prev_cls = cls
     else:
-        ax.set_yticklabels(sorted_keys, fontsize=7)
-    ax.set_ylabel("State (sABCDE)")
-    ax.set_title(f"FFT diff from baseline {baseline_key} (dB){title_suffix}")
-    fig.colorbar(im, ax=ax, label=f"dB vs {baseline_key}")
+        ax.set_yticklabels([disp(k) for k in sorted_keys], fontsize=7)
+    ax.set_ylabel(ylabel)
+    ax.set_title(f"FFT diff from baseline {disp(baseline_key)} (dB){title_suffix}")
+    fig.colorbar(im, ax=ax, label=f"dB vs {disp(baseline_key)}")
     plt.tight_layout()
     fig.savefig(out_path, dpi=130)
     plt.close(fig)

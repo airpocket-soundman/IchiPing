@@ -7,12 +7,16 @@
        → pc/runs/v1_6_fftdiff/delta_v6_vs_v1_5.png と同じ「色で diff を示す」表現の
          1 状態ペア版。「diff をこの帯カラーチャートで示している」ことが一目で分かる図。
 
+状態ラベルは h 表記 (間取り順、state_labels.py 参照) で表示する。
+wav パスのディレクトリ名は s 表記のまま (データ正本は s)。
+
 使い方:
   # 実データ (測定マシンで代表 wav が揃ったら):
   uv run --extra training python gen_fftdiff_band.py \
       --wav0 captures/full_32_eval_v1/s00000/frame_000000.wav \
-      --wav1 captures/full_32_eval_v1/s00001/frame_000001.wav \
-      --out ../docs/img/fftdiff_band_s00000_vs_s00001.png
+      --wav1 captures/full_32_eval_v1/s00001/frame_000000.wav \
+      --label0 h00000 --label1 h01000 \
+      --out ../docs/img/fftdiff_band_h00000_vs_h01000.png
 
   # レイアウト確認用モック (合成データ、実測ではない):
   uv run --extra training python gen_fftdiff_band.py --mock \
@@ -48,7 +52,7 @@ def welch_psd_db(samples_f: np.ndarray, rate: int):
 
 
 def composite(freqs, psd0_db, psd1_db, title, out_path: Path,
-              label0="s00000", label1="s00001"):
+              label0="h00000", label1="h01000"):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -131,8 +135,8 @@ def main(argv=None) -> int:
     ap.add_argument("--wav1", type=Path, help="s00001 の wav")
     ap.add_argument("--mock", action="store_true", help="合成データでレイアウト確認")
     ap.add_argument("--out", type=Path, required=True)
-    ap.add_argument("--label0", default="s00000")
-    ap.add_argument("--label1", default="s00001")
+    ap.add_argument("--label0", default="h00000")
+    ap.add_argument("--label1", default="h01000")
     args = ap.parse_args(argv)
 
     args.out.parent.mkdir(parents=True, exist_ok=True)

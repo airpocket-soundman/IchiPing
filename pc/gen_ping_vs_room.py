@@ -10,12 +10,15 @@ ping 側は firmware の xorshift32 PRBS を厳密複製した合成波形
 (gen_ping_figures.xorshift32_prbs)。実機 seed は再現不可だが統計的に
 フラットなスペクトルはシード非依存 (figures_spec.md「ping 図の注意」参照)。
 
+状態ラベルは h 表記 (間取り順、state_labels.py 参照) で表示する。
+wav パスのディレクトリ名は s 表記のまま (データ正本は s)。
+
 使い方:
   uv run --extra training python gen_ping_vs_room.py \
       --wav captures/full_32_eval_v1/s00000/frame_000000.wav \
-      --label s00000 \
-      --out-stft ../docs/img/ping_vs_s00000_stft.png \
-      --out-fft ../docs/img/ping_vs_s00000_fft.png
+      --label h00000 \
+      --out-stft ../docs/img/ping_vs_h00000_stft.png \
+      --out-fft ../docs/img/ping_vs_h00000_fft.png
 """
 from __future__ import annotations
 
@@ -109,7 +112,7 @@ def plot_fft_overlay(ping_f, rec_f, rec_rate: int, rec_label: str, out_path: Pat
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--wav", type=Path, required=True, help="録音側 wav (s00000)")
-    ap.add_argument("--label", default="s00000")
+    ap.add_argument("--label", default="h00000")
     ap.add_argument("--out-stft", type=Path, required=True)
     ap.add_argument("--out-fft", type=Path, required=True)
     args = ap.parse_args(argv)
