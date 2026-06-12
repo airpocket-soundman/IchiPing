@@ -33,7 +33,7 @@ import numpy as np
 
 FMAX_HZ = 8000.0   # 表示上限 (16 kHz / 2)
 DIVERGE_CMAP = "coolwarm"
-DIVERGE_CLIM = 6.0  # ±dB (参考図 delta_v6_vs_v1_5.png に合わせる)
+DIVERGE_CLIM = 20.0  # ±dB (gen_fftdiff_band_pair.py と同一基準。小変化の視認性優先)
 
 
 def load_wav(path: Path):
@@ -64,10 +64,12 @@ def composite(freqs, psd0_db, psd1_db, title, out_path: Path,
     diff = psd1_db - psd0_db
 
     fig = plt.figure(figsize=(10, 8))
-    gs = fig.add_gridspec(3, 1, height_ratios=[3, 2, 0.8], hspace=0.30)
+    # 右列はカラーバー専用 (最下段のみ使用)。主要 3 軸の幅を揃えて x 軸を整列させる
+    gs = fig.add_gridspec(3, 2, height_ratios=[3, 2, 0.8],
+                          width_ratios=[1, 0.02], hspace=0.30, wspace=0.04)
 
     # 段1: FFT 重ね描き
-    ax0 = fig.add_subplot(gs[0])
+    ax0 = fig.add_subplot(gs[0, 0])
     ax0.plot(freqs, psd0_db, lw=0.8, color="#1f77b4", label=label0)
     ax0.plot(freqs, psd1_db, lw=0.8, color="#ff7f0e", label=label1, alpha=0.85)
     ax0.set_ylabel("PSD (dB)")
@@ -76,26 +78,28 @@ def composite(freqs, psd0_db, psd1_db, title, out_path: Path,
     ax0.grid(True, alpha=0.3)
     ax0.set_xlim(0, FMAX_HZ)
 
-    # 段2: 差分線
-    ax1 = fig.add_subplot(gs[1], sharex=ax0)
+    # 段2: 差分線 (= noise_diff 特徴量)
+    ax1 = fig.add_subplot(gs[1, 0], sharex=ax0)
     ax1.axhline(0, color="k", lw=0.6)
-    ax1.plot(freqs, diff, lw=0.8, color="#7f2fa0")
+    ax1.plot(freqs, diff, lw=0.8, color="#7f2fa0", label=f"{label1} diff")
     ax1.fill_between(freqs, diff, 0, where=diff >= 0, color="#d62728", alpha=0.35)
     ax1.fill_between(freqs, diff, 0, where=diff < 0, color="#1f5fd6", alpha=0.35)
-    ax1.set_ylabel(f"Δ PSD (dB)\n{label1} − {label0}")
+    ax1.set_ylabel(f"Δ PSD (dB)\nvs {label0}")
+    ax1.legend(loc="upper right")
     ax1.grid(True, alpha=0.3)
     ax1.set_xlim(0, FMAX_HZ)
 
-    # 段3: diff の帯カラーチャート (1 行ヒートマップ)
-    ax2 = fig.add_subplot(gs[2], sharex=ax0)
+    # 段3: diff の帯カラーチャート (1 行ヒートマップ、y 方向一様)
+    ax2 = fig.add_subplot(gs[2, 0], sharex=ax0)
     band = diff[np.newaxis, :]
     im = ax2.imshow(band, aspect="auto", cmap=DIVERGE_CMAP,
                     vmin=-DIVERGE_CLIM, vmax=DIVERGE_CLIM,
-                    extent=[0, FMAX_HZ, 0, 1])
+                    extent=[0, FMAX_HZ, 0, 1], interpolation="nearest")
     ax2.set_yticks([])
     ax2.set_xlabel("Frequency (Hz)")
     ax2.set_ylabel("diff band")
-    cbar = fig.colorbar(im, ax=[ax0, ax1, ax2], fraction=0.025, pad=0.02)
+    cax = fig.add_subplot(gs[2, 1])
+    cbar = fig.colorbar(im, cax=cax)
     cbar.set_label("Δ PSD (dB)")
 
     fig.savefig(out_path, dpi=120, bbox_inches="tight")
@@ -106,25 +110,27 @@ def composite(freqs, psd0_db, psd1_db, title, out_path: Path,
 def make_mock():
     """合成 PSD でレイアウトを確認するためのモック (実測ではない)。
 
-    s00000 = フラット白色雑音が室共鳴で色付いた想定 (緩い包絡 + 数本の共鳴ピーク)。
-    s00001 = s00000 とほぼ同じだが、扉1枚開で一部のモードが移動/増減した想定。
+    h00000 = フラット白色雑音が室共鳴で色付いた想定 (緩い包絡 + 数本の共鳴ピーク)。
+    h01000 = h00000 とほぼ同じだが、扉1枚開で一部のモードが移動/増減した想定。
     → diff は大部分 0 付近、局所的にだけ立つ = 「特徴だけ分離」を表現。
+    振幅は実測の 1 ビット状態差 (diff ±10 dB 級) に合わせ、±20 dB 色域でも
+    帯カラーチャートに色が乗るスケールにしてある。
     """
     freqs = np.linspace(0, 8000, 1024)
     rng = np.random.default_rng(12345)
 
     def resonances(peaks):
-        y = -3.0 * (freqs / 8000.0)  # 緩い高域ロールオフ
+        y = -6.0 * (freqs / 8000.0)  # 緩い高域ロールオフ
         for f0, amp, q in peaks:
             y += amp * np.exp(-0.5 * ((freqs - f0) / (f0 / q)) ** 2)
-        y += rng.normal(0, 0.4, freqs.shape)  # 測定ばらつき相当
+        y += rng.normal(0, 0.8, freqs.shape)  # 測定ばらつき相当
         return y
 
-    base = [(450, 6, 12), (1300, 5, 16), (2600, 4, 18), (4200, 5, 14), (6100, 3, 20)]
+    base = [(450, 12, 12), (1300, 11, 16), (2600, 8, 18), (4200, 10, 14), (6100, 7, 20)]
     psd0 = resonances(base)
-    # s00001: 1300Hz のモードが弱まり、3000Hz 付近に新たなモードが出る想定
-    mod = [(450, 6, 12), (1300, 2.0, 16), (2600, 4, 18),
-           (3000, 4.5, 22), (4200, 5, 14), (6100, 3, 20)]
+    # h01000: 1300Hz のモードが弱まり、3000Hz 付近に新たなモードが出る想定
+    mod = [(450, 12, 12), (1300, 3.0, 16), (2600, 8, 18),
+           (3000, 10.0, 22), (4200, 10, 14), (6100, 7, 20)]
     psd1 = resonances(mod)
     return freqs, psd0, psd1
 
