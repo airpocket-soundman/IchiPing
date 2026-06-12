@@ -129,6 +129,26 @@ loop (SW3 ON 時):
 └──────────────────────────────────────────┘
 </code></pre>
 
+<h3>推論結果評価バナー（下段）</h3>
+
+<p>
+  画面下段（y≈175〜221）に、トグルスイッチで設定した真状態と推論結果を
+  突き合わせた 3 段階の評価を、色付き矩形＋白文字のバナーで表示する。
+  EXEC ボタンでの推論後に確定し、トグルや扉操作で物理状態が変わると推論結果は
+  無効化されバナーは消える（<code>verdict</code> 変化時のみ再描画）。
+</p>
+
+<table>
+  <thead>
+    <tr><th>判定</th><th>条件</th><th>矩形色（文字は白）</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Complete Success</td><td>32cls 完全一致（5 bit すべて一致）</td><td>青 <code>ILI9341_BLUE</code></td></tr>
+    <tr><td>Conditional Success</td><td>14cls 等価クラスのみ一致（扉で遮断され観測不能な変数の取り違えは許容）</td><td>緑 <code>ILI9341_GREEN</code></td></tr>
+    <tr><td>Failure</td><td>14cls も不一致</td><td>赤 <code>ILI9341_RED</code></td></tr>
+  </tbody>
+</table>
+
 <h2>UART 出力（PC モニタ用）</h2>
 
 <p>

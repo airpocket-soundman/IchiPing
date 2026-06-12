@@ -1077,6 +1077,62 @@ static void tft_show_state(void)
         fb_flush(bx, ty, row_w, row_h);
     }
 
+    /* === 推論結果評価バナー (下段) ===
+     * トグル真状態 (actual) と推論結果 (pred_bits) を比較して 3 段階で評価:
+     *   32cls 一致 (全 5 bit 一致)   → "Complete Success"    (青)
+     *   14cls 等価クラスのみ一致      → "Conditional Success" (緑)
+     *   14cls も不一致               → "Failure"             (赤)
+     *   推論結果が無効 (pred_valid=false) のときはバナーを消す。
+     * 矩形は塗りつぶし、文字は白。fb スプライト (5250px) には収まらない大きさ
+     * なので ili9341 直接描画 (fill_rect + draw_string)。verdict 変化時のみ再描画。 */
+    {
+        const uint16_t BANNER_X = 4;
+        const uint16_t BANNER_Y = 175;
+        const uint16_t BANNER_W = 312;
+        const uint16_t BANNER_H = 46;
+
+        /* verdict: 0=none(無効), 1=complete, 2=conditional, 3=failure */
+        uint8_t verdict = 0u;
+        if (s_state.pred_valid) {
+            uint8_t pred_idx = 0u, act_idx = 0u;
+            for (uint8_t i = 0; i < 5; i++) {
+                pred_idx |= (uint8_t)((s_state.pred_bits[i] & 1u) << i);
+                act_idx  |= (uint8_t)((actual[i] & 1u) << i);
+            }
+            if (pred_idx == act_idx) {
+                verdict = 1u;   /* 32cls exact */
+            } else {
+                verdict = (strcmp(class_of_14(pred_idx),
+                                  class_of_14(act_idx)) == 0) ? 2u : 3u;
+            }
+        }
+
+        static uint8_t s_last_verdict = 0xFFu;
+        if (verdict != s_last_verdict) {
+            uint16_t    bg;
+            const char *msg;
+            switch (verdict) {
+                case 1u:  bg = ILI9341_BLUE;  msg = "Complete Success";    break;
+                case 2u:  bg = ILI9341_GREEN; msg = "Conditional Success"; break;
+                case 3u:  bg = ILI9341_RED;   msg = "Failure";             break;
+                default:  bg = ILI9341_BLACK; msg = NULL;                  break;
+            }
+            (void)ili9341_fill_rect(&s_tft, BANNER_X, BANNER_Y,
+                                    BANNER_W, BANNER_H, bg);
+            if (msg != NULL) {
+                const uint8_t tsz = 2u;
+                uint16_t tw  = (uint16_t)(strlen(msg) * 6u * tsz);
+                uint16_t tx  = (tw < BANNER_W)
+                                 ? (uint16_t)(BANNER_X + (BANNER_W - tw) / 2u)
+                                 : BANNER_X;
+                uint16_t tyb = (uint16_t)(BANNER_Y + (BANNER_H - 7u * tsz) / 2u);
+                (void)ili9341_draw_string(&s_tft, tx, tyb, msg,
+                                          ILI9341_WHITE, bg, tsz);
+            }
+            s_last_verdict = verdict;
+        }
+    }
+
     s_tft_inited = true;
 }
 
