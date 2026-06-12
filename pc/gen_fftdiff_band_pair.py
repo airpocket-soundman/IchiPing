@@ -34,9 +34,9 @@ from gen_fftdiff_band import (  # noqa: E402
     welch_psd_db,
 )
 
-# 帯カラーチャートの色域 (±dB)。1 ビット状態差の diff は ±10 dB 程度まで振れるため、
-# 1 ペア版 (gen_fftdiff_band.py) の ±6 dB より広く取る
-DEFAULT_CLIM_DB = 10.0
+# 帯カラーチャートの色域 (±dB)。full_32_eval_v1 の全 31 状態 vs s00000 の diff を
+# 走査した最大は 25.3 dB (s10110)。どのクラスの帯でも飽和しないよう ±26 dB とする
+DEFAULT_CLIM_DB = 26.0
 
 
 def main(argv=None) -> int:
