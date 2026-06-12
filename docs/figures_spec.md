@@ -6,6 +6,9 @@
 **欲しい図の仕様をここに記録**しておく。録音側データが揃ったら測定マシンで生成する
 （手順は [capture_machine_todo.md](capture_machine_todo.md) に連携）。
 
+> **2026-06-12 更新**: 測定マシンで録音側の図も含め**全図生成済み**（下記「生成状況」参照）。
+> 代表 wav (`frame_000000.wav`) もコミット済みのため、以後はどのクローンでも再生成可能。
+
 共通条件: サンプルレート 16 kHz（`ICHP_FEAT_RATE_HZ`）、励振 = `noise_2s_prbs`（PRBS 白色雑音 2 s）。
 STFT は `calibrator.py` の `_save_spectrogram_plot` 準拠（nperseg=1024, noverlap=512, y 軸 log, magma）。
 FFT は `_save_fft_plot` 準拠（semilogx, 平均スペクトル, dB）。
@@ -24,6 +27,8 @@ FFT は `_save_fft_plot` 準拠（semilogx, 平均スペクトル, dB）。
 
 - 左半分（ping 側）は **今すぐ生成可能**。下記「生成済み」参照。
 - 右半分（s00000 録音側）は測定マシンの代表 wav が必要。
+- 並置版生成スクリプト: `pc/gen_ping_vs_room.py`（`--wav` に録音 wav を渡す。
+  1a = STFT 横並び、1b = FFT 重ね描き・中央値 0 dB 正規化）
 
 ## 図2: s00000 vs s00001 の STFT と差分（特徴分離）
 
@@ -37,6 +42,8 @@ FFT は `_save_fft_plot` 準拠（semilogx, 平均スペクトル, dB）。
 | 2c | STFT 差分 `(s00001 − s00000)`（dB 差分、発散カラーマップ推奨: coolwarm / bwr, 0 中心） |
 
 - 全て測定マシンの代表 wav（`frame_000000.wav`）が必要。FFT 差分版も併せて作ると図1b と対比しやすい。
+- 生成スクリプト: `pc/gen_stft_diff.py`（2a/2b は共通カラースケール、2c は coolwarm 0 中心・
+  色域は |diff| の 99 パーセンタイルから対称に自動決定）
 
 ## 図3: s00000 vs s00001 の FFT 比較 + 差分 + 差分の帯カラーチャート
 
@@ -72,10 +79,13 @@ FFT は `_save_fft_plot` 準拠（semilogx, 平均スペクトル, dB）。
 |---|---|---|
 | ping STFT | ✅ 生成済み | `docs/img/ping_noise_stft.png` |
 | ping FFT | ✅ 生成済み | `docs/img/ping_noise_fft.png` |
-| 図1 右（s00000 録音）STFT/FFT | ⏳ 測定マシン待ち | — |
-| 図2（s00000/s00001 STFT + diff） | ⏳ 測定マシン待ち | — |
+| 図1 右（s00000 録音）STFT/FFT | ✅ 生成済み（2026-06-12, eval_v1 実データ） | `docs/img/s00000/{spectrogram,fft}.png`（s00001 も同様） |
+| 図1 並置版（1a STFT / 1b FFT） | ✅ 生成済み（2026-06-12） | `docs/img/ping_vs_s00000_{stft,fft}.png` |
+| 図2（s00000/s00001 STFT + diff） | ✅ 生成済み（2026-06-12） | `docs/img/stft_diff_s00000_vs_s00001.png` |
 | 図3 レイアウトモック（合成） | ✅ 生成済み・**構図承認済み** | `docs/img/fftdiff_band_MOCK.png` |
-| 図3 実データ版（FFT 比較+diff+帯） | ⏳ 測定マシン待ち | — |
+| 図3 実データ版（FFT 比較+diff+帯） | ✅ 生成済み（2026-06-12, eval_v1 実データ） | `docs/img/fftdiff_band_s00000_vs_s00001.png` |
+
+実データはすべて `pc/captures/full_32_eval_v1/s0000{0,1}/frame_000000.wav`（コミット済み代表 wav）。
 
 ### ping 図の注意（重要）
 
@@ -97,5 +107,17 @@ uv run --extra training python calibrator.py analyze \
     captures/full_32_eval_v1/s00001/frame_000000.wav --out-dir ../docs/img/s00001
 ```
 
-STFT 差分（図2c）と ping↔00000 並置（図1）は専用スクリプトを別途用意する
-（`gen_ping_figures.py` を雛形に、2 wav を読み込んで Sxx_db の差を pcolormesh する）。
+STFT 差分（図2c）は `pc/gen_stft_diff.py`、ping↔00000 並置（図1）は
+`pc/gen_ping_vs_room.py` で生成する（どちらも 2026-06-12 に用意・生成済み）:
+
+```bash
+cd pc
+uv run --extra training python gen_stft_diff.py \
+    --wav0 captures/full_32_eval_v1/s00000/frame_000000.wav \
+    --wav1 captures/full_32_eval_v1/s00001/frame_000000.wav \
+    --out ../docs/img/stft_diff_s00000_vs_s00001.png
+uv run --extra training python gen_ping_vs_room.py \
+    --wav captures/full_32_eval_v1/s00000/frame_000000.wav --label s00000 \
+    --out-stft ../docs/img/ping_vs_s00000_stft.png \
+    --out-fft ../docs/img/ping_vs_s00000_fft.png
+```
