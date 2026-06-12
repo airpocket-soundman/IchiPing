@@ -7,7 +7,7 @@ noise_diff 特徴量の妥当性の可視化。
 縦 3 段 (x=時間, y=周波数 log で共有):
   2a: s00000 の STFT
   2b: s00001 の STFT
-  2c: STFT 差分 (s00001 − s00000) [dB]、0 中心の発散カラーマップ (coolwarm)
+  2c: STFT 差分 (s00001 − s00000) [dB]、0 中心の発散カラーマップ (RdBu_r, 0=白)
 
 2a/2b はカラースケールを共通化して比較可能にする。2c の色域は
 |diff| の 99 パーセンタイルから対称に決める (独立録音同士の per-bin 差分は
@@ -36,7 +36,7 @@ from gen_fftdiff_band import load_wav  # noqa: E402
 
 FMIN_HZ = 50.0
 FMAX_HZ = 8000.0
-DIVERGE_CMAP = "coolwarm"
+DIVERGE_CMAP = "RdBu_r"  # 0 = 白背景 (coolwarm は 0 がグレーになるため不採用)
 
 
 def stft_db(samples_f: np.ndarray, rate: int):

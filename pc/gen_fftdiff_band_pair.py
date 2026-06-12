@@ -8,7 +8,7 @@ gen_fftdiff_band.py (1 ペア版) の拡張。2 つの state を共通ベース�
 レイアウト (縦 3 段、x 軸=周波数 0–8 kHz 線形で共有):
   段1: 両 state の平均 FFT (Welch PSD, dB) を重ね描き (2 本)
   段2: 差分線 (stateA − baseline) と (stateB − baseline) を同一パネルに重ね描き
-  段3: 両 diff の帯カラーチャートを 2 行で並置 (coolwarm, ±6 dB 共有)。
+  段3: 両 diff の帯カラーチャートを 2 行で並置 (RdBu_r 0=白, 色域共有)。
        各帯は 1 次元 (y 方向は一様)、間に区切りの横線を引く
 
 状態ラベルは h 表記 (間取り順、state_labels.py 参照) で表示する。
@@ -38,9 +38,9 @@ from gen_fftdiff_band import (  # noqa: E402
 )
 
 # 帯カラーチャートの色域 (±dB)。full_32_eval_v1 の全 31 状態 vs s00000 の diff の
-# 最大は 25.3 dB (s10110) だが、小さい変化の視認性を優先して ±20 dB とする
-# (20 dB 超は s10010/s10110 のごく少数 bin のみクリップ)
-DEFAULT_CLIM_DB = 20.0
+# 最大は 25.3 dB (s10110) だが、小さい変化の視認性を優先して ±15 dB とする
+# (15 dB 超の bin は端の色にクリップ)
+DEFAULT_CLIM_DB = 15.0
 
 
 def main(argv=None) -> int:
