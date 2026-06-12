@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 1010" role="img"
+     aria-label="IchiPing 現行本番モデル — Neutron 互換 Conv2D アーキ (v21_25_strongaug_norm_XL)">
+  <title>IchiPing 現行本番 — Neutron 互換 32-class Conv2D (XL, v21_25_strongaug_norm)</title>
+  <defs>
+    <marker id="arrNb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#6ea8fe"/>
+    </marker>
+    <linearGradient id="boxGrB" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1f242d"/>
+      <stop offset="100%" stop-color="#181b22"/>
+    </linearGradient>
+    <linearGradient id="npuBadgeB" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#7be0a4"/>
+      <stop offset="100%" stop-color="#5fc88a"/>
+    </linearGradient>
+  </defs>
+  <style>
+    .box-in    { fill: url(#boxGrB); stroke: #7be0a4; stroke-width: 1.6; }
+    .box-conv  { fill: url(#boxGrB); stroke: #6ea8fe; stroke-width: 1.6; }
+    .box-bn    { fill: url(#boxGrB); stroke: #8b95a7; stroke-width: 1.2; stroke-dasharray: 3 2; opacity: 0.85; }
+    .box-pool  { fill: url(#boxGrB); stroke: #ffb454; stroke-width: 1.6; }
+    .box-head  { fill: url(#boxGrB); stroke: #c678dd; stroke-width: 1.8; }
+    .box-out   { fill: url(#boxGrB); stroke: #7be0a4; stroke-width: 1.2; }
+    .box-fw    { fill: url(#boxGrB); stroke: #ff7ab6; stroke-width: 1.4; }
+    .ttl       { fill: #e5e9f0; font-family: 'Hiragino Sans','Yu Gothic UI',sans-serif; font-size: 13px; font-weight: 700; }
+    .ttl-s     { fill: #e5e9f0; font-family: 'Hiragino Sans','Yu Gothic UI',sans-serif; font-size: 11.5px; font-weight: 600; }
+    .sub       { fill: #8b95a7; font-family: 'JetBrains Mono',Consolas,monospace; font-size: 11px; }
+    .sub-s     { fill: #8b95a7; font-family: 'JetBrains Mono',Consolas,monospace; font-size: 10px; }
+    .arrow     { stroke: #6ea8fe; stroke-width: 1.8; fill: none; }
+    .arrow-fw  { stroke: #ff7ab6; stroke-width: 1.4; fill: none; }
+    .legend-t  { fill: #e5e9f0; font-family: 'Hiragino Sans','Yu Gothic UI',sans-serif; font-size: 11px; }
+    .shape     { fill: #e5c07b; font-family: 'JetBrains Mono',Consolas,monospace; font-size: 10.5px; font-weight: 600; }
+    .npu-pill  { fill: url(#npuBadgeB); }
+    .npu-t     { fill: #0f1115; font-family: 'JetBrains Mono',Consolas,monospace; font-size: 9.5px; font-weight: 700; }
+    .params    { fill: #6ea8fe; font-family: 'JetBrains Mono',Consolas,monospace; font-size: 10px; }
+    .result    { fill: #7be0a4; font-family: 'JetBrains Mono',Consolas,monospace; font-size: 10px; }
+  </style>
+
+  <text x="550" y="22" text-anchor="middle" class="ttl" style="font-size:15px">
+    IchiPing 現行本番 — Neutron 互換 32-class Conv2D（v21_25_strongaug_norm_XL, NPU 7/7 = 100%）
+  </text>
+  <text x="550" y="40" text-anchor="middle" class="sub-s">
+    pc/training/model_32cls_neutron.py — アーキは v12345_BLJIT と同一、入力特徴量を noise_diff_norm に変更しアクリル天井 era データで再学習
+  </text>
+
+  <!-- Firmware feature pipeline -->
+  <rect class="box-fw" x="360" y="52" width="380" height="48" rx="8"/>
+  <text x="550" y="71" text-anchor="middle" class="ttl-s">[firmware] PRBS ping 2 s 録音 → noise_diff_norm 特徴量</text>
+  <text x="550" y="88" text-anchor="middle" class="sub-s">Welch PSD (2048-pt Hann ×30 seg) → 1024-bin log-mag → BL(h00000) diff → per-frame 正規化</text>
+
+  <line class="arrow" x1="550" y1="102" x2="550" y2="120" marker-end="url(#arrNb)"/>
+
+  <!-- Input -->
+  <rect class="box-in" x="430" y="122" width="240" height="50" rx="8"/>
+  <text x="550" y="144" text-anchor="middle" class="ttl">noise_diff_norm spectrum</text>
+  <text x="550" y="161" text-anchor="middle" class="sub">入力 (B, 1, 1024) float32, zero-mean/unit-var</text>
+
+  <line class="arrow" x1="550" y1="174" x2="550" y2="194" marker-end="url(#arrNb)"/>
+
+  <!-- Unsqueeze -->
+  <rect class="box-bn" x="440" y="196" width="220" height="32" rx="6"/>
+  <text x="550" y="216" text-anchor="middle" class="sub">unsqueeze(2) → (B, 1, 1, 1024)</text>
+
+  <line class="arrow" x1="550" y1="230" x2="550" y2="250" marker-end="url(#arrNb)"/>
+
+  <!-- Conv1 -->
+  <rect class="box-conv" x="380" y="252" width="340" height="48" rx="8"/>
+  <text x="550" y="272" text-anchor="middle" class="ttl">Conv2D 32ch  kernel=(1,16)  stride=(1,4)</text>
+  <text x="550" y="290" text-anchor="middle" class="sub">+ BN1 (fold 後 Conv に吸収) + ReLU</text>
+  <text x="940" y="278" text-anchor="end" class="shape">→ (B, 32, 1, 253)</text>
+  <rect class="npu-pill" x="780" y="262" width="44" height="14" rx="3"/>
+  <text x="802" y="273" text-anchor="middle" class="npu-t">NPU</text>
+
+  <line class="arrow" x1="550" y1="302" x2="550" y2="322" marker-end="url(#arrNb)"/>
+
+  <!-- Conv2 -->
+  <rect class="box-conv" x="380" y="324" width="340" height="48" rx="8"/>
+  <text x="550" y="344" text-anchor="middle" class="ttl">Conv2D 64ch  kernel=(1,8)  stride=(1,4)</text>
+  <text x="550" y="362" text-anchor="middle" class="sub">+ BN2 + ReLU</text>
+  <text x="940" y="350" text-anchor="end" class="shape">→ (B, 64, 1, 62)</text>
+  <rect class="npu-pill" x="780" y="334" width="44" height="14" rx="3"/>
+  <text x="802" y="345" text-anchor="middle" class="npu-t">NPU</text>
+
+  <line class="arrow" x1="550" y1="374" x2="550" y2="394" marker-end="url(#arrNb)"/>
+
+  <!-- Conv3 -->
+  <rect class="box-conv" x="380" y="396" width="340" height="48" rx="8"/>
+  <text x="550" y="416" text-anchor="middle" class="ttl">Conv2D 128ch  kernel=(1,4)  stride=(1,4)</text>
+  <text x="550" y="434" text-anchor="middle" class="sub">+ BN3 + ReLU</text>
+  <text x="940" y="422" text-anchor="end" class="shape">→ (B, 128, 1, 15)</text>
+  <rect class="npu-pill" x="780" y="406" width="44" height="14" rx="3"/>
+  <text x="802" y="417" text-anchor="middle" class="npu-t">NPU</text>
+
+  <line class="arrow" x1="550" y1="446" x2="550" y2="466" marker-end="url(#arrNb)"/>
+
+  <!-- Conv4 -->
+  <rect class="box-conv" x="380" y="468" width="340" height="48" rx="8"/>
+  <text x="550" y="488" text-anchor="middle" class="ttl">Conv2D 128ch  kernel=(1,3)  stride=(1,2)</text>
+  <text x="550" y="506" text-anchor="middle" class="sub">+ BN4 + ReLU（空間次元を 7 まで圧縮）</text>
+  <text x="940" y="494" text-anchor="end" class="shape">→ (B, 128, 1, 7)</text>
+  <rect class="npu-pill" x="780" y="478" width="44" height="14" rx="3"/>
+  <text x="802" y="489" text-anchor="middle" class="npu-t">NPU</text>
+
+  <line class="arrow" x1="550" y1="518" x2="550" y2="538" marker-end="url(#arrNb)"/>
+
+  <!-- AvgPool -->
+  <rect class="box-pool" x="380" y="540" width="340" height="42" rx="8"/>
+  <text x="550" y="560" text-anchor="middle" class="ttl">AvgPool2D  kernel=(1, 7)</text>
+  <text x="550" y="575" text-anchor="middle" class="sub">空間次元を 1 に畳む（旧 GAP の NPU 互換版）</text>
+  <text x="940" y="564" text-anchor="end" class="shape">→ (B, 128, 1, 1)</text>
+  <rect class="npu-pill" x="780" y="548" width="44" height="14" rx="3"/>
+  <text x="802" y="559" text-anchor="middle" class="npu-t">NPU</text>
+
+  <line class="arrow" x1="550" y1="584" x2="550" y2="604" marker-end="url(#arrNb)"/>
+
+  <!-- 1x1 Conv head -->
+  <rect class="box-head" x="380" y="606" width="340" height="48" rx="8"/>
+  <text x="550" y="626" text-anchor="middle" class="ttl">Conv2D 32ch  kernel=(1, 1)  ← classifier head</text>
+  <text x="550" y="644" text-anchor="middle" class="sub">Linear(128, 32) 相当を 1×1 Conv2D で実装 → NPU 化可能</text>
+  <text x="940" y="632" text-anchor="end" class="shape">→ (B, 32, 1, 1)</text>
+  <rect class="npu-pill" x="780" y="616" width="44" height="14" rx="3"/>
+  <text x="802" y="627" text-anchor="middle" class="npu-t">NPU</text>
+
+  <line class="arrow" x1="550" y1="656" x2="550" y2="674" marker-end="url(#arrNb)"/>
+
+  <!-- squeeze -->
+  <rect class="box-bn" x="440" y="676" width="220" height="32" rx="6"/>
+  <text x="550" y="696" text-anchor="middle" class="sub">squeeze(-1).squeeze(-1) → (B, 32)</text>
+
+  <line class="arrow" x1="550" y1="710" x2="550" y2="728" marker-end="url(#arrNb)"/>
+
+  <!-- 32 logits -->
+  <rect class="box-out" x="380" y="732" width="340" height="44" rx="6"/>
+  <text x="550" y="752" text-anchor="middle" class="ttl-s">32 logits = 5-bit state (h00000..h11111)</text>
+  <text x="550" y="767" text-anchor="middle" class="sub-s">INT8 量子化, dequantize は CPU 側で実施</text>
+
+  <!-- Firmware side: 14cls derivation -->
+  <rect class="box-fw" x="20" y="732" width="340" height="44" rx="6"/>
+  <text x="190" y="750" text-anchor="middle" class="ttl-s">[firmware 内] 14cls = STATE_TO_EQUIV[argmax32]</text>
+  <text x="190" y="766" text-anchor="middle" class="sub-s">10_inference が 32cls/14cls を併記 + 真値突合バナー</text>
+  <line class="arrow-fw" x1="378" y1="754" x2="362" y2="754" marker-end="url(#arrNb)"/>
+
+  <!-- Sidebox: param counts -->
+  <rect class="box-conv" x="740" y="92" width="340" height="148" rx="8" opacity="0.85"/>
+  <text x="910" y="112" text-anchor="middle" class="ttl-s">パラメータ内訳 (XL, BN fold 後)</text>
+  <text x="760" y="133" class="params">conv1 1→32 (1,16) 544 / conv2 32→64 (1,8) 16,448</text>
+  <text x="760" y="150" class="params">conv3 64→128 (1,4) 32,896 / conv4 128→128 (1,3) 49,280</text>
+  <text x="760" y="167" class="params">classifier 128→32 (1×1) 4,128 / BN ×4 704</text>
+  <text x="760" y="192" class="ttl-s" style="font-size:12px">合計 ~104 K params（INT8 TFLite 108 KB）</text>
+  <text x="760" y="210" class="sub-s">推論 ~1.9 ms / NPU op 比率 7/7 = 100%</text>
+  <text x="760" y="225" class="sub-s">(WSL neutron_converter_SDK_26_03 変換)</text>
+
+  <!-- Sidebox: Neutron 設計上の工夫 (アーキは v12345 と同一) -->
+  <rect class="box-head" x="20" y="252" width="340" height="244" rx="8" opacity="0.85"/>
+  <text x="190" y="274" text-anchor="middle" class="ttl-s">Neutron 互換のために変えた点（継承）</text>
+  <text x="35" y="296" class="sub-s">1. Conv1D → Conv2D kernel=(1,K)</text>
+  <text x="35" y="311" class="sub-s">   ↳ Conv1D は TFLite で Reshape を強制</text>
+  <text x="35" y="329" class="sub-s">2. GAP (Mean op) → AvgPool2D</text>
+  <text x="35" y="344" class="sub-s">   ↳ Mean は NPU 非対応、AvgPool2D は対応</text>
+  <text x="35" y="362" class="sub-s">3. Flatten+Linear → 1×1 Conv2D</text>
+  <text x="35" y="377" class="sub-s">4. unsqueeze は forward 冒頭 1 回だけ</text>
+  <text x="35" y="395" class="sub-s">5. BN は学習中のみ、export 前に fold</text>
+  <text x="35" y="413" class="sub-s">6. stride 4,4,4,2 で空間 1024 → 7 に</text>
+  <text x="35" y="428" class="sub-s">   ↳ AvgPool kernel ≤ 7 制限に揃える</text>
+  <text x="35" y="451" class="ttl-s" style="font-size:12px">結果: NPU 比率 7/7 = 100%</text>
+  <text x="35" y="466" class="sub-s">(Windows converter 3.1.1 は ABI 不整合で INFER hang →</text>
+  <text x="35" y="480" class="sub-s"> WSL SDK_26_03 必須。docs/deploy_pipeline.md 参照)</text>
+
+  <!-- Sidebox: 旧版との差分 -->
+  <rect class="box-fw" x="20" y="516" width="340" height="144" rx="8" opacity="0.85"/>
+  <text x="190" y="538" text-anchor="middle" class="ttl-s">v12345_BLJIT (旧図) からの変更点</text>
+  <text x="35" y="560" class="sub-s">・入力: log-mag spectrum → noise_diff_norm</text>
+  <text x="35" y="575" class="sub-s">  (BL diff + per-frame 正規化。firmware 側は</text>
+  <text x="35" y="590" class="sub-s">   ichp_features_normalize_frame() を有効化)</text>
+  <text x="35" y="608" class="sub-s">・データ: 旧ハード era → アクリル天井 era (v21+)</text>
+  <text x="35" y="626" class="sub-s">・augmentation: 標準 → strong (6 種, ambient 重畳)</text>
+  <text x="35" y="644" class="sub-s">・アーキ / サイズ / パラメータ数は変更なし</text>
+
+  <!-- 下段バンド: 学習レシピ + 成績 -->
+  <rect class="box-pool" x="20" y="796" width="530" height="176" rx="8" opacity="0.85"/>
+  <text x="285" y="818" text-anchor="middle" class="ttl-s">学習レシピ (アクリル天井 era)</text>
+  <text x="40" y="840" class="sub-s">データ: v21〜v25 の 5 セッション = 32 状態 × 50 frame × 5 = 8,000 実測 frame</text>
+  <text x="40" y="858" class="sub-s">cross-baseline ×5 (各セッションの h00000) = 40,000 学習サンプルに展開</text>
+  <text x="40" y="876" class="sub-s">strong aug 6 種 (確率的・毎エポック乱数):</text>
+  <text x="40" y="891" class="sub-s">  TimeShift ±20ms / LevelJitter ±4dB / NoiseOverlay (passive_v1, SNR 0-35dB, p=0.9)</text>
+  <text x="40" y="906" class="sub-s">  GaussianHiss / FreqMask ×3 / SpectralJitter σ=0.6dB</text>
+  <text x="40" y="924" class="sub-s">特徴量 noise_diff_norm / 80 epochs / batch 32 / lr 1e-3 / seed 0 / spike-fix</text>
+  <text x="40" y="946" class="sub-s">run: pc/runs/neutron_v21_25_strongaug_norm_XL (pipeline: _run_v21_25_strongaug_norm_pipeline.py)</text>
+
+  <rect class="box-in" x="565" y="796" width="515" height="176" rx="8" opacity="0.9"/>
+  <text x="822" y="818" text-anchor="middle" class="ttl-s">成績</text>
+  <text x="585" y="842" class="result">val (学習内 hold-out)    : 32cls 100%</text>
+  <text x="585" y="860" class="result">test (学習内 hold-out)   : 32cls 99.95% / 14cls 100%</text>
+  <text x="585" y="878" class="result">eval_v1 (独立 320 frame) : 32cls 100%  / 14cls 100%</text>
+  <text x="585" y="902" class="sub-s">eval は own-baseline (実機の BL CALIBRATE 運用と同条件)。</text>
+  <text x="585" y="917" class="sub-s">別セッション BL 流用は noise_diff の微小透過音成分が壊れ</text>
+  <text x="585" y="932" class="sub-s">32cls 69% に過小評価される (運用とも不一致) ため使わない。</text>
+  <text x="585" y="954" class="sub-s">実機表示: 10_inference が 32cls/14cls + 真値突合バナーを表示</text>
+
+  <!-- Legend -->
+  <rect class="npu-pill" x="30" y="988" width="32" height="11" rx="3"/>
+  <text x="46" y="997" text-anchor="middle" class="npu-t">NPU</text>
+  <text x="72" y="998" class="legend-t">Neutron NPU で実行される op</text>
+
+  <rect x="370" y="988" width="14" height="11" fill="url(#boxGrB)" stroke="#c678dd" stroke-width="1.8"/>
+  <text x="390" y="998" class="legend-t">classifier head (1×1 Conv)</text>
+
+  <rect x="610" y="988" width="14" height="11" fill="url(#boxGrB)" stroke="#ff7ab6" stroke-width="1.4"/>
+  <text x="630" y="998" class="legend-t">firmware 側 (CPU)</text>
+
+  <text x="1070" y="998" text-anchor="end" class="sub-s">
+    deploy: pinto_neutron_sdk26_03.tflite → model_data.h
+  </text>
+</svg>
