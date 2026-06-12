@@ -1,15 +1,15 @@
-"""2 状態 vs 共通ベースラインの FFT 比較 + 各 diff + diff 帯カラーチャート並置。
+"""2 状態 vs 共通ベースラインの FFT 比較 + diff 重ね描き + diff 帯カラーチャート並置。
 
 gen_fftdiff_band.py (1 ペア版) の拡張。2 つの state を共通ベースライン
 (通常 s00000 全閉) と比較し、「どの帯域がどちらの state で動くか」を
-帯カラーチャートの並置で見せる資料図。
+帯カラーチャートの並置で見せる資料図。中段の 2 本の diff 線が
+学習に用いる noise_diff 特徴量そのものに対応する。
 
-レイアウト (縦 4 段、x 軸=周波数 0–8 kHz 線形で共有):
-  段1: ベースライン + 両 state の平均 FFT (Welch PSD, dB) を重ね描き
-  段2: 差分線 (stateA − baseline) [dB]、0 基準、正負塗り
-  段3: 差分線 (stateB − baseline) [dB]、同上
-  段4: 両 diff の帯カラーチャートを 2 行で並置 (coolwarm, ±6 dB 共有)
-       → 行同士で色を直接比較できる
+レイアウト (縦 3 段、x 軸=周波数 0–8 kHz 線形で共有):
+  段1: 両 state の平均 FFT (Welch PSD, dB) を重ね描き (2 本)
+  段2: 差分線 (stateA − baseline) と (stateB − baseline) を同一パネルに重ね描き
+  段3: 両 diff の帯カラーチャートを 2 行で並置 (coolwarm, ±6 dB 共有)。
+       各帯は 1 次元 (y 方向は一様)、間に区切りの横線を引く
 
 使い方:
   uv run --extra training python gen_fftdiff_band_pair.py \
@@ -67,48 +67,44 @@ def main(argv=None) -> int:
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    fig = plt.figure(figsize=(10, 11))
-    gs = fig.add_gridspec(4, 1, height_ratios=[3, 2, 2, 1.2], hspace=0.32)
+    fig = plt.figure(figsize=(10, 9))
+    gs = fig.add_gridspec(3, 1, height_ratios=[3, 2, 1.2], hspace=0.30)
 
-    # 段1: FFT 重ね描き (ベースラインは薄いグレーで参照用)
+    # 段1: 両 state の FFT 重ね描き (2 本)
     ax0 = fig.add_subplot(gs[0])
-    ax0.plot(freqs, psd_base, lw=0.8, color="#999999", label=args.label_base, alpha=0.8)
     ax0.plot(freqs, psd_a, lw=0.8, color="#1f77b4", label=args.label_a, alpha=0.9)
     ax0.plot(freqs, psd_b, lw=0.8, color="#ff7f0e", label=args.label_b, alpha=0.85)
     ax0.set_ylabel("PSD (dB)")
-    ax0.set_title(f"FFT compare + per-state diff vs {args.label_base} + diff bands  |  "
+    ax0.set_title(f"FFT compare + diff vs {args.label_base} + diff bands  |  "
                   f"{args.label_a} / {args.label_b}")
     ax0.legend(loc="upper right")
     ax0.grid(True, alpha=0.3)
     ax0.set_xlim(0, FMAX_HZ)
 
-    # 段2/3: 各 state の差分線 (y 軸レンジは両者共通にして比較可能にする)
-    ylim = float(np.max(np.abs(np.concatenate([diff_a, diff_b])))) * 1.1
-    diff_panels = [
-        (fig.add_subplot(gs[1], sharex=ax0), diff_a, args.label_a, "#1f77b4"),
-        (fig.add_subplot(gs[2], sharex=ax0), diff_b, args.label_b, "#ff7f0e"),
-    ]
-    for ax, diff, label, color in diff_panels:
-        ax.axhline(0, color="k", lw=0.6)
-        ax.plot(freqs, diff, lw=0.8, color=color)
-        ax.fill_between(freqs, diff, 0, where=diff >= 0, color="#d62728", alpha=0.35)
-        ax.fill_between(freqs, diff, 0, where=diff < 0, color="#1f5fd6", alpha=0.35)
-        ax.set_ylabel(f"Δ PSD (dB)\n{label} − {args.label_base}")
-        ax.set_ylim(-ylim, ylim)
-        ax.grid(True, alpha=0.3)
-        ax.set_xlim(0, FMAX_HZ)
+    # 段2: 2 本の diff 線を同一パネルに重ね描き (= noise_diff 特徴量)
+    ax1 = fig.add_subplot(gs[1], sharex=ax0)
+    ax1.axhline(0, color="k", lw=0.6)
+    ax1.plot(freqs, diff_a, lw=0.8, color="#1f77b4",
+             label=f"{args.label_a} − {args.label_base}")
+    ax1.plot(freqs, diff_b, lw=0.8, color="#ff7f0e", alpha=0.85,
+             label=f"{args.label_b} − {args.label_base}")
+    ax1.set_ylabel(f"Δ PSD (dB)\nvs {args.label_base}")
+    ax1.legend(loc="upper right")
+    ax1.grid(True, alpha=0.3)
+    ax1.set_xlim(0, FMAX_HZ)
 
-    # 段4: 両 diff の帯カラーチャートを 2 行並置
-    ax3 = fig.add_subplot(gs[3], sharex=ax0)
+    # 段3: 両 diff の帯カラーチャートを 2 行並置。
+    # interpolation="nearest" で行内 (y 方向) を完全一様に保ち、境界に横線を引く
+    ax2 = fig.add_subplot(gs[2], sharex=ax0)
     bands = np.vstack([diff_a, diff_b])
-    im = ax3.imshow(bands, aspect="auto", cmap=DIVERGE_CMAP,
+    im = ax2.imshow(bands, aspect="auto", cmap=DIVERGE_CMAP,
                     vmin=-DIVERGE_CLIM, vmax=DIVERGE_CLIM,
-                    extent=[0, FMAX_HZ, 0, 2])
-    ax3.set_yticks([0.5, 1.5])
-    ax3.set_yticklabels([args.label_b, args.label_a])  # imshow は上が先頭行
-    ax3.set_xlabel("Frequency (Hz)")
-    cbar = fig.colorbar(im, ax=[ax0, *(p[0] for p in diff_panels), ax3],
-                        fraction=0.025, pad=0.02)
+                    extent=[0, FMAX_HZ, 0, 2], interpolation="nearest")
+    ax2.axhline(1, color="k", lw=1.5)
+    ax2.set_yticks([0.5, 1.5])
+    ax2.set_yticklabels([args.label_b, args.label_a])  # imshow は上が先頭行
+    ax2.set_xlabel("Frequency (Hz)")
+    cbar = fig.colorbar(im, ax=[ax0, ax1, ax2], fraction=0.025, pad=0.02)
     cbar.set_label("Δ PSD (dB)")
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
