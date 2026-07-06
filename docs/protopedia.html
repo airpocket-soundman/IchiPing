@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IchiPing — ProtoPedia 投稿原稿 HTML 版</title>
+<style>
+  :root {
+    --pp-bg: #f4f6f8;
+    --pp-card: #ffffff;
+    --pp-text: #2a2f36;
+    --pp-muted: #6b7280;
+    --pp-border: #e5e7eb;
+    --pp-accent: #00a3a3;     /* ProtoPedia 風のティール */
+    --pp-accent-dark: #007e7e;
+    --pp-tag-bg: #eaf6f6;
+    --pp-tag-text: #006b6b;
+    --pp-status-dev: #ff9f1c;
+    --pp-status-done: #2ec4b6;
+    --pp-status-idea: #6ea8fe;
+    --pp-link: #1f7ae0;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--pp-bg);
+    color: var(--pp-text);
+    font-family: "Hiragino Sans", "Yu Gothic UI", "Segoe UI", "BIZ UDPGothic", sans-serif;
+    font-size: 15px;
+    line-height: 1.75;
+  }
+  a { color: var(--pp-link); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* 上部の偽ナビ（ProtoPedia 風） */
+  .pp-topbar {
+    background: #1a1d23;
+    color: #fff;
+    padding: 10px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 14px;
+  }
+  .pp-topbar .brand {
+    font-weight: 800;
+    color: var(--pp-accent);
+    font-size: 18px;
+    letter-spacing: 0.5px;
+  }
+  .pp-topbar .preview-tag {
+    margin-left: auto;
+    background: #ff7ab6;
+    color: #fff;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  /* ヒーロー（タイトル＋ヒーロー画像） */
+  .pp-hero {
+    background: linear-gradient(180deg, #ffffff 0%, #f4f6f8 100%);
+    border-bottom: 1px solid var(--pp-border);
+    padding: 32px 0 24px;
+  }
+  .pp-container {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+  .pp-title {
+    margin: 0 0 8px;
+    font-size: 28px;
+    line-height: 1.4;
+    font-weight: 800;
+    color: #1a1d23;
+  }
+  .pp-tagline {
+    color: var(--pp-muted);
+    font-size: 15px;
+    margin: 0 0 16px;
+  }
+  .pp-status-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin: 0 0 18px;
+  }
+  .pp-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--pp-status-dev);
+    color: #fff;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .pp-status::before {
+    content: "●";
+    font-size: 10px;
+  }
+  .pp-member {
+    color: var(--pp-muted);
+    font-size: 14px;
+  }
+  .pp-member b { color: var(--pp-text); }
+
+  .pp-hero-image {
+    width: 100%;
+    background: #1a1d23;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--pp-border);
+    margin-top: 12px;
+  }
+  .pp-hero-image .placeholder {
+    aspect-ratio: 16 / 9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6b7280;
+    font-size: 14px;
+    background:
+      repeating-linear-gradient(45deg, #20242c 0 14px, #1a1d23 14px 28px);
+  }
+  .pp-hero-image img {
+    width: 100%;
+    display: block;
+    background: #fff;
+  }
+
+  /* メイン 2 カラム */
+  .pp-main {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 28px;
+    padding: 28px 0 56px;
+  }
+  @media (max-width: 880px) {
+    .pp-main { grid-template-columns: 1fr; }
+  }
+
+  .pp-card {
+    background: var(--pp-card);
+    border: 1px solid var(--pp-border);
+    border-radius: 12px;
+    padding: 22px 26px;
+    margin-bottom: 20px;
+  }
+  .pp-card h2 {
+    font-size: 18px;
+    margin: 0 0 14px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--pp-accent);
+    color: #1a1d23;
+  }
+  .pp-card h3 {
+    font-size: 16px;
+    margin: 22px 0 10px;
+    color: var(--pp-accent-dark);
+  }
+  .pp-card p { margin: 0 0 12px; }
+
+  /* タグ */
+  .pp-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .pp-tag {
+    background: var(--pp-tag-bg);
+    color: var(--pp-tag-text);
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid #d2e9e9;
+  }
+
+  /* 表 */
+  .pp-card table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0 16px;
+    font-size: 14px;
+  }
+  .pp-card th, .pp-card td {
+    border: 1px solid var(--pp-border);
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  .pp-card th {
+    background: #f9fafb;
+    font-weight: 700;
+    color: #1a1d23;
+  }
+
+  /* リスト */
+  .pp-card ul, .pp-card ol {
+    margin: 0 0 12px;
+    padding-left: 22px;
+  }
+  .pp-card li { margin: 4px 0; }
+
+  /* コード */
+  .pp-card code {
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: "SF Mono", "Consolas", monospace;
+    color: #c2185b;
+  }
+  .pp-card pre {
+    background: #1a1d23;
+    color: #e5e9f0;
+    padding: 14px 16px;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-size: 13px;
+  }
+  .pp-card pre code {
+    background: transparent;
+    color: inherit;
+    padding: 0;
+  }
+
+  /* 引用 */
+  .pp-card blockquote {
+    border-left: 4px solid var(--pp-accent);
+    background: #f8fafa;
+    margin: 0 0 14px;
+    padding: 10px 14px;
+    color: #4b5563;
+  }
+
+  /* チェックリスト */
+  .pp-card ul.checklist { list-style: none; padding-left: 4px; }
+  .pp-card ul.checklist li::before {
+    content: "☐";
+    color: var(--pp-muted);
+    margin-right: 8px;
+  }
+  .pp-card ul.checklist li.done::before {
+    content: "☑";
+    color: var(--pp-status-done);
+  }
+
+  /* サイドバー */
+  .pp-side .pp-card { padding: 18px 20px; }
+  .pp-side h3 {
+    margin: 0 0 10px;
+    font-size: 14px;
+    color: var(--pp-muted);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .pp-side .pp-meta-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px dashed var(--pp-border);
+    font-size: 14px;
+  }
+  .pp-side .pp-meta-row:last-child { border-bottom: 0; }
+  .pp-side .pp-meta-row .k { color: var(--pp-muted); }
+
+  .pp-side .pp-link-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .pp-side .pp-link-list li {
+    padding: 8px 0;
+    border-bottom: 1px dashed var(--pp-border);
+    font-size: 14px;
+    word-break: break-all;
+  }
+  .pp-side .pp-link-list li:last-child { border-bottom: 0; }
+
+  /* システム構成画像 */
+  .pp-sys-img {
+    width: 100%;
+    border: 1px solid var(--pp-border);
+    border-radius: 8px;
+    background: #fff;
+    padding: 10px;
+  }
+  .pp-article-img {
+    width: 100%;
+    border: 1px solid var(--pp-border);
+    border-radius: 8px;
+    background: #fff;
+    display: block;
+    margin: 10px 0 6px;
+  }
+  .pp-img-caption {
+    color: var(--pp-muted);
+    font-size: 13px;
+    margin: 0 0 18px;
+  }
+
+  /* 注釈バナー */
+  .pp-notice {
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    color: #9a3412;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin: 0 0 20px;
+  }
+  .pp-notice a { color: #9a3412; text-decoration: underline; }
+
+  /* フッター */
+  .pp-foot {
+    background: #1a1d23;
+    color: #9ca3af;
+    text-align: center;
+    padding: 16px;
+    font-size: 12px;
+  }
+  .pp-foot a { color: var(--pp-accent); }
+
+  /* 大きい「1」（IchiPing のイチ） */
+  .bigone {
+    font-size: 1.7em;
+    font-weight: 900;
+    vertical-align: -0.06em;
+    color: var(--pp-accent-dark);
+    letter-spacing: -0.02em;
+    margin: 0 0.05em;
+  }
+  .pp-title .bigone { color: var(--pp-accent); }
+</style>
+</head>
+<body>
+
+<div class="pp-topbar">
+  <span class="brand">ProtoPedia</span>
+  <span>つくる、たのしむ、ひろがる</span>
+  <span class="preview-tag">HTML DRAFT</span>
+</div>
+
+<section class="pp-hero">
+  <div class="pp-container">
+    <h1 class="pp-title">IchiPing — <span class="bigone">1</span> 個のセンサで家中の窓と扉を「聴く」エッジ AI</h1>
+    <p class="pp-tagline">
+      「雨降ってきた、窓大丈夫？」を <span class="bigone">1</span> マイク <span class="bigone">1</span> Ping のエッジ AI で解決 ─ 雨検出 → 32 状態推定 → スマホ通知 → サーボ自動閉まで完結
+    </p>
+    <div class="pp-status-row">
+      <span class="pp-status">開発中</span>
+      <span class="pp-member">作者: <b>airpocket-soundman</b></span>
+    </div>
+
+    <div class="pp-hero-image">
+      <img src="img/manga.png" alt="IchiPing の利用シーンを示す漫画: 雨の日に窓の閉め忘れを確認する">
+    </div>
+  </div>
+</section>
+
+<div class="pp-container">
+  <div class="pp-notice">
+    これは <a href="protopedia.md">docs/protopedia.md</a> をもとにした ProtoPedia 投稿原稿の <b>HTML 版</b>です。
+    画像は本文の文脈に合わせて配置しています。実際の投稿は <a href="https://protopedia.net/" target="_blank">protopedia.net</a> のフォームに各セクションをコピペしてください。
+  </div>
+
+  <div class="pp-main">
+
+    <main>
+
+      <!-- 概要 -->
+      <article class="pp-card">
+        <h2>概要</h2>
+        <p>
+          <b>「雨降ってきた、窓大丈夫？」</b> 外出先での不安を解消するエッジ AI デモ。
+          スピーカから <b>1 発の物理 Ping</b> を撃ち、たった
+          <span class="bigone">1</span> 個のマイクで三つの部屋の窓と扉の状態を調べます。
+        </p>
+      </article>
+
+      <!-- システム構成 -->
+      <article class="pp-card">
+        <h2>システム構成</h2>
+        <img class="pp-sys-img" src="img/system_overview.svg" alt="システム構成図（コントローラ筐体 + House 模型 + 外部スマートホーム）">
+        <p style="font-size:13px;color:var(--pp-muted);margin:8px 0 18px;">
+          機材は <b>コントローラ筐体</b>（MCU / 表示 / トグル / アンプ / サーボドライバ / Wi-Fi モジュール）と
+          <b>House 模型</b>（マイク / スピーカ / サーボ ×5 / 降雨センサ）の 2 箱に分かれ、ケーブルで結ぶ構成。
+          模型側のトグルスイッチ ×5 は窓・扉の真値ラベルとして学習データに付与される。
+          クラウドとスマホは筐体外の外部システム。
+        </p>
+
+        <h3>システム処理フローチャート</h3>
+        <img class="pp-sys-img" src="img/signal_flow.svg" alt="IchiPing 信号フロー: 雨検出 → 1 Ping → マイク観測 → 信号処理 → NPU 推論 → 表示+通知 → サーボ自動閉">
+        <p style="font-size:13px;color:var(--pp-muted);">
+          雨検出 → 1 Ping 励振 → マイク観測 → 信号処理 → NPU 推論 → ローカル表示 + スマホ通知 →
+          ユーザのアクションでサーボ自動閉まで、runtime の処理経路を 1 枚で示しています。
+          学習データ収集モードでは ③〜④ の間で WAV を PC に送出し、PyTorch 学習 → ONNX →
+          Neutron 変換 → MCU 戻しのサイクルを回します。
+        </p>
+
+        <h3>3 House 模型</h3>
+        <img class="pp-sys-img" src="img/collector_display_panel.svg" alt="3 House 模型とデータ収集パネルの概略">
+        <p class="pp-img-caption">
+          3 部屋模型の窓・扉状態をトグル入力で真値ラベル化し、PC へ収集するデモ構成。
+        </p>
+        <p>
+          3 部屋を模した 30 cm スケールのアクリル筐体に、PCA9685 経由で SG90 ×5 が
+          窓と扉を物理的に開閉する。模型側のトグルスイッチ ×5 を「真値」として
+          PC に送り、教師ありデータを半自動で量産できる仕組み。
+        </p>
+
+        <h3>主要部品（v1 BOM、約 $210、DigiKey 価格ベース）</h3>
+        <table>
+          <thead><tr><th>役割</th><th>部品</th><th>単価</th><th>Vendor / DigiKey リンク</th><th>配置</th></tr></thead>
+          <tbody>
+            <tr><td>MCU</td><td>NXP <b>FRDM-MCXN947</b></td><td>$49</td><td><a href="https://www.digikey.com/en/products/detail/nxp-usa-inc/FRDM-MCXN947/22036137">DigiKey: FRDM-MCXN947</a></td><td>コントローラ筐体</td></tr>
+            <tr><td>マイク</td><td>InvenSense <b>INMP441</b> I²S MEMS breakout</td><td>$2-5</td><td>汎用 (AliExpress / Amazon) ／ bare IC は <a href="https://www.digikey.com/en/products/detail/tdk-invensense/INMP441ACEZ-R7/2606606">DigiKey: INMP441ACEZ-R7</a></td><td>House 模型</td></tr>
+            <tr><td>アンプ</td><td><b>MAX98357A</b> I²S Class-D</td><td>$5.95</td><td><a href="https://www.digikey.com/en/products/detail/adafruit-industries-llc/3006/6058477">DigiKey: Adafruit 3006</a></td><td>コントローラ筐体</td></tr>
+            <tr><td>サーボドライバ</td><td><b>PCA9685</b> 16ch PWM</td><td>$14.95</td><td><a href="https://www.digikey.com/en/products/detail/adafruit-industries-llc/815/4990757">DigiKey: Adafruit 815</a></td><td>コントローラ筐体</td></tr>
+            <tr><td>サーボ</td><td><b>SG90</b> 9g micro servo ×5 （オチ「窓自動閉」担当）</td><td>$5.95×5</td><td><a href="https://www.digikey.com/en/products/detail/adafruit-industries-llc/169/5154651">DigiKey: Adafruit 169</a></td><td>House 模型</td></tr>
+            <tr><td>表示</td><td><b>ILI9341</b> 2.4" TFT 240×320（RGB565, LVGL, タッチパネル付き）</td><td>$29.95</td><td><a href="https://www.digikey.com/en/products/detail/adafruit-industries-llc/2478/5761253">DigiKey: Adafruit 2478</a></td><td>コントローラ筐体</td></tr>
+            <tr><td>操作入力</td><td>パネルトグル SPST ×5（窓 a/b/c + 扉 AB/BC 真値）</td><td>$3.50×5</td><td><a href="https://www.digikey.com/en/products/detail/e-switch/ST161D00/EG4815-ND/2116294">DigiKey: E-Switch ST161D00</a></td><td>コントローラ筐体</td></tr>
+            <tr><td>操作入力</td><td>EXEC タクトスイッチ 6×6 mm</td><td>$0.20</td><td><a href="https://www.digikey.com/en/products/filter/tactile-switches/197">DigiKey: 6mm タクト検索</a></td><td>コントローラ筐体</td></tr>
+            <tr style="background:rgba(194,24,91,0.06);"><td><b>Wi-Fi モジュール</b></td><td><b>M5Stamp Pico</b>（ESP32-PICO-D4）</td><td>$6.50</td><td><a href="https://www.digikey.com/en/products/detail/m5stack-technology-co-ltd/K051/14672117">DigiKey: M5Stack K051</a></td><td><b>コントローラ筐体内に統合</b>、MCU と UART (LPUART) で接続</td></tr>
+            <tr style="background:rgba(31,93,153,0.06);"><td><b>降雨センサ</b></td><td>YL-83 抵抗式モジュール</td><td>$1.50</td><td>汎用 (AliExpress / Amazon、DigiKey 取扱なし)</td><td><b>House 模型に統合（屋外設置）</b>、MCU の GPIO に直接入力</td></tr>
+            <tr><td>1000 µF 16 V 電解</td><td>サーボ V+ 突入電流吸収</td><td>$0.55</td><td><a href="https://www.digikey.com/en/products/detail/chemi-con/EKYB160ELL102MJ16S/4843676">DigiKey: Chemi-Con EKYB160ELL102MJ16S</a></td><td>コントローラ筐体</td></tr>
+            <tr><td>LED 緑 5mm</td><td>PWR 表示</td><td>$0.25</td><td><a href="https://www.digikey.com/en/products/detail/dialight/5500205F/350-1598-ND/808996">DigiKey: Dialight 5500205F</a></td><td>コントローラ筐体</td></tr>
+            <tr><td>スマートホーム連携</td><td>クラウド (Home Assistant 等の MQTT broker)</td><td>—</td><td>(ソフトウェア)</td><td>筐体外 (Wi-Fi 経由)</td></tr>
+            <tr><td>PC 連携</td><td>OpenSDA UART 921600 bps（学習データ収集用）／ USB CDC</td><td>—</td><td>(オンボード)</td><td>コントローラ筐体</td></tr>
+          </tbody>
+        </table>
+        <p style="font-size:13px;color:var(--pp-muted);">
+          詳細な配線ピンマップは
+          <a href="https://github.com/airpocket-soundman/IchiPing/blob/main/hardware/wiring.html">hardware/wiring.html</a>、
+          完全な BOM (抵抗・コンデンサ・ジャンパ線・USB ケーブル等含む) は
+          <a href="https://github.com/airpocket-soundman/IchiPing/blob/main/hardware/bom.html">hardware/bom.html</a> を参照。
+        </p>
+        <p style="font-size:13px;color:var(--pp-muted); background:rgba(255,159,28,0.08);border-left:3px solid #ff9f1c;padding:8px 12px;">
+          <b>注</b>: 旧 BOM の「Adafruit 3421」は INMP441 ではなく SPH0645LM4H（別チップ）です。
+          本ファームウェアは INMP441 を期待するため、Adafruit 3421 では動きません。汎用 INMP441
+          ブレイクアウト（AliExpress / Amazon）または bare IC + 自作 PCB を推奨。
+        </p>
+      </article>
+
+      <!-- ストーリー -->
+      <article class="pp-card">
+        <h2>ストーリー</h2>
+
+        <h3>シーン — 「雨降ってきた、窓大丈夫？」</h3>
+        <p>
+          外出中に空が暗くなり、雨がポツポツと降り出した。スマホを取り出して —
+          <b>「あれ、窓閉めてきたっけ…？」</b>
+        </p>
+        <p>
+          家まで戻る時間も余裕もない。誰もが一度は経験する、地味だけど落ち着かない不安です。
+        </p>
+
+        <h3>IchiPing の解決 — <span class="bigone">1</span> マイク <span class="bigone">1</span> Ping で 32 状態を当てる</h3>
+        <p>
+          IchiPing は <b>「<span class="bigone">1</span> 個のマイクと <span class="bigone">1</span> 発の Ping だけで、家中の窓と扉の開閉 32 通りを当てる」</b>
+          ことを実現したエッジ AI デバイスです。窓 3 個 + 扉 2 個 = 5 bit → <b>32 通りの組合せ状態</b>を 1 ショット推論で特定します。
+        </p>
+        <p>これに <b>降雨センサ + M5Stamp Pico (ESP32)</b> をデモ用周辺機器として追加することで、次のフローが成立します:</p>
+        <ol>
+          <li>屋外の降雨センサが雨を検出 (GPIO 入力)</li>
+          <li>M5Stamp Pico → UART で IchiPing コントローラに推論トリガを送る</li>
+          <li>IchiPing が 1 Ping → MCU 上の Neutron NPU で <b>1.89 ms 推論</b> → 窓・扉 32 状態のうちどれかを特定</li>
+          <li>M5Stamp Pico が Wi-Fi 経由でスマートホームクラウドに結果を送信</li>
+          <li>ユーザのスマホに通知「窓 a が開いてます！」</li>
+        </ol>
+        <p style="background:rgba(108,92,231,0.08);border-left:3px solid #6c5ce7;padding:10px 14px;">
+          <b>今回は PoC ですが、外部ネットワークへの接続用に ESP32 (M5Stamp Pico) を搭載しており、スマートホームシステムに統合する基本機能を実装しています。</b>
+        </p>
+
+        <h4>理論的観測限界 — 14 クラスのはずだった</h4>
+        <p>
+          設計開始時には <b>「32 状態のうち 14 状態しか区別できないはず」</b> と予想していました。
+          マイクと SPK は Room A の中央にあり、扉 AB が閉まれば Room B / C は音響的に遮断され、
+          向こう側の窓状態は観測不能になる — これが「観測等価性」の物理的予言です。
+        </p>
+        <img class="pp-sys-img" src="img/observability.svg" alt="観測可能性: 扉開閉によるフロアプラン上の有効エリア">
+        <p style="font-size:13px;color:var(--pp-muted);margin-top:6px;">
+          3 場面の上から見た間取り図。可聴域 (緑) と遮断域 (灰色)、観測可能な窓 (オレンジ) と
+          観測不能な窓 (灰色) を区別。集計は <b>2 + 4 + 8 = 14 / 32</b>。
+        </p>
+        <table>
+          <thead>
+            <tr><th>扉条件</th><th>真状態数</th><th>観測可能なクラス</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>扉 AB 閉 (BC は問わず)</td><td>16 配置</td><td>2 クラス (窓 a の開閉のみ)</td></tr>
+            <tr><td>扉 AB 開, BC 閉</td><td>8 配置</td><td>4 クラス (窓 a, b の組合せ)</td></tr>
+            <tr><td>扉 AB 開, BC 開</td><td>8 配置</td><td>8 クラス (窓 a, b, c の組合せ)</td></tr>
+            <tr style="background:rgba(108,92,231,0.10);"><td><b>合計</b></td><td><b>32 配置</b></td><td><b>2 + 4 + 8 = 14 クラス (理論)</b></td></tr>
+          </tbody>
+        </table>
+
+        <h4>実測 — 32 クラス全て分類成功</h4>
+        <p>
+          しかし、v12345 検証 (MCU 実機 8 モデル × 32 状態 sweep) で <b>当初予言は経験的に否定</b> されました。
+          実機計測の結果、<b>32 真状態すべてが 100% 識別可能</b> だったのです。
+        </p>
+        <img class="pp-article-img" src="v12345_figs/accuracy_bars.png" alt="v12345 検証モデルごとの 32 クラス / 14 クラス正解率">
+        <p class="pp-img-caption">
+          v12345 sweep の主要モデル比較。live baseline と Baseline Jittering Augmentation で 32 状態まで分類可能になった。
+        </p>
+        <img class="pp-article-img" src="v12345_figs/confusion_32_v12345_BLJIT_live.png" alt="v12345_BLJIT_live の 32 クラス混同行列">
+        <p class="pp-img-caption">
+          32 クラス混同行列。対角成分に集中しており、各状態が個別に分離できている。
+        </p>
+        <table>
+          <thead>
+            <tr><th>モデル</th><th>32 cls 正解率</th><th>14 cls 正解率</th></tr>
+          </thead>
+          <tbody>
+            <tr style="background:rgba(46,196,182,0.10);"><td><b>v12345_BLJIT_live</b></td><td><b>32 / 32 = 100%</b></td><td>32 / 32 = 100%</td></tr>
+            <tr><td>v12345_BLJIT_factory (校正不要)</td><td>28 / 32 = 88%</td><td>32 / 32 = 100%</td></tr>
+            <tr><td>v12345_50f_live_noiselow (騒音下)</td><td><b>32 / 32 = 100%</b></td><td>32 / 32 = 100%</td></tr>
+          </tbody>
+        </table>
+        <p>
+          理由は <b>実扉が完全遮音ではなく -20〜-30 dB の漏れがあった</b> こと。
+          同じ等価クラスに属する状態のサブ状態にも、扉を透過した微弱な音響シグナルが残っていました。
+          これを学習側で拾うために <b>Baseline Jittering Augmentation</b> という手法を開発:
+          各録音を 5 種類の baseline で diff して 5 サンプル分に増殖させ、
+          「baseline 環境に依存しないラベル決定境界」を獲得させたのです。
+        </p>
+        <p style="background:rgba(46,196,182,0.10);border-left:3px solid #2ec4b6;padding:10px 14px;">
+          結果、<b>閉鎖扉を透過した微弱な信号も NN が捉え、観測等価性の理論限界を突破して
+          32 クラス全分類に成功</b> しました。詳細:
+          <a href="https://github.com/airpocket-soundman/IchiPing/blob/main/docs/v12345_report.html">v12345 検証レポート</a> /
+          <a href="https://github.com/airpocket-soundman/IchiPing/blob/main/docs/nn_methods_compare.html">nn_methods_compare §1</a>。
+        </p>
+
+        <h3>技術の原理 — 潜水艦ソナー・蝙蝠・鯨類エコーロケーションと同じ仕組み</h3>
+        <p>
+          IchiPing の <b>「Ping を撃って返ってきた音から環境を推定する」</b> という基本原理は、
+          まったく新しい発明ではありません。自然界と軍事技術にすでに数億年〜数十年の蓄積があります。
+        </p>
+        <table>
+          <thead>
+            <tr><th>主体</th><th>原理</th><th>用途</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>🦇 <b>蝙蝠</b></td>
+              <td>20-200 kHz の超音波 chirp を口/鼻から発射 → 反射音を耳で聞き分けて飛翔中の昆虫や障害物の位置・大きさ・動きを把握</td>
+              <td>暗闇飛翔 / 狩り</td>
+            </tr>
+            <tr>
+              <td>🐬 <b>鯨類 (イルカ・ハクジラ類)</b></td>
+              <td>クリック音や FM スイープを噴気孔下のメロン器官から発射 → 下顎の脂肪体で受波して魚群や海底地形を 3D 再構成</td>
+              <td>索餌 / 仲間との通信</td>
+            </tr>
+            <tr>
+              <td>🚢 <b>潜水艦のアクティブソナー</b></td>
+              <td>低周波 ping を水中に放射 → 反射エコーから対象艦の位置・距離・速度を計算</td>
+              <td>索敵 / 海図作成</td>
+            </tr>
+            <tr style="background:rgba(255,159,28,0.10);">
+              <td>🔊 <b>IchiPing</b></td>
+              <td>スピーカから 1 Ping (200-6000 Hz 掃引) → マイクで室内インパルス応答を録音 → NPU が窓・扉の開閉状態を推定</td>
+              <td>家中の窓状態モニタリング</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          <b>共通する 4 ステップ</b>: ① 既知の探査音を発射 → ② 反射・伝搬の応答を観測 →
+          ③ 環境固有の特徴 (反射時間 / 周波数応答 / モード) を抽出 → ④ 環境状態を推定。
+        </p>
+        <p>
+          IchiPing はこの <b>アクティブ音響センシング</b> の原理を、
+          $50 の MCU + $8 のマイク・スピーカで、家庭環境というスケールに落とし込んだ実装です。
+          <b>蝙蝠が暗闇の昆虫を「聴いて」捕まえるのと同じことを、開いたままの窓に対してやっている</b> と言えます。
+        </p>
+
+        <h3>検出の仕組み — FFT diff による特徴抽出</h3>
+        <p>
+          NN に渡す入力は <b>生の FFT スペクトルではなく、「baseline (s00000 全閉) からの diff」</b>です。
+          これが SNR を大きく改善し、窓開閉の特徴を顕在化させる鍵になっています。
+        </p>
+        <img class="pp-sys-img" src="img/fft_diff_explanation.svg" alt="FFT diff による特徴抽出 — s00000 (全閉) vs s10000 (窓 a 開)">
+        <p>上から:</p>
+        <ol>
+          <li><b>s00000 (全閉) の FFT マグニチュード</b> — SPK の周波数特性、室内モード、定常雑音、室温・湿度依存などが全部混在</li>
+          <li><b>s10000 (窓 a のみ開) の FFT マグニチュード</b> — 上とほぼ同じに見える。窓 a を開けた音響的変化は数 dB 程度で、目視ではほぼ判別不能</li>
+          <li><b>Diff = s10000 − s00000</b> — 両者の共通成分（雑音床や SPK 特性）が打ち消され、<b>窓 a を開けたことで起きた変化だけ</b>が残る。309 Hz で +30 dB のピーク、1212 Hz / 2798 Hz で −15〜−20 dB のディップ、と明瞭な特徴が出る</li>
+        </ol>
+        <p style="background:rgba(46,196,182,0.10);border-left:3px solid #2ec4b6;padding:10px 14px;">
+          <b>SNR 改善は +20〜+30 dB</b>。NN は「環境全部の絶対値」ではなく
+          <b>「何が変わったか」</b>に集中して学習できるため、少サンプルでも高精度を実現できます。
+        </p>
+
+        <h4>クラスごとの FFT diff 形状</h4>
+        <img class="pp-sys-img" src="img/fft_diff_heatmap_by_class.png" alt="FFT diff from baseline s00000 (dB) — sorted by equivalence class">
+        <p>
+          32 状態を等価クラス順 (A1 → A2 → B1..B4 → C1..C8) に縦に並べ、横軸を周波数
+          (50-5000 Hz log) として diff を <b>色 (赤 = +dB / 青 = -dB)</b> で示したヒートマップ。
+          クラスごとに独自のパターンが目視で確認できます:
+        </p>
+        <ul>
+          <li><b>A1 (全閉, 一番下のブロック)</b> はほぼ無色 (±0 dB) — baseline と同じなので diff = 0</li>
+          <li><b>A2 (窓 a のみ開)</b> は 200-400 Hz と 600-800 Hz に強い赤帯 — 部屋 A の壁面振動が窓開で軽くなる</li>
+          <li><b>B 系列 (扉 AB 開, BC 閉)</b> は中域 400-1000 Hz に独特の赤/青パターン — 部屋 A+B の結合モード</li>
+          <li><b>C 系列 (両扉開, 上部 8 行)</b> は全帯域に広がる複雑な diff — 3 部屋カップリングで多数の共鳴ピーク</li>
+        </ul>
+        <p>
+          クラス境界ではっきり色パターンが切り替わるのが見え、これが <b>14 等価クラスへのマッピングが
+          NN にとって学習可能</b> な根拠です。さらに同じクラス内 (例: A1 の 16 サンプル) でも
+          微妙な色差があり、これが <b>32 真状態すべて識別可能</b> だった理由 (扉漏れによる
+          サブクラス情報の残存)。
+        </p>
+        <p>
+          NN はこの「<b>形状の違い</b>」を Conv1D / Conv2D で学習し、状態を識別します。
+          生 FFT 直接学習では「窓 a 開」と「室温が下がった」を区別できませんが、
+          <b>diff にすれば環境変化はキャンセル</b>されて窓状態だけが残る、というのが本手法の本質です。
+        </p>
+
+        <h3>MCU で動く CNN モデルの構造</h3>
+        <p>
+          PC で学習させたモデルを <b>そのまま MCU に持っていくと NPU 比率は 30% 程度</b> に留まり、
+          CPU フォールバックで推論時間と消費電力が悪化します。これを解決するために、
+          IchiPing の本番モデルは <b>MCXN947 Neutron NPU が 100% 処理できる構造に op を書き換えた</b>
+          専用アーキを採用しました。
+        </p>
+        <img class="pp-sys-img" src="img/nn_arch_neutron_actual.svg" alt="MCU 本番モデル — Neutron 互換 32-class Conv2D">
+
+        <h4>構造の特徴</h4>
+        <table>
+          <thead>
+            <tr><th>層</th><th>op</th><th>出力 shape</th><th>params</th><th>NPU</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>入力</td><td>log-mag spectrum</td><td>(B, 1, 1024)</td><td>—</td><td>—</td></tr>
+            <tr><td>Conv2D 32ch</td><td>k=(1, 16), s=(1, 4)</td><td>(B, 32, 1, 253)</td><td>544</td><td>✓</td></tr>
+            <tr><td>Conv2D 64ch</td><td>k=(1, 8), s=(1, 4)</td><td>(B, 64, 1, 62)</td><td>16,448</td><td>✓</td></tr>
+            <tr><td>Conv2D 128ch</td><td>k=(1, 4), s=(1, 4)</td><td>(B, 128, 1, 15)</td><td>32,896</td><td>✓</td></tr>
+            <tr><td>Conv2D 128ch</td><td>k=(1, 3), s=(1, 2)</td><td>(B, 128, 1, 7)</td><td>49,280</td><td>✓</td></tr>
+            <tr><td>AvgPool2D</td><td>k=(1, 7)</td><td>(B, 128, 1, 1)</td><td>0</td><td>✓</td></tr>
+            <tr><td>1×1 Conv2D</td><td>classifier head</td><td>(B, 32, 1, 1)</td><td>4,128</td><td>✓</td></tr>
+            <tr><td>出力</td><td>32 logits → argmax → state</td><td>(B, 32)</td><td>—</td><td>—</td></tr>
+          </tbody>
+        </table>
+        <p style="background:rgba(46,196,182,0.10);border-left:3px solid #2ec4b6;padding:10px 14px;">
+          合計 <b>~104K params / 108 KB INT8 / 7 op すべて NPU 化 = 100% NPU 比率 / 推論時間 1.89 ms</b>。
+        </p>
+
+        <h4>NPU 互換のために変えた点</h4>
+        <table>
+          <thead>
+            <tr><th>変更前 (素直な実装)</th><th>変更後 (Neutron 互換)</th><th>理由</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Conv1D</td><td><b>Conv2D kernel=(1, K)</b></td><td>Conv1D は TFLite で Reshape を強制 → fusion が崩れる</td></tr>
+            <tr><td>GlobalAveragePool (Mean op)</td><td><b>AvgPool2D k=(1, 7)</b></td><td>Mean op は NPU 非対応。stride 4,4,4,2 で空間 1024→7 に揃え kernel ≤ 7 制限に収める</td></tr>
+            <tr><td>Flatten + Linear (FC)</td><td><b>1×1 Conv2D</b></td><td>Linear は NPU 上で非効率。1×1 Conv2D で等価実装し NPU に載せる</td></tr>
+            <tr><td>BatchNorm（推論時も残す）</td><td><b>export 前に Conv に fold</b></td><td><code>fuse_conv_bn_eval</code> で Conv に吸収し推論グラフから消す</td></tr>
+          </tbody>
+        </table>
+
+        <h4>出力 — 32 logits → 14 cls 同時取得</h4>
+        <p>
+          NN 本体の出力は <b>32 logits（5-bit 真状態の softmax）のみ</b>。
+          14 観測等価クラスは firmware 側で <code>STATE_TO_EQUIV[argmax32]</code> テーブル参照だけで導出するため、
+          <b>追加の NN 推論コストはゼロ</b>。1 推論で <code>cls32</code> / <code>cls14</code> /
+          <code>second32 候補</code> の 3 値を併記出力できます。
+        </p>
+
+        <h3>なぜ「<span class="bigone">1</span> マイク <span class="bigone">1</span> Ping」が成立するのか</h3>
+        <p>
+          家中にセンサを散らす方式は配線・電池交換・通信の地獄を抱えるのが常ですが、
+          室内の音響インパルス応答（RIR: Room Impulse Response）は
+          <b>窓 1 枚が開くだけでも全体のモードと残響が変わる</b>という性質を持ちます。
+          <b>部屋を丸ごと共振器とみなして 1 点で全部聴く</b>ほうが筋がいい
+          — それが IchiPing の出発点です。
+        </p>
+
+        <h3>なぜ「アクティブセンシング」なのか</h3>
+        <p>
+          パッシブにマイクで生活音を聞くだけでは、家が静まりかえった時刻に観測できなく
+          なります。IchiPing は <b>物理 Ping（200 Hz から 6 kHz への能動的指数掃引）を撃ち</b>、
+          その応答を分析するアクティブ計測スタイルを取ります。
+        </p>
+        <ul>
+          <li>部屋の状態 (窓/扉の組合せ 32 通り) が変わると、各モードの周波数とダンピングが変わる</li>
+          <li>扉が開くと隣接室と結合し、単一ピークが対称・反対称ペアに分裂する</li>
+          <li>窓が開くと放射損失で Q が落ち、ピーク幅が広がる</li>
+        </ul>
+        <p>
+          このような物理的に裏付けのある変化を <b>1D CNN</b> に学習させ、組合せ状態を
+          一発で当てに行きます。CNN backbone は約 14K パラメータの軽量設計で、MCXN947
+          内蔵の <b>NPU + PowerQuad DSP</b> で INT8 推論まで完結します。
+        </p>
+
+        <h3><span class="bigone">1</span> 個のセンサに賭ける根拠</h3>
+        <p>採用したのは <b>InvenSense INMP441</b>（I²S, 24-bit）です。</p>
+        <ul>
+          <li>I²S 出力なので 24 bit のダイナミックレンジをそのまま MCU へ持ち込める</li>
+          <li>アナログ MEMS に比べて DC オフセット問題がなく、chirp/RIR 用途では特に扱いやすい</li>
+          <li>MCXN947 の <b>SAI（I²S）コントローラ多系統</b>とそのまま噛み合う</li>
+        </ul>
+        <p>
+          出力側は <b>MAX98357A</b>（Class-D 3.2 W）で、デモ用には 8 Ω 0.25 W の 45 mm
+          フルレンジを 3 dB ゲイン固定で駆動。chirp は MCU 内で生成して I²S DAC ストリームに
+          流し込みます（<code>firmware/projects/07_speaker_test</code>,
+          <code>08_mic_speaker_test</code>, <code>09_collector</code> が該当）。
+        </p>
+
+        <h3>ハードウェア構成</h3>
+        <img class="pp-sys-img" src="../hardware/wiring.svg" alt="IchiPing ハードウェア配線図">
+        <p class="pp-img-caption">
+          FRDM-MCXN947、INMP441、MAX98357A、PCA9685、TFT、スイッチ群の接続関係。
+        </p>
+        <p>
+          主要部品の選定根拠は
+          <a href="https://github.com/airpocket-soundman/IchiPing/blob/main/hardware/bom.html">hardware/bom.html</a>
+          と
+          <a href="https://github.com/airpocket-soundman/IchiPing/blob/main/docs/spec.html">docs/spec.html</a>
+          §6 にまとまっています。
+        </p>
+        <ul>
+          <li><b>MCU: NXP FRDM-MCXN947</b> — Cortex-M33 + 専用 NPU + PowerQuad DSP。$49 でこのスペックは破格</li>
+          <li><b>TFT: ILI9341</b> — 240×320 RGB565。LVGL でフロアプラン UI を描画</li>
+          <li><b>サーボ駆動: PCA9685</b> — I²C 0x40。デモ模型の窓 a/b/c + 扉 AB/BC を物理的に開閉</li>
+          <li><b>データ経路:</b> OpenSDA UART 921600 bps（v0.1）→ USB CDC（v0.3〜）</li>
+        </ul>
+
+        <h3>ソフトウェア構成</h3>
+        <p>
+          リポジトリは <b>MCU 側 C ファーム</b>と <b>PC 側 Python クライアント・学習パイプライン</b>の
+          二段構成です。
+        </p>
+        <ul>
+          <li><code>firmware/projects/01_dummy_emitter</code> 〜 <code>10_inference</code> — ブリングアップを段階分割した 10 プロジェクト群</li>
+          <li><code>firmware/shared/</code> — フレーム形式、PCA9685/LU9685 ドライバ、SAI mic/speaker、励振パターンライブラリ、表示パネル</li>
+          <li><code>pc/collector_client.py</code> — シリアル/TCP/file 入力から WAV + CSV ラベルを保存</li>
+          <li><code>pc/inference_client.py</code> — 推論結果をリアルタイム可視化</li>
+          <li><code>pc/patterns.yaml</code> + <code>pc/patterns.py</code> — YAML 駆動の励振パターンライブラリ</li>
+          <li><code>pc/training/</code> — 1D CNN マルチタスク（〜14K params）の学習 → ONNX エクスポート → eIQ Toolkit で MCU へ</li>
+        </ul>
+
+        <h3>励振パターンを物理ベースで設計する</h3>
+        <p>
+          ただ広帯域 chirp を撃つだけでなく、<b>3 部屋模型の共鳴周波数を物理的に予測
+          (f₁₀₀ ≈ 572 Hz) し、判別性の高い帯域に集中投下する</b>励振パターン設計も
+          検討中です。これにより学習サンプル数の削減と推論の interpretable 化を狙います。
+          詳細は
+          <a href="https://github.com/airpocket-soundman/IchiPing/blob/main/docs/probe_sound.html">docs/probe_sound.html</a>
+          にまとめています。
+        </p>
+
+        <h3>ロードマップ</h3>
+        <ul class="checklist">
+          <li class="done"><b>v0.1〜v0.4</b> シリアル疎通 → I²S 放射/受信 → サーボ制御 → 3 部屋模型自動データ収集（達成済）</li>
+          <li class="done"><b>v0.5〜v0.7</b> 14cls/32cls 両 head Neutron 互換モデル → INT8 量子化 → Neutron 変換 (NPU 比率 7/7 = 100%, 108 KB, 1.89 ms)（達成済）</li>
+          <li class="done"><b>v1.0</b> MCU 実機検証 v12345 sweep (8 モデル × 32 状態、<b>32cls / 14cls とも 100% 達成</b>)（達成済）</li>
+          <li><b>v1.5</b> TFT (ILI9341) でフロアプラン表示 + EXEC ボタンによる手動デモモード</li>
+          <li><b>デモ拡張</b> 降雨センサ + M5Stamp Pico を接続して雨検出 → スマホ通知 → サーボ自動閉まで完結</li>
+          <li><b>v2.0</b> ROHM <b>ML63Q2557 + Solist-AI</b> への移植（ROHM EDGE HACK 2026 提出版）</li>
+        </ul>
+
+        <h3>応募先</h3>
+        <ul>
+          <li><b>DigiKey M1 デザインコンテスト</b></li>
+          <li><b>ROHM EDGE HACK 2026</b>（v2.0 で Solist-AI 移植版を提出予定）</li>
+        </ul>
+
+        <h3>プロジェクト名の由来</h3>
+        <p>
+          「<b>イチ</b>個のマイクで、<b>Ping</b>！と当てる」「<span class="bigone">1</span> 発の <b>Ping</b> で家中を聴く」
+          というコンセプトを縮めて <b>IchiPing</b>。当初は気圧センサで攻める案
+          （DoorBaro / WindowGuard）でしたが、音響アクティブ計測のほうが筋が良いと
+          判断してピボットしました。
+        </p>
+
+        <h3>リポジトリ</h3>
+        <p>
+          ソース・ドキュメント・配線図・部品表すべて公開しています。<br>
+          <a href="https://github.com/airpocket-soundman/IchiPing" target="_blank">
+            https://github.com/airpocket-soundman/IchiPing
+          </a>
+        </p>
+      </article>
+
+      <!-- 開発素材 -->
+      <article class="pp-card">
+        <h2>開発素材</h2>
+        <h3>ハードウェア</h3>
+        <ul>
+          <li>NXP FRDM-MCXN947（Cortex-M33 + NPU + PowerQuad）</li>
+          <li>InvenSense INMP441（I²S MEMS マイク, 24-bit）</li>
+          <li>Maxim MAX98357A（I²S Class-D アンプ 3.2 W）</li>
+          <li>NXP PCA9685（I²C 16ch PWM ドライバ）</li>
+          <li>Tower Pro SG90 ×5（マイクロサーボ）</li>
+          <li>ILITEK ILI9341 2.4" TFT 240×320（SPI, RGB565）</li>
+          <li>パネルマウント トグルスイッチ ×5（窓 a/b/c + 扉 AB/BC の真値入力）</li>
+          <li>タクトスイッチ ×1（EXEC ボタン）</li>
+        </ul>
+        <h3>ソフトウェア / SDK</h3>
+        <ul>
+          <li>MCUXpresso SDK 2.x</li>
+          <li>NXP eIQ Toolkit（ONNX → MCXN947 NPU デプロイ）</li>
+          <li>LVGL 9（TFT GUI）</li>
+          <li>PyTorch（学習）</li>
+          <li>Python（収集・検証クライアント、<code>pc/collector_client.py</code>）</li>
+        </ul>
+      </article>
+
+      <!-- タグ -->
+      <article class="pp-card">
+        <h2>タグ</h2>
+        <div class="pp-tags">
+          <span class="pp-tag">#エッジAI</span>
+          <span class="pp-tag">#音響AI</span>
+          <span class="pp-tag">#1D-CNN</span>
+          <span class="pp-tag">#MEMSマイク</span>
+          <span class="pp-tag">#アクティブセンシング</span>
+          <span class="pp-tag">#インパルス応答</span>
+          <span class="pp-tag">#MCXN947</span>
+          <span class="pp-tag">#FRDM</span>
+          <span class="pp-tag">#NXP</span>
+          <span class="pp-tag">#INMP441</span>
+          <span class="pp-tag">#MAX98357A</span>
+          <span class="pp-tag">#PCA9685</span>
+          <span class="pp-tag">#SG90</span>
+          <span class="pp-tag">#ILI9341</span>
+          <span class="pp-tag">#LVGL</span>
+          <span class="pp-tag">#PyTorch</span>
+          <span class="pp-tag">#ONNX</span>
+          <span class="pp-tag">#eIQ</span>
+          <span class="pp-tag">#DigiKey</span>
+          <span class="pp-tag">#ROHM</span>
+          <span class="pp-tag">#ヒーローズリーグ</span>
+        </div>
+      </article>
+
+    </main>
+
+    <aside class="pp-side">
+
+      <div class="pp-card">
+        <h3>BASIC INFO</h3>
+        <div class="pp-meta-row"><span class="k">ステータス</span><span>開発中</span></div>
+        <div class="pp-meta-row"><span class="k">作者</span><span>airpocket-soundman</span></div>
+        <div class="pp-meta-row"><span class="k">応募先</span><span>DigiKey M1 / ROHM EDGE HACK 2026</span></div>
+        <div class="pp-meta-row"><span class="k">ライセンス</span><span>未定 (MIT 想定)</span></div>
+        <div class="pp-meta-row"><span class="k">更新</span><span>2026-05-21</span></div>
+      </div>
+
+      <div class="pp-card">
+        <h3>動画</h3>
+        <p style="font-size:13px;color:var(--pp-muted);margin:0;">
+          撮影後に YouTube URL を貼ると自動埋込されます。
+        </p>
+      </div>
+
+      <div class="pp-card">
+        <h3>関連リンク</h3>
+        <ul class="pp-link-list">
+          <li><a href="https://github.com/airpocket-soundman/IchiPing" target="_blank">GitHub: IchiPing</a></li>
+          <li><a href="https://github.com/airpocket-soundman/digikey_project" target="_blank">母プロジェクト digikey_project</a></li>
+          <li><a href="https://github.com/airpocket-soundman/digikey_project/blob/main/details/C4-DoorBaro.html" target="_blank">C4 仕様書（正本）</a></li>
+          <li><a href="https://github.com/airpocket-soundman/IchiPing/blob/main/docs/probe_sound.html" target="_blank">走査音考察</a></li>
+          <li><a href="https://github.com/airpocket-soundman/IchiPing/blob/main/docs/nn_review.html" target="_blank">NN 考察</a></li>
+          <li><a href="https://github.com/airpocket-soundman/IchiPing/blob/main/hardware/bom.html" target="_blank">BOM（部品表）</a></li>
+        </ul>
+      </div>
+
+      <div class="pp-card">
+        <h3>原稿</h3>
+        <p style="font-size:13px;margin:0;">
+          投稿用 Markdown 原稿:<br>
+          <a href="protopedia.md">docs/protopedia.md</a>
+        </p>
+      </div>
+
+    </aside>
+
+  </div>
+</div>
+
+<footer class="pp-foot">
+  IchiPing — ProtoPedia 投稿原稿 HTML 版（ローカル）。
+  実際の作品ページは <a href="https://protopedia.net/" target="_blank">protopedia.net</a> で。
+</footer>
+
+</body>
+</html>
