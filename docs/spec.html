@@ -197,59 +197,8 @@
   }
 </style>
 <link rel="stylesheet" href="style.css">
-<script src="embed.js"></script>
 </head>
 <body>
-
-<aside class="sidenav">
-  <div class="sidenav-brand"><a href="../index.html">IchiPing</a>
-    <div class="sidenav-tag">v0.1 シリアル疎通フェーズ</div>
-  </div>
-  <nav>
-    <div class="sidenav-group">
-      <div class="sidenav-h">ナビゲーション</div>
-      <a href="../index.html">トップ</a>
-      <a href="../tasks.html">タスクボード</a>
-    </div>
-    <div class="sidenav-group">
-      <div class="sidenav-h">設計 / 仕様</div>
-      <a href="../docs/spec.html" class="current">仕様書 (spec)</a>
-      <a href="../docs/nn_design.html">NN 設計</a>
-      <a href="../docs/mcu_deployment.html">MCU デプロイ</a>
-      <a href="../docs/bringup.html">実機ブリングアップ</a>
-    </div>
-    <div class="sidenav-group">
-      <div class="sidenav-h">NN 検討</div>
-      <a href="../docs/probe_sound.html">走査音考察</a>
-      <a href="../docs/nn_review.html">NN 考察</a>
-    </div>
-    <div class="sidenav-group">
-      <div class="sidenav-h">ハードウェア</div>
-      <a href="../hardware/wiring.html">配線テーブル</a>
-      <a href="../hardware/bom.html">BOM (部品表)</a>
-      <a href="../hardware/display_options.html">ディスプレイ候補</a>
-    </div>
-    <div class="sidenav-group">
-      <div class="sidenav-h">実装コード</div>
-      <a href="../firmware/README.html">firmware ガイド</a>
-      <a href="../pc/README.html">PC ガイド</a>
-    </div>
-    <div class="sidenav-group">
-      <div class="sidenav-h">対外発信</div>
-      <a href="../docs/protopedia_preview.html">ProtoPedia プレビュー</a>
-      <a href="../docs/protopedia.md">ProtoPedia 投稿原稿 (md)</a>
-    </div>
-    <div class="sidenav-group">
-      <div class="sidenav-h">メタ</div>
-      <a href="../docs/vscode_setup.html">VS Code セットアップ</a>
-      <a href="../CLAUDE.html">Claude 作業ガイド</a>
-    </div>
-  </nav>
-  <div class="sidenav-foot">
-    <a href="https://github.com/airpocket-soundman/IchiPing">GitHub: IchiPing</a><br>
-    <a href="https://github.com/airpocket-soundman/digikey_project">正本 digikey_project</a>
-  </div>
-</aside>
 
 <header>
   <div class="crumb"><a href="https://github.com/airpocket-soundman/digikey_project/blob/main/ideas.html">← 一覧に戻る</a> ／ <a href="https://github.com/airpocket-soundman/digikey_project/blob/main/ideas.html#C4">C4 サマリ</a></div>
@@ -1262,7 +1211,7 @@
       <tr><th>メインボード</th><td>FRDM-MCXN947</td><td>v1 推論本体。NPU + PowerQuad + I²S 多系統</td></tr>
       <tr><th>サーボドライバ</th><td>PCA9685（16ch I²C PWM）</td><td>5 個の SG90 へ PWM 供給、MCU の PWM チャネル節約</td></tr>
       <tr><th>音声出力</th><td>MAX98357A I²S DAC + Class-D アンプ</td><td>3.2 W / 8Ω、MCU から I²S 直結</td></tr>
-      <tr><th>表示</th><td>ILI9341 2.4" TFT 240 × 320 RGB565（SPI）</td><td>状態・推論結果表示。フルカラーで模型 + 信頼度 + 5 部屋タイルを同時表示。SH1106/SSD1306 OLED から差替え（<a href="../hardware/display_options.html">採用根拠</a>）</td></tr>
+      <tr><th>表示</th><td>ILI9341 2.4" TFT 240 × 320 RGB565（SPI）</td><td>状態・推論結果表示。フルカラーで模型 + 信頼度 + 5 部屋タイルを同時表示。SH1106/SSD1306 OLED から差替え（実装側で採用根拠まとめ済み: <a href="https://github.com/airpocket-soundman/IchiPing/blob/main/hardware/display_options.html">IchiPing/hardware/display_options.html</a>）</td></tr>
       <tr><th>UI 入力</th><td>SPDT トグルスイッチ × 5 + 押しボタン × 1</td><td>MCU GPIO で読み取り、プルアップ内蔵</td></tr>
       <tr><th>表示 LED</th><td>緑 LED ×1（PWR）+ 橙 LED ×1（推論中）</td><td>GPIO 駆動、330Ω 直列</td></tr>
       <tr><th>電源</th><td>LiPo 2,000 mAh + USB-C 充電 IC（TP4056 等）+ 5V/3.3V LDO</td><td>携帯デモ可、AC 電源にも対応</td></tr>
